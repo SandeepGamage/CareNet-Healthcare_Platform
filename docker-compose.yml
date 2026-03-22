@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: unless-stopped
+
+  appointment-service:
+    build: ./backend/appointment-service     # ← uses the Dockerfile inside that folder
+    container_name: appointment-service
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      MONGO_URI: mongodb+srv://youruser:yourpass@cluster.mongodb.net/appointment_db
+      JWT_SECRET: healthcare_super_secret_key_2026
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+    restart: unless-stopped
+
+  # your teammates will add their services here too
+  # auth-service: ...
+  # patient-service: ...
+  # etc.
