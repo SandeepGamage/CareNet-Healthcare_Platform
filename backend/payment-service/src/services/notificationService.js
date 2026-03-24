@@ -1,4 +1,4 @@
-const axios  = require('axios');
+const axios = require('axios');
 const logger = require('../utils/logger');
 
 const NOTIFICATION_URL =
@@ -29,26 +29,26 @@ const sendPaymentConfirmation = async ({
         {
           email: patientEmail,
           phone: patientPhone || null,
-          role : 'patient',
-          data : {
-            patientName    : transaction.metadata.patientName,
-            doctorName     : transaction.metadata.doctorName,
-            amount         : (transaction.amount / 100).toFixed(2),
-            currency       : transaction.currency.toUpperCase(),
+          role: 'patient',
+          data: {
+            patientName: transaction.metadata.patientName,
+            doctorName: transaction.metadata.doctorName,
+            amount: (transaction.amount / 100).toFixed(2),
+            currency: transaction.currency.toUpperCase(),
             appointmentDate: transaction.metadata.appointmentDate,
-            transactionId  : transaction._id,
-            invoiceNumber  : transaction.invoiceId || 'Generating...',
+            transactionId: transaction._id,
+            invoiceNumber: transaction.invoiceId || 'Generating...',
           },
         },
         {
           email: doctorEmail,
           phone: doctorPhone || null,
-          role : 'doctor',
-          data : {
-            doctorName     : transaction.metadata.doctorName,
-            patientName    : transaction.metadata.patientName,
-            amount         : (transaction.amount / 100).toFixed(2),
-            currency       : transaction.currency.toUpperCase(),
+          role: 'doctor',
+          data: {
+            doctorName: transaction.metadata.doctorName,
+            patientName: transaction.metadata.patientName,
+            amount: (transaction.amount / 100).toFixed(2),
+            currency: transaction.currency.toUpperCase(),
             appointmentDate: transaction.metadata.appointmentDate,
           },
         },
@@ -84,13 +84,13 @@ const sendRefundConfirmation = async ({
         {
           email: patientEmail,
           phone: patientPhone || null,
-          role : 'patient',
-          data : {
-            patientName : transaction.metadata.patientName,
+          role: 'patient',
+          data: {
+            patientName: transaction.metadata.patientName,
             refundAmount: (refund.amount / 100).toFixed(2),
-            currency    : transaction.currency.toUpperCase(),
-            refundId    : refund._id,
-            reason      : refund.reason,
+            currency: transaction.currency.toUpperCase(),
+            refundId: refund._id,
+            reason: refund.reason,
           },
         },
       ],
