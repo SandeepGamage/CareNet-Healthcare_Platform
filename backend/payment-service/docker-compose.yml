@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  payment-service:
+    build: .
+    container_name: payment-service
+    restart: unless-stopped
+    ports:
+      - '5003:5003'
+    env_file:
+      - .env
+    # The MONGO_URI from the .env file will be used (MongoDB Atlas)
+    environment:
+      NOTIFICATION_SERVICE_URL: http://notification-service:5004
+    networks:
+      - healthcare-net
+    volumes:
+      - ./logs:/app/logs
+
+networks:
+  healthcare-net:
+    driver: bridge
+
+volumes:
+  mongo-data:
