@@ -17,8 +17,8 @@ services:
       - "3004:3004"
     environment:
       PORT: 3004
-      MONGO_URI: mongodb+srv://youruser:yourpass@cluster.mongodb.net/appointment_db
-      JWT_SECRET: healthcare_super_secret_key_2026
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/?appName=Cluster0
+      JWT_SECRET: ufjkrm*$&+!=JfldsJKLfesadk421!@$45922dakjfsafdafa38fjkdjasKLJKFAF
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     depends_on:
       - rabbitmq

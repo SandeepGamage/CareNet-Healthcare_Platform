@@ -1,28 +1,35 @@
-// src/routes/appointmentRoutes.js
 const router = require('express').Router();
 const { protect, restrictTo } = require('../middleware/authMiddleware');
 const {
-  getAllAppointments
+  createAppointment,
+  getMyAppointments,
+  getDoctorAppointments,
+  getAppointmentById,
+  updateStatus,
+  cancelAppointment,
+  getAllAppointments,
+  getAvailableSlots
 } = require('../controllers/appointmentController');
 
-// // Public-ish (still needs JWT, but any role)
-// router.get('/slots',   protect, getAvailableSlots);
-
-// // Patient routes
-// router.post('/',       protect, restrictTo('PATIENT'), createAppointment);
-// router.get('/my',      protect, restrictTo('PATIENT'), getMyAppointments);
-// router.delete('/:id',  protect, restrictTo('PATIENT'), cancelAppointment);
-
-// // Doctor routes
-// router.get('/doctor',  protect, restrictTo('DOCTOR'),  getDoctorAppointments);
-
-// // Shared (patient + doctor + admin can view single)
-// router.get('/:id',     protect, getAppointmentById);
-
-// // Doctor updates status (confirm / complete / cancel)
-// router.patch('/:id/status', protect, restrictTo('DOCTOR', 'ADMIN'), updateStatus);
+// Public-ish (still needs JWT, but any role)
+router.get('/slots',   protect, getAvailableSlots);
 
 // Admin only
 router.get('/all',     protect, restrictTo('ADMIN'),   getAllAppointments);
+
+
+// Doctor routes
+router.get('/doctor',  protect, restrictTo('DOCTOR'),  getDoctorAppointments);
+
+// Patient routes
+router.post('/',       protect, restrictTo('PATIENT'), createAppointment);
+router.get('/my',      protect, restrictTo('PATIENT'), getMyAppointments);
+router.delete('/:id',  protect, restrictTo('PATIENT'), cancelAppointment);
+
+// Shared (patient + doctor + admin can view single)
+router.get('/:id',     protect, getAppointmentById);
+
+// Doctor updates status (confirm / complete / cancel)
+router.patch('/:id/status', protect, restrictTo('DOCTOR', 'ADMIN'), updateStatus);
 
 module.exports = router;
