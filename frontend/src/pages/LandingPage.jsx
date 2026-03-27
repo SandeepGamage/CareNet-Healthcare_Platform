@@ -44,6 +44,7 @@
  */
 
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   HeartPulse, Activity, ShieldCheck, Zap, Video, CreditCard,
@@ -107,15 +108,15 @@ const Navbar = () => {
         </nav>
 
         <div className="hidden md:flex items-center gap-4">
-          <a href="#login" className="text-sm font-medium text-slate-800 hover:text-teal-500 transition-colors">
+          <Link to="/login" className="text-sm font-medium text-slate-800 hover:text-teal-500 transition-colors">
             Log in
-          </a>
-          <a
-            href="#signup"
+          </Link>
+          <Link
+            to="/register"
             className="px-5 py-2.5 rounded-full bg-teal-500 text-white text-sm font-semibold hover:bg-teal-600 shadow-lg hover:-translate-y-0.5 transition-all duration-200"
           >
             Get Started
-          </a>
+          </Link>
         </div>
 
         {/* Mobile Toggle */}
@@ -147,8 +148,8 @@ const Navbar = () => {
               </a>
             ))}
             <div className="h-px bg-slate-100 my-2" />
-            <a href="#login" className="text-base font-medium text-slate-800 p-2 text-center">Log in</a>
-            <a href="#signup" className="p-3 rounded-xl bg-teal-500 text-white text-center font-semibold">Get Started</a>
+            <Link to="/login" className="text-base font-medium text-slate-800 p-2 text-center" onClick={() => setMobileMenuOpen(false)}>Log in</Link>
+            <Link to="/register" className="p-3 rounded-xl bg-teal-500 text-white text-center font-semibold" onClick={() => setMobileMenuOpen(false)}>Get Started</Link>
           </motion.div>
         )}
       </AnimatePresence>
@@ -190,9 +191,12 @@ const Hero = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <button className="px-8 py-4 rounded-xl bg-teal-500 text-white text-base font-semibold shadow-lg shadow-teal-500/25 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-2">
+              <Link 
+                to="/register" 
+                className="px-8 py-4 rounded-xl bg-teal-500 text-white text-base font-semibold shadow-lg shadow-teal-500/25 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-2"
+              >
                 Start Free Trial <ArrowRight className="w-5 h-5" />
-              </button>
+              </Link>
               <button className="px-8 py-4 rounded-xl bg-white text-slate-800 border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-300 transition-all duration-300 flex items-center justify-center gap-2 font-semibold group">
                 <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center group-hover:bg-teal-200 transition-colors">
                   <Play className="w-3 h-3 text-teal-600 ml-0.5" />
@@ -578,12 +582,12 @@ const CTA = () => {
             className="flex-1 px-5 py-4 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-teal-200 focus:outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm"
             required
           />
-          <button
-            type="submit"
-            className="px-8 py-4 rounded-xl bg-white text-teal-600 font-bold shadow-xl hover:-translate-y-0.5 transition-all duration-200 shrink-0"
+          <Link
+            to="/register"
+            className="px-8 py-4 rounded-xl bg-white text-teal-600 font-bold shadow-xl hover:-translate-y-0.5 transition-all duration-200 shrink-0 flex items-center justify-center"
           >
             Get Early Access
-          </button>
+          </Link>
         </form>
         <p className="text-sm text-teal-200 mt-4">14-day free trial. No credit card required.</p>
       </div>
