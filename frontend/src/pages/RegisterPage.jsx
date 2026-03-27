@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { HeartPulse, Mail, Lock, User, ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -6,6 +6,9 @@ import { useGoogleLogin } from "@react-oauth/google";
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   const handleGoogleRegister = useGoogleLogin({
     onSuccess: (codeResponse) => {
@@ -19,15 +22,39 @@ const RegisterPage = () => {
     },
   });
 
-  const handleEmailRegister = (e) => {
+  const handleEmailRegister = async (e) => {
     e.preventDefault();
     const name = e.target[0].value;
+    const role = e.target[1].value;
     const email = e.target[2].value;
+    const password = e.target[3].value;
     
-    if (name && email) {
-      alert(`Welcome, ${name}! Your account for ${email} is being created...`);
-      // Mock redirect to login for now
-      setTimeout(() => navigate("/login"), 1500);
+    if (name && email && password && role) {
+      setLoading(true);
+      setErrorMsg("");
+      setSuccessMsg("");
+
+      try {
+        const response = await fetch("http://localhost:3006/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password, role }),
+        });
+        
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setSuccessMsg(data.message || "Registration successful! Redirecting to login...");
+          setTimeout(() => navigate("/login"), 2000);
+        } else {
+          setErrorMsg(data.message || "Registration failed. Please try again.");
+        }
+      } catch (err) {
+        console.error("Register Error:", err);
+        setErrorMsg("Unable to connect to the server. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -87,6 +114,17 @@ const RegisterPage = () => {
           </div>
 
           <form className="space-y-5" onSubmit={handleEmailRegister}>
+            {errorMsg && (
+              <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-medium border border-red-100 flex items-center justify-center">
+                {errorMsg}
+              </div>
+            )}
+            {successMsg && (
+              <div className="bg-teal-50 text-teal-600 p-3 rounded-xl text-sm font-medium border border-teal-100 flex items-center justify-center">
+                {successMsg}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 ml-1">Full Name</label>
@@ -143,10 +181,11 @@ const RegisterPage = () => {
 
             <button
               type="submit"
-              className="w-full py-4 rounded-2xl bg-teal-500 text-white font-bold shadow-lg shadow-teal-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 group"
+              disabled={loading}
+              className={`w-full py-4 rounded-2xl ${loading ? 'bg-teal-400' : 'bg-teal-500'} text-white font-bold shadow-lg shadow-teal-500/25 ${loading ? '' : 'hover:shadow-xl hover:-translate-y-0.5'} transition-all duration-300 flex items-center justify-center gap-2 group`}
             >
-              Create Account
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              {loading ? "Creating Account..." : "Create Account"}
+              {!loading && <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
             </button>
           </form>
 
