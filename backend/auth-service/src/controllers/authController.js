@@ -19,16 +19,19 @@ const generateToken = (user) => {
 // ── POST /api/auth/register ───────────────────────────────────────────────────
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role, specialty } = req.body;
+    const { name, email, password, role, specialty, adminSecretKey } = req.body;
 
     // Validation
     if (!name || !email || !password) {
       return res.status(400).json({ success: false, message: 'Name, email, and password are required.' });
     }
 
-    // Prevent anyone from self-registering as admin
+    // Validate admin registration with secret key
     if (role === 'admin') {
-      return res.status(403).json({ success: false, message: 'Admin accounts cannot be self-registered.' });
+      const expectedKey = process.env.ADMIN_SECRET_KEY || 'carenet-admin-secret-2026';
+      if (adminSecretKey !== expectedKey) {
+        return res.status(403).json({ success: false, message: 'Invalid Admin Access Key.' });
+      }
     }
 
     // Check for existing user
