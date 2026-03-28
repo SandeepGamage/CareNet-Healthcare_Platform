@@ -122,6 +122,23 @@ const templates = {
     `),
   }),
 
+  APPOINTMENT_BOOKED_DOCTOR: (d) => ({
+    subject: `📅 New Appointment Request – Patient: ${d.patientName}`,
+    html: wrap('New Appointment', `
+      <h2>New Appointment Booking</h2>
+      <p>Hi <strong>Dr. ${d.doctorName}</strong>,</p>
+      <p>A new appointment has been requested by <strong>${d.patientName}</strong>. Please check your dashboard to confirm or reschedule.</p>
+      <div class="detail-box">
+        <div class="detail-row"><span class="detail-label">Patient</span><span class="detail-value">${d.patientName}</span></div>
+        <div class="detail-row"><span class="detail-label">Specialty</span><span class="detail-value">${d.specialty}</span></div>
+        <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${d.appointmentDate}</span></div>
+        <div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">${d.appointmentTime}</span></div>
+        <div class="detail-row"><span class="detail-label">Type</span><span class="detail-value">${d.consultationType || 'Telemedicine'}</span></div>
+      </div>
+      <p>Consultations are pending until you confirm them in the platform.</p>
+    `),
+  }),
+
   // ── Appointment confirmed ─────────────────────────────────────────────────
   APPOINTMENT_CONFIRMED: (d) => ({
     subject: `✅ Appointment Confirmed – ${d.appointmentDate}`,
@@ -203,6 +220,21 @@ const templates = {
         <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${d.appointmentDate}</span></div>
       </div>
       <p>Your prescription and notes (if any) will appear shortly in your dashboard.</p>
+    `),
+  }),
+
+  CONSULTATION_COMPLETED_DOCTOR: (d) => ({
+    subject: `✅ Consultation Session Ended – Patient: ${d.patientName}`,
+    html: wrap('Consultation Summary', `
+      <h2>Consultation Completed</h2>
+      <p>Hi <strong>Dr. ${d.doctorName}</strong>,</p>
+      <p>Your telemedicine consultation with <strong>${d.patientName}</strong> has been successfully completed.</p>
+      <div class="detail-box">
+        <div class="detail-row"><span class="detail-label">Patient</span><span class="detail-value">${d.patientName}</span></div>
+        <div class="detail-row"><span class="detail-label">Duration</span><span class="detail-value">${d.duration || 'N/A'}</span></div>
+        <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${d.appointmentDate}</span></div>
+      </div>
+      <p>If you haven't issued a prescription yet, you can do so from your dashboard.</p>
     `),
   }),
 };

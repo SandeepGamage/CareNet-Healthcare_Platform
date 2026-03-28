@@ -41,7 +41,7 @@ const notifyAppointmentBooked = async (req, res, next) => {
 
     // Notify doctor
     dispatchNotification({
-      eventType     : 'APPOINTMENT_BOOKED',
+      eventType     : 'APPOINTMENT_BOOKED_DOCTOR',
       email         : doctorEmail,
       phone         : doctorPhone,
       role          : 'doctor',
@@ -199,21 +199,37 @@ const notifyConsultationCompleted = async (req, res, next) => {
   try {
     const {
       patientEmail, patientPhone, patientId, patientName,
-      doctorName, appointmentDate, duration, appointmentId,
+      doctorEmail, doctorPhone, doctorId, doctorName,
+      appointmentDate, duration, appointmentId,
     } = req.body;
 
+    const sharedData = { patientName, doctorName, appointmentDate, duration };
+
+    // Notify patient
     dispatchNotification({
       eventType     : 'CONSULTATION_COMPLETED',
       email         : patientEmail,
       phone         : patientPhone,
       role          : 'patient',
       recipientId   : patientId,
-      data          : { patientName, doctorName, appointmentDate, duration },
+      data          : sharedData,
       referenceId   : appointmentId,
       referenceType : 'consultation',
-    }).catch((e) => logger.error(e.message));
+    }).catch((e) => logger.error(`Patient consultation completion notif error: ${e.message}`));
 
-    res.status(202).json({ success: true, message: 'Consultation completed notification queued' });
+    // Notify doctor
+    dispatchNotification({
+      eventType     : 'CONSULTATION_COMPLETED_DOCTOR',
+      email         : doctorEmail,
+      phone         : doctorPhone,
+      role          : 'doctor',
+      recipientId   : doctorId,
+      data          : sharedData,
+      referenceId   : appointmentId,
+      referenceType : 'consultation',
+    }).catch((e) => logger.error(`Doctor consultation completion notif error: ${e.message}`));
+
+    res.status(202).json({ success: true, message: 'Consultation completed notifications queued' });
   } catch (error) {
     next(error);
   }

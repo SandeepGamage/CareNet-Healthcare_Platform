@@ -47,6 +47,9 @@ const getSMSBody = (eventType, data) => {
     case 'APPOINTMENT_BOOKED':
       return `📅 Appointment booked with Dr. ${data.doctorName} (${data.specialty}) on ${data.appointmentDate} at ${data.appointmentTime}. Ref: ${data.appointmentId}`;
 
+    case 'APPOINTMENT_BOOKED_DOCTOR':
+      return `📅 New Appointment Request! ${data.patientName} has requested a consultation on ${data.appointmentDate} at ${data.appointmentTime}. Please log in to confirm.`;
+
     case 'APPOINTMENT_CONFIRMED':
       return `✅ Appointment confirmed! Dr. ${data.doctorName} confirmed your appointment on ${data.appointmentDate} at ${data.appointmentTime}.`;
 
@@ -61,6 +64,9 @@ const getSMSBody = (eventType, data) => {
 
     case 'CONSULTATION_COMPLETED':
       return `✅ Consultation completed with Dr. ${data.doctorName}. Your prescription has been issued. Check the app to view it.`;
+
+    case 'CONSULTATION_COMPLETED_DOCTOR':
+      return `✅ Consultation with ${data.patientName} completed. Duration: ${data.duration || 'N/A'}. Thank you for your service!`;
 
     case 'PRESCRIPTION_ISSUED':
       return `💊 Dr. ${data.doctorName} has issued a prescription for you. Log in to view and download it.`;
