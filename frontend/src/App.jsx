@@ -2,6 +2,9 @@ import { useState } from 'react'
 import './App.css'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
+import AdminDashboard from './pages/AdminDashboard'
+import BookAppointment from './pages/appointment/BookAppointment'
+import MyAppointments from './pages/appointment/AppointmentsViewAsPatient'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -11,6 +14,9 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/book-appointment" element={<BookAppointment />} />
+          <Route path="/my-appointments" element={<MyAppointments />} />
         </Routes>
       </BrowserRouter>
     </>
