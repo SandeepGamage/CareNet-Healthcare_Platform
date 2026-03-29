@@ -1,36 +1,76 @@
-const twilioClient = require('../config/twilio');
+const https = require('https');
 const logger = require('../utils/logger');
 
 /**
- * Send an SMS message via Twilio
- * @param {string} to      - Recipient phone number (E.164 format e.g. +94771234567)
- * @param {string} body    - SMS text body (max 160 chars for single segment)
+ * Send an SMS message via Text.lk API
+ * @param {string} to      - Recipient phone number format (e.g. +94771234567)
+ * @param {string} body    - SMS text body
  * @returns {Promise<{success, messageSid, error}>}
  */
-const sendSMS = async (to, body) => {
-  try {
-    if (!twilioClient) {
-      logger.warn('Twilio not configured — skipping SMS send');
-      return { success: false, error: 'SMS not configured' };
+const sendSMS = (to, body) => {
+  return new Promise((resolve) => {
+    try {
+      const token = process.env.TEXTLK_API_TOKEN;
+      const sender_id = process.env.TEXTLK_SENDER_ID || 'TextLKDemo';
+      
+      if (!token) {
+        logger.warn('Text.lk API Token not configured - skipping SMS send');
+        return resolve({ success: false, error: 'Text.lk API Token missing' });
+      }
+
+      // Format number to numbers only as Text.lk commonly expects e.g. 94769139719 without '+'
+      const formattedNumber = to.replace(/\D/g, ''); 
+
+      const postData = JSON.stringify({
+        recipient: formattedNumber,
+        sender_id: sender_id,
+        message: body
+      });
+
+      const options = {
+        hostname: 'app.text.lk',
+        path: '/api/v3/sms/send',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      };
+
+      const req = https.request(options, (res) => {
+        let rawData = '';
+        res.on('data', (chunk) => { rawData += chunk; });
+        res.on('end', () => {
+          try {
+            const data = JSON.parse(rawData);
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              logger.info(`SMS sent to ${formattedNumber} via Text.lk`);
+              resolve({ success: true, messageSid: 'OK' });
+            } else {
+              logger.error(`Text.lk Error: ${rawData}`);
+              resolve({ success: false, error: data.message || 'API Error' });
+            }
+          } catch (e) {
+            resolve({ success: false, error: 'Failed to parse Text.lk response' });
+          }
+        });
+      });
+
+      req.on('error', (e) => {
+        logger.error(`Text.lk API Request Failed: ${e.message}`);
+        resolve({ success: false, error: e.message });
+      });
+
+      req.write(postData);
+      req.end();
+
+    } catch (error) {
+      logger.error(`Code execution error in sendSMS: ${error.message}`);
+      resolve({ success: false, error: error.message });
     }
-
-    if (!to || !to.startsWith('+')) {
-      logger.warn(`Invalid phone number format: ${to} (must be E.164)`);
-      return { success: false, error: 'Invalid phone number format' };
-    }
-
-    const message = await twilioClient.messages.create({
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to,
-      body,
-    });
-
-    logger.info(`SMS sent to ${to} | SID: ${message.sid}`);
-    return { success: true, messageSid: message.sid };
-  } catch (error) {
-    logger.error(`SMS send error to ${to}: ${error.message}`);
-    return { success: false, error: error.message };
-  }
+  });
 };
 
 /**
