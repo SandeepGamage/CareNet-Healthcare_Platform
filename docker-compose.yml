@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  # ─── Frontend (nginx) ────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: carenet-frontend
+    ports:
+      - '5173:80'
+    networks:
+      - healthcare-net
+    restart: unless-stopped
+
+  # ─── Payment Service ─────────────────────────────────────────────
+  payment-service:
+    build:
+      context: ./backend/payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - '5003:5003'
+    env_file:
+      - ./backend/payment-service/.env
+    networks:
+      - healthcare-net
+    volumes:
+      - ./backend/payment-service/logs:/app/logs
+    restart: unless-stopped
+
+networks:
+  healthcare-net:
+    driver: bridge
