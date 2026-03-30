@@ -8,7 +8,7 @@ const refundSchema = new mongoose.Schema(
       required: true,
       index   : true,
     },
-    stripeRefundId: {
+    payhereRefundId: {
       type  : String,
       unique: true,
       sparse: true,
@@ -17,7 +17,7 @@ const refundSchema = new mongoose.Schema(
       type    : Number,
       required: true,
       min     : 0,
-      // in cents, same unit as Transaction.amount
+      // in currency units (e.g. LKR), same as Transaction.amount
     },
     reason: {
       type    : String,

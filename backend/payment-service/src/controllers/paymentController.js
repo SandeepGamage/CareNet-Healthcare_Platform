@@ -1,14 +1,13 @@
-const { validationResult }                    = require('express-validator');
-const Transaction                             = require('../models/Transaction');
-const Invoice                                 = require('../models/Invoice');
-const { createPaymentIntent, retrievePaymentIntent } = require('../services/stripeService');
-const logger                                  = require('../utils/logger');
-
+const { validationResult } = require('express-validator');
+const Transaction          = require('../models/Transaction');
+const Invoice              = require('../models/Invoice');
+const logger               = require('../utils/logger');
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api/payments/create-intent
+// POST /api/payments/create
 // Role: patient
+// Creates a pending Transaction record and returns PayHere checkout details
 // ─────────────────────────────────────────────────────────────────────────────
-const createIntent = async (req, res, next) => {
+const createPayment = async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -18,8 +17,8 @@ const createIntent = async (req, res, next) => {
     const {
       appointmentId,
       doctorId,
-      amount,            // integer cents, e.g. 5000 = $50.00
-      currency = 'usd',
+      amount,           // amount in LKR, e.g. 1500
+      currency = 'LKR',
       metadata = {},
     } = req.body;
 
@@ -38,24 +37,12 @@ const createIntent = async (req, res, next) => {
       });
     }
 
-    // Build Stripe metadata (passed through webhook back to us)
-    const stripeMetadata = {
-      appointmentId,
-      patientId,
-      doctorId,
-      patientEmail: req.user.email  || '',
-      doctorEmail : metadata.doctorEmail || '',
-      ...metadata,
-    };
-
-    const paymentIntent = await createPaymentIntent({ amount, currency, metadata: stripeMetadata });
-
-    // Persist a pending Transaction record
+    // Create a pending Transaction record — PayHere will confirm it via webhook
     const transaction = await Transaction.create({
       appointmentId,
+      payhereOrderId: appointmentId, // Use appointmentId as the unique PayHere order ID
       patientId,
       doctorId,
-      stripePaymentIntentId: paymentIntent.id,
       amount,
       currency,
       status  : 'pending',
@@ -68,13 +55,18 @@ const createIntent = async (req, res, next) => {
       },
     });
 
-    logger.info(`PaymentIntent created for appointment ${appointmentId}: ${paymentIntent.id}`);
+    logger.info(`PayHere payment initiated for appointment ${appointmentId}`);
 
+    // Return PayHere checkout details to the frontend
     res.status(201).json({
-      success        : true,
-      clientSecret   : paymentIntent.client_secret,
-      transactionId  : transaction._id,
-      paymentIntentId: paymentIntent.id,
+      success       : true,
+      transactionId : transaction._id,
+      merchantId    : process.env.PAYHERE_MERCHANT_ID,
+      orderId       : appointmentId,
+      amount        : amount.toFixed(2),
+      currency      : currency.toUpperCase(),
+      hash          : '', // MD5 hash should be calculated on frontend or here depending on security config
+      checkoutUrl   : 'https://sandbox.payhere.lk/pay/checkout',
     });
   } catch (error) {
     next(error);
@@ -252,7 +244,7 @@ const downloadInvoice = async (req, res, next) => {
 };
 
 module.exports = {
-  createIntent,
+  createPayment,
   getTransaction,
   getPaymentHistory,
   getAllTransactions,

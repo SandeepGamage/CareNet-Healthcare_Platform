@@ -7,7 +7,7 @@ const morgan  = require('morgan');
 const connectDB      = require('./config/db');
 const errorHandler   = require('./middleware/errorHandler');
 const logger         = require('./utils/logger');
-const { handleWebhook } = require('./webhooks/stripeWebhook');
+const { handlePayhereWebhook } = require('./webhooks/payhereWebhook');
 const paymentRoutes  = require('./routes/paymentRoutes');
 const refundRoutes   = require('./routes/refundRoutes');
 
@@ -16,12 +16,8 @@ const app = express();
 // ─── Database ─────────────────────────────────────────────────────────────────
 connectDB();
 
-// ─── CRITICAL: Stripe webhook must receive raw body — mount BEFORE express.json ─
-app.post(
-  '/api/payments/webhook',
-  express.raw({ type: 'application/json' }),
-  handleWebhook
-);
+// ─── PayHere Webhook (no auth required — called by PayHere servers) ──────────
+app.post('/api/payments/payhere/notify', express.urlencoded({ extended: true }), handlePayhereWebhook);
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(helmet());

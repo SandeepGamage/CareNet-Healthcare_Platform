@@ -16,12 +16,12 @@ const transactionSchema = new mongoose.Schema(
       type    : String,
       required: [true, 'Doctor ID is required'],
     },
-    stripePaymentIntentId: {
+    payhereOrderId: {
       type    : String,
       required: true,
       unique  : true,
     },
-    stripeChargeId: {
+    paymentId: {
       type   : String,
       default: null,
     },
@@ -29,12 +29,11 @@ const transactionSchema = new mongoose.Schema(
       type    : Number,
       required: [true, 'Amount is required'],
       min     : [0, 'Amount must be positive'],
-      // Stored in smallest currency unit (cents)
     },
     currency: {
       type    : String,
       required: true,
-      default : 'usd',
+      default : 'lkr',
       lowercase: true,
     },
     status: {
@@ -66,11 +65,8 @@ const transactionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Virtual: amount in dollars
-transactionSchema.virtual('amountInDollars').get(function () {
-  return (this.amount / 100).toFixed(2);
-});
-
+// Ensure virtuals are included in JSON output
 transactionSchema.set('toJSON', { virtuals: true });
+transactionSchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

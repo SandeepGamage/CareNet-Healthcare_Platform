@@ -4,7 +4,7 @@ const { body, param } = require('express-validator');
 
 const { protect, authorize } = require('../middleware/authMiddleware');
 const {
-  createIntent,
+  createPayment,
   getTransaction,
   getPaymentHistory,
   getAllTransactions,
@@ -13,29 +13,29 @@ const {
 } = require('../controllers/paymentController');
 
 // ─── Validation rules ─────────────────────────────────────────────────────────
-const createIntentValidation = [
+const createPaymentValidation = [
   body('appointmentId').notEmpty().withMessage('appointmentId is required'),
   body('doctorId').notEmpty().withMessage('doctorId is required'),
   body('amount')
-    .isInt({ min: 100 })
-    .withMessage('amount must be an integer in cents (min 100 = $1.00)'),
+    .isFloat({ min: 1 })
+    .withMessage('amount must be a positive number in LKR (e.g. 1500)'),
   body('currency')
     .optional()
-    .isIn(['usd', 'lkr', 'eur', 'gbp'])
-    .withMessage('Invalid currency'),
+    .isIn(['LKR'])
+    .withMessage('Only LKR currency is supported'),
 ];
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
-// NOTE: Stripe webhook is mounted in app.js BEFORE express.json(), not here.
+// NOTE: PayHere webhook is mounted in app.js BEFORE express.json()
 
-// Patient: create a Stripe PaymentIntent for an appointment
+// Patient: initiate a PayHere payment for an appointment
 router.post(
-  '/create-intent',
+  '/create',
   protect,
   authorize('patient'),
-  createIntentValidation,
-  createIntent
+  createPaymentValidation,
+  createPayment
 );
 
 // Patient: own payment history (paginated)

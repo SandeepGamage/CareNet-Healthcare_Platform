@@ -1,7 +1,6 @@
 const { validationResult }          = require('express-validator');
 const Transaction                   = require('../models/Transaction');
 const Refund                        = require('../models/Refund');
-const { createRefund }              = require('../services/stripeService');
 const { sendRefundConfirmation }    = require('../services/notificationService');
 const logger                        = require('../utils/logger');
 
@@ -47,7 +46,7 @@ const requestRefund = async (req, res, next) => {
     }
 
     // ── 5. Amount validation ────────────────────────────────────────────────
-    const refundAmount = amount ? Math.round(amount) : transaction.amount;
+    const refundAmount = amount ? Number(amount) : transaction.amount;
     if (refundAmount > transaction.amount) {
       return res.status(400).json({
         success: false,
@@ -56,6 +55,8 @@ const requestRefund = async (req, res, next) => {
     }
 
     // ── 6. Create Refund record (pending) ───────────────────────────────────
+    // NOTE: For the scope of this assignment using PayHere, refunds must be processed 
+    // manually via the PayHere Merchant Portal. This creates a request for the admin.
     const refund = await Refund.create({
       transactionId,
       amount       : refundAmount,
@@ -65,48 +66,22 @@ const requestRefund = async (req, res, next) => {
       requestedBy  : { userId: req.user.userId, role: req.user.role },
     });
 
-    // ── 7. Process refund via Stripe ────────────────────────────────────────
-    let stripeRefund;
+    // ── 7. Notify patient (non-blocking) ────────────────────────────────────
     try {
-      stripeRefund = await createRefund({
-        paymentIntentId: transaction.stripePaymentIntentId,
-        // Omit amount for full refund (Stripe will refund 100%)
-        amount : refundAmount !== transaction.amount ? refundAmount : undefined,
-        reason,
+      await sendRefundConfirmation({
+        refund,
+        transaction,
+        patientEmail: req.user.email,
       });
-
-      refund.stripeRefundId = stripeRefund.id;
-      refund.status         = stripeRefund.status === 'succeeded' ? 'succeeded' : 'pending';
-      refund.processedAt    = refund.status === 'succeeded' ? new Date() : null;
-      await refund.save();
-
-      // Update transaction status
-      const newStatus = refundAmount === transaction.amount ? 'refunded' : 'partially_refunded';
-      await Transaction.findByIdAndUpdate(transactionId, { status: newStatus });
-
-    } catch (stripeError) {
-      refund.status = 'failed';
-      await refund.save();
-      logger.error(`Stripe refund failed: ${stripeError.message}`);
-      return res.status(502).json({
-        success: false,
-        message: 'Refund processing failed with payment provider.',
-        detail : stripeError.message,
-      });
+    } catch (err) {
+      logger.error(`Refund notification failed: ${err.message}`);
     }
 
-    // ── 8. Notify patient (non-blocking) ────────────────────────────────────
-    await sendRefundConfirmation({
-      refund,
-      transaction,
-      patientEmail: req.user.email,
-    });
-
-    logger.info(`Refund ${refund._id} processed for transaction ${transactionId}`);
+    logger.info(`Refund request ${refund._id} created for transaction ${transactionId} (Manual processing required via PayHere)`);
 
     res.status(201).json({
       success: true,
-      message: 'Refund processed successfully.',
+      message: 'Refund request submitted. An administrator will process it manually via PayHere.',
       data   : refund,
     });
   } catch (error) {
