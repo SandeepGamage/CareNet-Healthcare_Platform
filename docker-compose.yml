@@ -9,9 +9,11 @@ services:
       - "5672:5672"
       - "15672:15672"
     restart: unless-stopped
+    networks:
+      - healthcare-network
 
   appointment-service:
-    build: ./backend/appointment-service     # ← uses the Dockerfile inside that folder
+    build: ./backend/appointment-service
     container_name: appointment-service
     ports:
       - "${APPOINTMENT_SERVICE_PORT}:${APPOINTMENT_SERVICE_PORT}"
@@ -23,8 +25,23 @@ services:
     depends_on:
       - rabbitmq
     restart: unless-stopped
+    networks:
+      - healthcare-network
 
-  # your teammates will add their services here too
-  # auth-service: ...
-  # patient-service: ...
-  # etc.
+  symptom-service:
+    build: ./backend/ai-symptom-service
+    container_name: symptom-service
+    ports:
+      - "${AI_SYMPTOM_SERVICE_PORT}:${AI_SYMPTOM_SERVICE_PORT}"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PORT=${AI_SYMPTOM_SERVICE_PORT}
+      - NODE_ENV=production
+      - APPOINTMENT_SERVICE_URL=${APPOINTMENT_SERVICE_URL}
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+networks:
+  healthcare-network:
+    driver: bridge
