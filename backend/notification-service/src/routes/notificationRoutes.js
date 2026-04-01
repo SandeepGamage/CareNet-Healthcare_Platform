@@ -4,6 +4,7 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 const {
   handlePaymentNotification,
   handleRefundNotification,
+  handleVerificationNotification,
   getLogs,
   getMyLogs,
 } = require('../controllers/notificationController');
@@ -14,6 +15,9 @@ router.post('/payment', handlePaymentNotification);
 
 // Called by payment-service refund controller
 router.post('/refund', handleRefundNotification);
+
+// ── Verification notifications (called by auth-service) ────────────────────
+router.post('/verify', handleVerificationNotification);
 
 // ── Authenticated routes ──────────────────────────────────────────────────────
 // Admin: view all notification logs
