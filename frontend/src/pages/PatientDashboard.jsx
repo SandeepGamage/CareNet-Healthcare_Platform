@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import PayHereCheckout from "../components/payment/PayHereCheckout";
 
 // ── Mini Sparkline Chart ───────────────────────────────────────────────────────
@@ -92,6 +93,7 @@ const appointmentChartData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 const healthScoreData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 export default function ModernPatientDashboard() {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("overview");
     const [expandedAppt, setExpandedAppt] = useState(null);
     const [payingAppt, setPayingAppt] = useState(null);
@@ -778,7 +780,9 @@ export default function ModernPatientDashboard() {
                     {activeTab === "appointments" && (
                         <div style={{ animation: "fadeIn 0.3s ease-in" }}>
                             <div style={{ marginBottom: "24px" }}>
-                                <button style={{
+                                <button 
+                                    onClick={() => navigate("/book-appointment")}
+                                    style={{
                                     background: "#3b82f6",
                                     color: "white",
                                     border: "none",
