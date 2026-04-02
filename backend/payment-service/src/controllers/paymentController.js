@@ -1,4 +1,5 @@
 const { validationResult } = require('express-validator');
+const crypto               = require('crypto');
 const Transaction          = require('../models/Transaction');
 const Invoice              = require('../models/Invoice');
 const logger               = require('../utils/logger');
@@ -22,7 +23,7 @@ const createPayment = async (req, res, next) => {
       metadata = {},
     } = req.body;
 
-    const patientId = req.user.userId;
+    const patientId = req.user.id || req.user.userId;
 
     // Guard: prevent double-payment for the same appointment
     const existing = await Transaction.findOne({
@@ -55,17 +56,26 @@ const createPayment = async (req, res, next) => {
       },
     });
 
+    // Generate PayHere MD5 Hash
+    // Formula: md5(merchant_id + order_id + amount_formatted + currency + md5(secret).toUpperCase()).toUpperCase()
+    const merchantId     = process.env.PAYHERE_MERCHANT_ID;
+    const merchantSecret = process.env.PAYHERE_SECRET;
+    const amountFormatted = parseFloat(amount).toFixed(2);
+    const hashedSecret   = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
+    const hashInput      = `${merchantId}${appointmentId}${amountFormatted}LKR${hashedSecret}`;
+    const hash           = crypto.createHash('md5').update(hashInput).digest('hex').toUpperCase();
+
     logger.info(`PayHere payment initiated for appointment ${appointmentId}`);
 
     // Return PayHere checkout details to the frontend
     res.status(201).json({
       success       : true,
       transactionId : transaction._id,
-      merchantId    : process.env.PAYHERE_MERCHANT_ID,
+      merchantId,
       orderId       : appointmentId,
-      amount        : amount.toFixed(2),
+      amount        : amountFormatted,
       currency      : currency.toUpperCase(),
-      hash          : '', // MD5 hash should be calculated on frontend or here depending on security config
+      hash,
       checkoutUrl   : 'https://sandbox.payhere.lk/pay/checkout',
     });
   } catch (error) {
