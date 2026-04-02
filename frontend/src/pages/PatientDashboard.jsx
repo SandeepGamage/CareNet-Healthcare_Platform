@@ -128,8 +128,8 @@ export default function ModernPatientDashboard() {
         const fetchProfile = async () => {
             try {
                 const token = localStorage.getItem("token");
-                // Using auth-service at port 3006
-                const response = await fetch("http://localhost:3006/api/auth/me", {
+                // Using auth-service at port 3001
+                const response = await fetch("http://localhost:3001/api/auth/me", {
                     headers: {
                         "Authorization": `Bearer ${token}`
                     }
@@ -145,19 +145,49 @@ export default function ModernPatientDashboard() {
                         avatar: u.profilePicture || prev.avatar,
                         patientId: u._id ? `#${u._id.slice(-4).toUpperCase()}` : prev.patientId
                     }));
-                } else {
-                    console.log("Using mock profile details (not authenticated)");
                 }
             } catch (err) {
-                console.log("Using mock profile details (backend unreachable)");
+                console.log("Profile backend unreachable");
             }
         };
+
+        const fetchAppointments = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                // Using appointment-service at port 3004
+                const response = await fetch("http://localhost:3004/api/appointments/my", {
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    // Assuming data is an array of appointments [ { _id, doctorName, specialty, ... } ]
+                    const formatted = data.map(app => ({
+                        id: app._id,
+                        doctor: app.doctorName,
+                        specialty: app.specialty,
+                        date: new Date(app.appointmentDate).toLocaleDateString(),
+                        time: app.timeSlot,
+                        status: app.status,
+                        statusColor: app.status === 'CONFIRMED' ? '#10b981' : (app.status === 'PENDING' ? '#f59e0b' : '#ef4444'),
+                        avatar: `https://ui-avatars.com/api/?name=${app.doctorName}&background=random`,
+                        type: app.type || "In-Person"
+                    }));
+                    setAppointmentsData(formatted);
+                }
+            } catch (err) {
+                console.log("Appointment service unreachable");
+            }
+        };
+
         fetchProfile();
+        fetchAppointments();
 
         const fetchNotifications = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const res = await fetch("http://localhost:5004/api/notifications/logs/my", {
+                const res = await fetch("http://localhost:3006/api/notifications/logs/my", {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 const data = await res.json();

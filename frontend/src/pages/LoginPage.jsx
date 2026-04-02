@@ -16,7 +16,7 @@ const LoginPage = () => {
           headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
         }).then(res => res.json());
 
-        const response = await fetch("http://localhost:3006/api/auth/login", {
+        const response = await fetch("http://localhost:3001/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: userInfo.email, isGoogle: true }),
@@ -61,7 +61,7 @@ const LoginPage = () => {
       setErrorMsg("");
 
       try {
-        const response = await fetch("http://localhost:3006/api/auth/login", {
+        const response = await fetch("http://localhost:3001/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),

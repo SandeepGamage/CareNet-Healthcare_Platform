@@ -32,6 +32,7 @@ import {
   X
 } from 'lucide-react';
 import axios from 'axios';
+import PayHereCheckout from '../../components/payment/PayHereCheckout';
 
 const API_BASE_URL = 'http://localhost:3004/api';
 
@@ -42,6 +43,7 @@ const BookAppointment = () => {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
+  const [appointmentId, setAppointmentId] = useState(null);
   
   // Form data
   const [formData, setFormData] = useState({
@@ -280,6 +282,7 @@ const BookAppointment = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
+      setAppointmentId(response.data.appointment?._id || `DEP-${Math.random().toString(36).substr(2, 8).toUpperCase()}`);
       setSuccess(true);
       setCurrentStep(4);
       
@@ -307,6 +310,7 @@ const BookAppointment = () => {
     setAvailableSlots([]);
     setTermsAccepted(false);
     setSuccess(false);
+    setAppointmentId(null);
   };
   
   // Get icon for specialty
@@ -879,8 +883,24 @@ const BookAppointment = () => {
                     Your appointment has been confirmed. A confirmation email has been sent to {formData.patientEmail}
                   </p>
                   <div className="bg-blue-50 rounded-lg p-4 max-w-md mx-auto">
-                    <p className="text-sm text-gray-600">Appointment ID: <span className="font-mono font-semibold">APT-{Math.random().toString(36).substr(2, 8).toUpperCase()}</span></p>
+                    <p className="text-sm text-gray-600">Appointment ID: <span className="font-mono font-semibold">{appointmentId || 'APT-0000'}</span></p>
                     <p className="text-sm text-gray-600 mt-1">Please arrive 15 minutes before your scheduled time</p>
+                  </div>
+
+                  <div className="mt-8 max-w-md mx-auto">
+                    <PayHereCheckout 
+                      appointmentId={appointmentId}
+                      amount={selectedDoctor?.fee || 150}
+                      doctorName={selectedDoctor?.name || "Dr. Wilson"}
+                      patientDetails={{
+                        firstName: formData.patientName.split(' ')[0] || "Patient",
+                        lastName: formData.patientName.split(' ').slice(1).join(' ') || "User",
+                        email: formData.patientEmail,
+                        phone: formData.patientPhone,
+                        address: formData.patientAddress || "Colombo",
+                        city: "Colombo"
+                      }}
+                    />
                   </div>
                   <button
                     onClick={resetForm}
