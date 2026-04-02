@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // ── Mini Sparkline Chart ───────────────────────────────────────────────────────
 function MiniChart({ data, color = "#3b82f6" }) {
@@ -129,6 +129,44 @@ export default function ModernPatientDashboard() {
   const [expandedAppt, setExpandedAppt] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  const [userProfile, setUserProfile] = useState({
+    name: "Alex Johnson",
+    patientId: "#8291",
+    email: "alex.johnson@example.com",
+    phone: "+1 555-0198",
+    avatar: "https://i.pravatar.cc/150?u=alex"
+  });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        // Using auth-service or gateway endpoint:
+        const response = await fetch("http://localhost:5001/api/auth/profile", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setUserProfile(prev => ({
+            ...prev,
+            name: data.name || prev.name,
+            email: data.email || prev.email,
+            phone: data.phone || prev.phone,
+            avatar: data.profilePicture || prev.avatar,
+            patientId: data.patientId || prev.patientId
+          }));
+        } else {
+          console.log("Using mock profile details (not authenticated)");
+        }
+      } catch (err) {
+        console.log("Using mock profile details (backend unreachable)");
+      }
+    };
+    fetchProfile();
+  }, []);
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -227,7 +265,7 @@ export default function ModernPatientDashboard() {
             <span style={{ width: "8px", height: "8px", background: "#10b981", borderRadius: "50%" }} />
             Online
           </div>
-          <img src="https://i.pravatar.cc/150?u=alex" alt="Patient" style={{
+          <img src={userProfile.avatar} alt="Patient" style={{
             width: "36px",
             height: "36px",
             borderRadius: "50%",
@@ -381,18 +419,21 @@ export default function ModernPatientDashboard() {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
                 }}>
-                  <img src="https://i.pravatar.cc/150?u=alex" alt="Profile" style={{
+                  <img src={userProfile.avatar} alt="Profile" style={{
                     width: "36px",
                     height: "36px",
                     borderRadius: "8px",
                     objectFit: "cover",
                   }} />
-                  <div>
-                    <p style={{ fontSize: "13px", fontWeight: 600, margin: "0", color: "white" }}>
-                      Alex Johnson
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: "13px", fontWeight: 600, margin: "0", color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {userProfile.name}
                     </p>
-                    <p style={{ fontSize: "11px", margin: "2px 0 0 0", color: "#9ca3af" }}>
-                      Patient #8291
+                    <p style={{ fontSize: "11px", margin: "2px 0 0 0", color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {userProfile.email}
+                    </p>
+                    <p style={{ fontSize: "11px", margin: "2px 0 0 0", color: "rgba(255,255,255,0.4)" }}>
+                      {userProfile.phone}
                     </p>
                   </div>
                 </div>
@@ -438,7 +479,7 @@ export default function ModernPatientDashboard() {
         {/* Header */}
         <div style={{ marginBottom: "40px" }}>
           <h1 style={{ fontSize: "36px", fontWeight: 700, color: "#111827", margin: "0 0 8px 0" }}>
-            Welcome back, Alex
+            Welcome back, {userProfile.name.split(" ")[0]}
           </h1>
           <p style={{ fontSize: "16px", color: "#6b7280", margin: 0 }}>
             Here's your health summary for this week
