@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { HeartPulse, Mail, Lock, ArrowLeft, ArrowRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -6,6 +6,8 @@ import { useGoogleLogin } from "@react-oauth/google";
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: (codeResponse) => {
@@ -19,15 +21,38 @@ const LoginPage = () => {
     },
   });
 
-  const handleEmailLogin = (e) => {
+  const handleEmailLogin = async (e) => {
     e.preventDefault();
     const email = e.target[0].value;
     const password = e.target[1].value;
     
     if (email && password) {
-      alert(`Welcome back! Authenticating ${email}...`);
-      // Mock redirect to home for now
-      setTimeout(() => navigate("/"), 1000);
+      setLoading(true);
+      setErrorMsg("");
+
+      try {
+        const response = await fetch("http://localhost:3006/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+          alert(`Welcome back! Authenticated as ${data.user.name}...`);
+          navigate("/");
+        } else {
+          setErrorMsg(data.message || "Login failed. Please check your credentials.");
+        }
+      } catch (err) {
+        console.error("Login Error:", err);
+        setErrorMsg("Unable to connect to the server. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -87,6 +112,12 @@ const LoginPage = () => {
           </div>
 
           <form className="space-y-6" onSubmit={handleEmailLogin}>
+            {errorMsg && (
+              <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-medium border border-red-100 flex items-center justify-center">
+                {errorMsg}
+              </div>
+            )}
+            
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 ml-1">Email Address</label>
               <div className="relative group">
@@ -118,10 +149,11 @@ const LoginPage = () => {
 
             <button
               type="submit"
-              className="w-full py-4 rounded-2xl bg-teal-500 text-white font-bold shadow-lg shadow-teal-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 group"
+              disabled={loading}
+              className={`w-full py-4 rounded-2xl ${loading ? 'bg-teal-400' : 'bg-teal-500'} text-white font-bold shadow-lg shadow-teal-500/25 ${loading ? '' : 'hover:shadow-xl hover:-translate-y-0.5'} transition-all duration-300 flex items-center justify-center gap-2 group`}
             >
-              Sign In
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              {loading ? "Signing In..." : "Sign In"}
+              {!loading && <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
             </button>
           </form>
 
