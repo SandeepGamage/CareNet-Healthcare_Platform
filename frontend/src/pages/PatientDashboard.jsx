@@ -131,33 +131,47 @@ export default function ModernPatientDashboard() {
     const [payingAppt, setPayingAppt] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
-    const [userProfile, setUserProfile] = useState({
-        name: "Alex Johnson",
-        patientId: "#8291",
-        email: "alex.johnson@example.com",
-        phone: "+1 555-0198",
-        avatar: "https://i.pravatar.cc/150?u=alex"
+    const [userProfile, setUserProfile] = useState(() => {
+        const stored = localStorage.getItem("user");
+        if (stored) {
+            const u = JSON.parse(stored);
+            return {
+                name: u.name || "User",
+                patientId: u.id ? `#${u.id.slice(-4).toUpperCase()}` : "#0000",
+                email: u.email || "",
+                phone: u.phone || "Not set",
+                avatar: u.profilePicture || `https://ui-avatars.com/api/?name=${u.name || 'User'}&background=random`
+            };
+        }
+        return {
+            name: "Alex Johnson",
+            patientId: "#8291",
+            email: "alex.johnson@example.com",
+            phone: "+1 555-0198",
+            avatar: "https://i.pravatar.cc/150?u=alex"
+        };
     });
 
     useEffect(() => {
         const fetchProfile = async () => {
             try {
                 const token = localStorage.getItem("token");
-                // Using auth-service or gateway endpoint:
-                const response = await fetch("http://localhost:5001/api/auth/profile", {
+                // Using auth-service at port 3006
+                const response = await fetch("http://localhost:3006/api/auth/me", {
                     headers: {
                         "Authorization": `Bearer ${token}`
                     }
                 });
                 if (response.ok) {
-                    const data = await response.json();
+                    const data = await response.json(); // data = { success: true, user }
+                    const u = data.user;
                     setUserProfile(prev => ({
                         ...prev,
-                        name: data.name || prev.name,
-                        email: data.email || prev.email,
-                        phone: data.phone || prev.phone,
-                        avatar: data.profilePicture || prev.avatar,
-                        patientId: data.patientId || prev.patientId
+                        name: u.name || prev.name,
+                        email: u.email || prev.email,
+                        phone: u.phone || prev.phone,
+                        avatar: u.profilePicture || prev.avatar,
+                        patientId: u._id ? `#${u._id.slice(-4).toUpperCase()}` : prev.patientId
                     }));
                 } else {
                     console.log("Using mock profile details (not authenticated)");
@@ -307,23 +321,22 @@ export default function ModernPatientDashboard() {
                             </p>
                             <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "32px" }}>
                                 {[
-                                    { icon: "📊", label: "Dashboard", active: true },
-                                    { icon: "📅", label: "Appointments" },
-                                    { icon: "📋", label: "Medical Records" },
-                                    { icon: "💊", label: "Prescriptions" },
-                                    { icon: "📈", label: "Health Insights" },
-                                    { icon: "📞", label: "Contacts" },
-                                    { icon: "⚙️", label: "Settings" },
+                                    { icon: "📊", label: "Dashboard", tab: "overview" },
+                                    { icon: "📅", label: "Appointments", tab: "appointments" },
+                                    { icon: "📋", label: "Medical Records", tab: "vitals" },
+                                    { icon: "💊", label: "Prescriptions", tab: "prescriptions" },
+                                    { icon: "⚙️", label: "Settings", tab: "settings" },
                                 ].map((item, i) => (
                                     <button
                                         key={i}
+                                        onClick={() => setActiveTab(item.tab)}
                                         style={{
                                             display: "flex",
                                             alignItems: "center",
                                             gap: "12px",
                                             padding: "12px 16px",
-                                            background: item.active ? "rgba(255, 255, 255, 0.2)" : "transparent",
-                                            border: item.active ? "1px solid rgba(255,255,255,0.5)" : "1px solid transparent",
+                                            background: activeTab === item.tab ? "rgba(255, 255, 255, 0.2)" : "transparent",
+                                            border: activeTab === item.tab ? "1px solid rgba(255,255,255,0.5)" : "1px solid transparent",
                                             borderRadius: "10px",
                                             color: "white",
                                             cursor: "pointer",
@@ -439,19 +452,24 @@ export default function ModernPatientDashboard() {
                                         </p>
                                     </div>
                                 </div>
-                                <button style={{
-                                    width: "100%",
-                                    padding: "10px 16px",
-                                    marginTop: "12px",
-                                    background: "transparent",
-                                    border: "1px solid #4b5563",
-                                    borderRadius: "8px",
-                                    color: "#d1d5db",
-                                    cursor: "pointer",
-                                    fontSize: "13px",
-                                    fontWeight: 500,
-                                    transition: "all 0.2s",
-                                }}
+                                <button
+                                    onClick={() => {
+                                        localStorage.clear();
+                                        window.location.href = "/login";
+                                    }}
+                                    style={{
+                                        width: "100%",
+                                        padding: "10px 16px",
+                                        marginTop: "12px",
+                                        background: "transparent",
+                                        border: "1px solid #4b5563",
+                                        borderRadius: "8px",
+                                        color: "#d1d5db",
+                                        cursor: "pointer",
+                                        fontSize: "13px",
+                                        fontWeight: 500,
+                                        transition: "all 0.2s",
+                                    }}
                                     onMouseEnter={(e) => {
                                         e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
                                         e.currentTarget.style.borderColor = "#ef4444";
@@ -826,6 +844,68 @@ export default function ModernPatientDashboard() {
                                     Connect Device
                                 </button>
                             </div>
+                        </div>
+                    )}
+
+                    {/* ── SETTINGS TAB ──────────────────────────────────────────────── */}
+                    {activeTab === "settings" && (
+                        <div style={{ animation: "fadeIn 0.3s ease-in" }}>
+                             <div style={{ 
+                                background: "white", 
+                                border: "1px solid #e5e7eb", 
+                                borderRadius: "16px", 
+                                padding: "40px",
+                                maxWidth: "800px"
+                            }}>
+                                <h1 style={{ fontSize: "24px", fontWeight: 700, margin: "0 0 8px 0" }}>Account Settings</h1>
+                                <p style={{ color: "#6b7280", margin: "0 0 32px 0" }}>Manage your account security and preferences</p>
+
+                                <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: "32px" }}>
+                                    <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", margin: "0 0 8px 0" }}>Danger Zone</h2>
+                                    <p style={{ color: "#6b7280", fontSize: "14px", margin: "0 0 24px 0" }}>
+                                        Once you deactivate your account, you will be logged out. You can reactive it at any time by simply logging in again with your email and password.
+                                    </p>
+                                    
+                                    <button 
+                                        onClick={async () => {
+                                            if (window.confirm("Are you sure you want to deactivate your account?")) {
+                                                try {
+                                                    const res = await fetch("http://localhost:3006/api/auth/deactivate", {
+                                                        method: "POST",
+                                                        headers: {
+                                                            "Authorization": `Bearer ${localStorage.getItem("token")}`
+                                                        }
+                                                    });
+                                                    const data = await res.json();
+                                                    if (data.success) {
+                                                        alert(data.message);
+                                                        localStorage.clear();
+                                                        window.location.href = "/login";
+                                                    } else {
+                                                        alert("Deactivation failed: " + data.message);
+                                                    }
+                                                } catch (err) {
+                                                    alert("Error connecting to server.");
+                                                }
+                                            }
+                                        }}
+                                        style={{
+                                            padding: "12px 24px",
+                                            background: "#fee2e2",
+                                            color: "#dc2626",
+                                            border: "1px solid #fecaca",
+                                            borderRadius: "10px",
+                                            fontWeight: 600,
+                                            cursor: "pointer",
+                                            transition: "all 0.2s"
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = "#fecaca"}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = "#fee2e2"}
+                                    >
+                                        Deactivate Account
+                                    </button>
+                                </div>
+                             </div>
                         </div>
                     )}
                 </main>
