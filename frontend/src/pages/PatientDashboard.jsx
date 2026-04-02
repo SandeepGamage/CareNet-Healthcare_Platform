@@ -82,10 +82,10 @@ function StatCard({ label, value, change, changeType = "up", icon, color = "#3b8
 const appointments = [];
 
 const healthMetrics = [
-    { label: "Heart Rate", value: "72", unit: "bpm", icon: "❤️" },
-    { label: "Blood Pressure", value: "120/80", unit: "mmHg", icon: "📊" },
-    { label: "Temperature", value: "98.6", unit: "°F", icon: "🌡️" },
-    { label: "Oxygen Level", value: "98%", unit: "SpO2", icon: "🫁" },
+    { label: "Heart Rate", value: "--", unit: "bpm", icon: "❤️" },
+    { label: "Blood Pressure", value: "--", unit: "mmHg", icon: "📊" },
+    { label: "Temperature", value: "--", unit: "°F", icon: "🌡️" },
+    { label: "Oxygen Level", value: "--", unit: "SpO2", icon: "🫁" },
 ];
 
 const appointmentChartData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -607,7 +607,7 @@ export default function ModernPatientDashboard() {
                                         Monthly Appointments
                                     </h3>
                                     <p style={{ fontSize: "13px", color: "#6b7280", margin: "0 0 16px 0" }}>
-                                        Past 12 months trend
+                                        No recent activity
                                     </p>
                                     <MiniChart data={appointmentChartData} color="#3b82f6" />
                                 </div>
@@ -623,7 +623,7 @@ export default function ModernPatientDashboard() {
                                         Health Score Trend
                                     </h3>
                                     <p style={{ fontSize: "13px", color: "#6b7280", margin: "0 0 16px 0" }}>
-                                        Improving steadily
+                                        Insufficient data
                                     </p>
                                     <MiniChart data={healthScoreData} color="#10b981" />
                                 </div>
@@ -645,17 +645,12 @@ export default function ModernPatientDashboard() {
                                         This year
                                     </p>
                                     <DonutChart data={[
-                                        { value: 65, color: "#3b82f6" },
-                                        { value: 35, color: "#f59e0b" },
+                                        { value: 100, color: "#e5e7eb" },
                                     ]} />
                                     <div style={{ marginTop: "20px", width: "100%" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
-                                            <span style={{ width: "12px", height: "12px", background: "#3b82f6", borderRadius: "3px" }} />
-                                            <span style={{ fontSize: "14px", color: "#374151" }}>In-Person (65%)</span>
-                                        </div>
-                                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                                            <span style={{ width: "12px", height: "12px", background: "#f59e0b", borderRadius: "3px" }} />
-                                            <span style={{ fontSize: "14px", color: "#374151" }}>Telemedicine (35%)</span>
+                                            <span style={{ width: "12px", height: "12px", background: "#e5e7eb", borderRadius: "3px" }} />
+                                            <span style={{ fontSize: "14px", color: "#6b7280" }}>No data recorded</span>
                                         </div>
                                     </div>
                                 </div>
