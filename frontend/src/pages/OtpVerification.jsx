@@ -72,15 +72,26 @@ const OtpVerification = () => {
       });
 
       if (response.data.success) {
-        setSuccess(`${type.charAt(0).toUpperCase() + type.slice(1)} verified successfully!`);
+        setSuccess(`${type.charAt(0).toUpperCase() + type.slice(1)} verified! Logging you in...`);
+        
+        // Save the token and authenticate the user
+        if (response.data.token) {
+          localStorage.setItem("token", response.data.token);
+          localStorage.setItem("user", JSON.stringify(response.data.user));
+        }
+
+        // Show alert as requested by user
+        alert("Successfully authenticated!");
+
         setTimeout(() => {
-          // If verifying email, might need to verify phone next, or redirect to login
-          if (type === 'email') {
-            navigate('/verify-otp', { state: { userId, type: 'phone' } });
+          console.log("OTP Verification Success, User Role:", response.data.user.role);
+          if (response.data.user.role === 'admin') {
+            navigate('/admin-dashboard');
           } else {
-            navigate('/login');
+            // Default to patient dashboard
+            navigate('/patient-dashboard');
           }
-        }, 2000);
+        }, 1000);
       }
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Verification failed');

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const VerificationCode = require('../models/VerificationCode');
 const { sendNotification } = require('../utils/notify');
 
 // ── Helper: Generate JWT ──────────────────────────────────────────────────────
@@ -19,7 +20,7 @@ const generateToken = (user) => {
 // ── POST /api/auth/register ───────────────────────────────────────────────────
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role, specialty, adminSecretKey } = req.body;
+    const { name, email, password, role, specialty, adminSecretKey, phone } = req.body;
 
     // Validation
     if (!name || !email || !password) {
@@ -41,36 +42,39 @@ exports.register = async (req, res) => {
     }
 
     // Create user (doctor accounts need admin verification)
-    const userData = { name, email, password, role: role || 'patient' };
+    const userData = { name, email, password, role: role || 'patient', phone: phone || null };
     if (role === 'doctor') {
       userData.specialty = specialty || null;
       userData.isVerified = false; // Doctor must be verified by admin
     }
 
     const user = await User.create(userData);
-    const token = generateToken(user);
+    
+    // Generate 6 digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Default to email verification (but we save type based on phone if requested later)
+    await VerificationCode.create({
+      userId: user._id,
+      code: otpCode,
+      type: 'email',
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 mins
+    });
 
-    // Send a welcome / registration notification asynchronously
+    // Send the OTP via Email by default as requested
     sendNotification({
-      to: email, // or user._id depending on the notification service's expectation
-      subject: 'Welcome to CareNet Healthcare',
-      body: `Hello ${name}, your ${role} account has been successfully created. ${role === 'doctor' ? 'Please wait for an admin to verify your account.' : ''}`,
+      to: email, 
+      subject: 'CareNet Healthcare - Verify Your Account',
+      body: `Hello ${name}, your verification code is: ${otpCode}. It expires in 10 minutes.`,
       type: 'EMAIL'
     });
 
     res.status(201).json({
       success: true,
-      message: role === 'doctor'
-        ? 'Doctor account created. Awaiting admin verification before full access is granted.'
-        : 'Account created successfully.',
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isVerified: user.isVerified,
-      },
+      message: 'Account created successfully. A verification code has been sent to your email.',
+      userId: user._id,
+      type: 'email',
+      // We don't send JWT here yet
     });
   } catch (error) {
     console.error('Register error:', error.message);
@@ -81,45 +85,79 @@ exports.register = async (req, res) => {
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, isGoogle } = req.body;
 
-    if (!email || !password) {
+    if (!email || (!isGoogle && !password)) {
       return res.status(400).json({ success: false, message: 'Email and password are required.' });
     }
 
-    // Find user with password included
-    const user = await User.findOne({ email }).select('+password');
+    // Find user
+    let user;
+    if (isGoogle) {
+      user = await User.findOne({ email });
+    } else {
+      user = await User.findOne({ email }).select('+password');
+    }
+
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
-    // Compare password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    if (!isGoogle) {
+      // Compare password
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+      }
     }
 
-    const token = generateToken(user);
+    // Reactivate account if it was deactivated
+    if (user.isActive === false) {
+      user.isActive = true;
+      await user.save();
+    }
 
-    // Send a notification asynchronously (for security alerts, etc.)
+    if (isGoogle) {
+      // For Google login, return the JWT immediately
+      const token = generateToken(user);
+      return res.status(200).json({
+        success: true,
+        message: 'Google login successful.',
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          isVerified: user.isVerified,
+        },
+      });
+    }
+
+    // Two-Factor Authentication: Always require OTP on Login
+    await VerificationCode.deleteMany({ userId: user._id });
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    await VerificationCode.create({
+      userId: user._id,
+      code: otpCode,
+      type: 'email',
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), 
+    });
+
     sendNotification({
       to: email,
-      subject: 'New Login to your CareNet Account',
-      body: `Hello ${user.name}, we detected a new login to your CareNet account.`,
+      subject: 'CareNet Healthcare - Login Verification',
+      body: `Hello ${user.name}, your login verification code is: ${otpCode}. It expires in 10 minutes.`,
       type: 'EMAIL'
     });
 
-    res.status(200).json({
-      success: true,
-      message: 'Login successful.',
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isVerified: user.isVerified,
-      },
+    return res.status(200).json({ 
+      success: true, 
+      message: 'A login verification code was sent to your email.', 
+      requiresVerification: true, 
+      userId: user._id 
     });
   } catch (error) {
     console.error('Login error:', error.message);
@@ -176,5 +214,105 @@ exports.approveDoctor = async (req, res) => {
   } catch (error) {
     console.error('approveDoctor error:', error.message);
     res.status(500).json({ success: false, message: 'Server error verifying doctors.' });
+  }
+};
+
+// ── GET /api/auth/verify-email or verify-phone ─────────────────────────────────
+exports.verifyOTP = async (req, res) => {
+  try {
+    const { userId, code } = req.body;
+    if (!userId || !code) {
+      return res.status(400).json({ success: false, message: 'User ID and code are required.' });
+    }
+
+    const record = await VerificationCode.findOne({ userId, code });
+    if (!record) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired verification code.' });
+    }
+
+    // Mark as verified
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    user.isOtpVerified = true;
+    await user.save();
+    await VerificationCode.deleteMany({ userId }); // clear codes
+
+    const token = generateToken(user);
+
+    sendNotification({
+      to: user.email,
+      subject: 'Welcome to CareNet Healthcare',
+      body: `Hello ${user.name}, your account is now fully verified. ${user.role === 'doctor' ? 'Please wait for an admin to verify your doctor credentials.' : ''}`,
+      type: 'EMAIL'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Account verified successfully.',
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isVerified: user.isVerified,
+      },
+    });
+
+  } catch (error) {
+    console.error('verifyOTP error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error during verification.' });
+  }
+};
+
+// ── POST /api/auth/resend-otp ─────────────────────────────────
+exports.resendOTP = async (req, res) => {
+  try {
+    const { userId, type } = req.body;
+    if (!userId) return res.status(400).json({ success: false, message: 'User ID required.' });
+    
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    await VerificationCode.deleteMany({ userId });
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const sendType = type === 'phone' ? 'SMS' : 'EMAIL';
+
+    await VerificationCode.create({
+      userId: user._id,
+      code: otpCode,
+      type: type || 'email',
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), 
+    });
+
+    sendNotification({
+      to: sendType === 'SMS' ? user.phone : user.email,
+      subject: 'CareNet Healthcare - New Verification Code',
+      body: `Hello ${user.name}, your new verification code is: ${otpCode}. It expires in 10 minutes.`,
+      type: sendType
+    });
+
+    res.status(200).json({ success: true, message: `New code sent via ${sendType.toLowerCase()}.` });
+  } catch (error) {
+    console.error('resendOTP error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error resending OTP.' });
+  }
+};
+
+// ── POST /api/auth/deactivate ─────────────────────────────────
+exports.deactivateAccount = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    user.isActive = false;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Account deactivated. Logging out...' });
+  } catch (error) {
+    console.error('deactivateAccount error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error during deactivation.' });
   }
 };

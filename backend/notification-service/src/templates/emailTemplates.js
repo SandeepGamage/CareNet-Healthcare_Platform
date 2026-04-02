@@ -237,6 +237,16 @@ const templates = {
       <p>If you haven't issued a prescription yet, you can do so from your dashboard.</p>
     `),
   }),
+  VERIFICATION_CODE_EMAIL: (d) => ({
+    subject: d.subject || 'Verification Code',
+    html: wrap('Verification Code', `
+      <h2>Verification Required</h2>
+      <p>Your authentication code is:</p>
+      <div style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #1a73e8; margin: 20px 0;">${d.code || d.message}</div>
+      <p>${d.message}</p>
+      <p>This code expires in 10 minutes. If you did not request this, please ignore this email.</p>
+    `),
+  }),
 };
 
 /**

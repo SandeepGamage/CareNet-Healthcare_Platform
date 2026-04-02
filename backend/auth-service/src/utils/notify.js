@@ -4,7 +4,7 @@ const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http:/
 
 exports.sendNotification = async ({ to, subject, body, type = 'EMAIL' }) => {
   try {
-    const response = await fetch(`${NOTIFICATION_SERVICE_URL}/api/notifications/send`, {
+    const response = await fetch(`${NOTIFICATION_SERVICE_URL}/api/notifications/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

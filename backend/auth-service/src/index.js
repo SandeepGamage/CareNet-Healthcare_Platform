@@ -15,10 +15,7 @@ app.use('/api/auth', authRoutes);
 
 // Database Connection
 mongoose
-  .connect(process.env.MONGO_URI || 'mongodb://localhost:27017/carenet', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/carenet')
   .then(() => console.log('MongoDB connected for Auth Service'))
   .catch((err) => console.error('MongoDB connection error:', err));
 
