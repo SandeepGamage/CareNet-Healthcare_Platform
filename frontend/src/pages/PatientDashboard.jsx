@@ -79,41 +79,7 @@ function StatCard({ label, value, change, changeType = "up", icon, color = "#3b8
 }
 
 // ── Data ───────────────────────────────────────────────────────────────────────
-const appointments = [
-    {
-        id: 1,
-        doctor: "Dr. Daniel Miller",
-        specialty: "Cardiologist",
-        type: "In-Person",
-        date: "Apr 14, 2026",
-        time: "09:30 AM",
-        status: "Confirmed",
-        statusColor: "#10b981",
-        avatar: "https://i.pravatar.cc/150?u=doctor1",
-    },
-    {
-        id: 2,
-        doctor: "Dr. Sarah Wilson",
-        specialty: "Dermatologist",
-        type: "Telemedicine",
-        date: "Apr 18, 2026",
-        time: "11:00 AM",
-        status: "Pending",
-        statusColor: "#f59e0b",
-        avatar: "https://i.pravatar.cc/150?u=doctor2",
-    },
-    {
-        id: 3,
-        doctor: "Dr. Robert James",
-        specialty: "Neurologist",
-        type: "In-Person",
-        date: "May 02, 2026",
-        time: "02:15 PM",
-        status: "Rescheduled",
-        statusColor: "#8b5cf6",
-        avatar: "https://i.pravatar.cc/150?u=doctor3",
-    },
-];
+const appointments = [];
 
 const healthMetrics = [
     { label: "Heart Rate", value: "72", unit: "bpm", icon: "❤️" },
@@ -122,8 +88,8 @@ const healthMetrics = [
     { label: "Oxygen Level", value: "98%", unit: "SpO2", icon: "🫁" },
 ];
 
-const appointmentChartData = [4, 6, 5, 8, 7, 9, 8, 10, 9, 11, 10, 12];
-const healthScoreData = [80, 82, 79, 85, 86, 84, 88, 87, 90, 89, 91, 92];
+const appointmentChartData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const healthScoreData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 export default function ModernPatientDashboard() {
     const [activeTab, setActiveTab] = useState("overview");
@@ -132,6 +98,7 @@ export default function ModernPatientDashboard() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [notifications, setNotifications] = useState([]);
     const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+    const [appointmentsData, setAppointmentsData] = useState([]);
 
     const [userProfile, setUserProfile] = useState(() => {
         const stored = localStorage.getItem("user");
@@ -610,10 +577,16 @@ export default function ModernPatientDashboard() {
                                 gap: "24px",
                                 marginBottom: "40px",
                             }}>
-                                <StatCard label="Next Appointment" value="in 3 days" change="Confirmed" changeType="up" icon="📅" />
-                                <StatCard label="Health Score" value="92" change="+1 from last week" changeType="up" icon="⭐" />
-                                <StatCard label="Total Visits" value="12" change="+2 this month" changeType="up" icon="🏥" />
-                                <StatCard label="Medications" value="5" change="All on schedule" changeType="up" icon="💊" />
+                                <StatCard 
+                                    label="Next Appointment" 
+                                    value={appointmentsData.length > 0 ? appointmentsData[0].date : "None"} 
+                                    change={appointmentsData.length > 0 ? "Confirmed" : "No upcoming"} 
+                                    changeType="up" 
+                                    icon="📅" 
+                                />
+                                <StatCard label="Health Score" value="--" change="Not enough data" changeType="up" icon="⭐" />
+                                <StatCard label="Total Visits" value="0" change="New Patient" changeType="up" icon="🏥" />
+                                <StatCard label="Medications" value="0" change="None active" changeType="up" icon="💊" />
                             </div>
 
                             {/* Charts Section */}
@@ -751,139 +724,109 @@ export default function ModernPatientDashboard() {
                                 gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
                                 gap: "24px",
                             }}>
-                                {appointments.map((appt) => (
-                                    <div
-                                        key={appt.id}
-                                        onClick={() => {
-                                            if (expandedAppt !== appt.id) {
-                                                setExpandedAppt(appt.id);
-                                                setPayingAppt(null);
-                                            } else {
-                                                setExpandedAppt(null);
-                                            }
-                                        }}
-                                        style={{
-                                            background: "white",
-                                            border: "1px solid #e5e7eb",
-                                            borderRadius: "16px",
-                                            padding: "24px",
-                                            cursor: "pointer",
-                                            transition: "all 0.2s",
-                                            boxShadow: expandedAppt === appt.id ? "0 10px 25px rgba(0,0,0,0.1)" : "none",
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            if (expandedAppt !== appt.id) {
-                                                e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
-                                            }
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            if (expandedAppt !== appt.id) {
-                                                e.currentTarget.style.boxShadow = "none";
-                                            }
-                                        }}
-                                    >
-                                        <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", marginBottom: "16px" }}>
-                                            <img src={appt.avatar} alt={appt.doctor} style={{
-                                                width: "56px",
-                                                height: "56px",
-                                                borderRadius: "12px",
-                                                objectFit: "cover",
-                                            }} />
-                                            <div style={{ flex: 1 }}>
-                                                <h4 style={{ fontSize: "16px", fontWeight: 600, color: "#111827", margin: "0 0 4px 0" }}>
-                                                    {appt.doctor}
-                                                </h4>
-                                                <p style={{ fontSize: "13px", color: "#6b7280", margin: 0 }}>
-                                                    {appt.specialty}
-                                                </p>
-                                            </div>
-                                            <span style={{
-                                                background: appt.statusColor,
-                                                color: "white",
-                                                padding: "6px 12px",
-                                                borderRadius: "6px",
-                                                fontSize: "11px",
-                                                fontWeight: 600,
-                                            }}>
-                                                {appt.status}
-                                            </span>
-                                        </div>
-
-                                        <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: "16px" }}>
-                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-                                                <div>
-                                                    <p style={{ fontSize: "11px", color: "#9ca3af", fontWeight: 600, margin: "0 0 4px 0", textTransform: "uppercase" }}>Date</p>
-                                                    <p style={{ fontSize: "14px", color: "#111827", fontWeight: 500, margin: 0 }}>{appt.date}</p>
+                                {appointmentsData.length === 0 ? (
+                                    <div style={{
+                                        gridColumn: "1 / -1",
+                                        padding: "80px 40px",
+                                        textAlign: "center",
+                                        background: "white",
+                                        borderRadius: "20px",
+                                        border: "2px dashed #e5e7eb",
+                                        color: "#6b7280"
+                                    }}>
+                                        <p style={{ fontSize: "48px", margin: "0 0 24px 0" }}>📅</p>
+                                        <h3 style={{ fontSize: "20px", fontWeight: 600, color: "#111827", margin: "0 0 8px 0" }}>No upcoming appointments</h3>
+                                        <p style={{ fontSize: "16px", margin: 0 }}>You don't have any appointments scheduled at the moment.</p>
+                                    </div>
+                                ) : (
+                                    appointmentsData.map((appt) => (
+                                        <div
+                                            key={appt.id}
+                                            onClick={() => {
+                                                if (expandedAppt !== appt.id) {
+                                                    setExpandedAppt(appt.id);
+                                                    setPayingAppt(null);
+                                                } else {
+                                                    setExpandedAppt(null);
+                                                }
+                                            }}
+                                            style={{
+                                                background: "white",
+                                                border: "1px solid #e5e7eb",
+                                                borderRadius: "16px",
+                                                padding: "24px",
+                                                cursor: "pointer",
+                                                transition: "all 0.2s",
+                                                boxShadow: expandedAppt === appt.id ? "0 10px 25px rgba(0,0,0,0.1)" : "none",
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (expandedAppt !== appt.id) {
+                                                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (expandedAppt !== appt.id) {
+                                                    e.currentTarget.style.boxShadow = "none";
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", marginBottom: "16px" }}>
+                                                <img src={appt.avatar} alt={appt.doctor} style={{
+                                                    width: "56px",
+                                                    height: "56px",
+                                                    borderRadius: "12px",
+                                                    objectFit: "cover",
+                                                }} />
+                                                <div style={{ flex: 1 }}>
+                                                    <h4 style={{ fontSize: "16px", fontWeight: 600, color: "#111827", margin: "0 0 4px 0" }}>
+                                                        {appt.doctor}
+                                                    </h4>
+                                                    <p style={{ fontSize: "13px", color: "#6b7280", margin: 0 }}>
+                                                        {appt.specialty}
+                                                    </p>
                                                 </div>
+                                                <span style={{
+                                                    background: appt.statusColor || "#3b82f6",
+                                                    color: "white",
+                                                    padding: "6px 12px",
+                                                    borderRadius: "6px",
+                                                    fontSize: "11px",
+                                                    fontWeight: 600,
+                                                }}>
+                                                    {appt.status}
+                                                </span>
+                                            </div>
+
+                                            <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: "16px" }}>
+                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+                                                    <div>
+                                                        <p style={{ fontSize: "11px", color: "#9ca3af", fontWeight: 600, margin: "0 0 4px 0", textTransform: "uppercase" }}>Date</p>
+                                                        <p style={{ fontSize: "14px", color: "#111827", fontWeight: 500, margin: 0 }}>{appt.date}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p style={{ fontSize: "11px", color: "#9ca3af", fontWeight: 600, margin: "0 0 4px 0", textTransform: "uppercase" }}>Time</p>
+                                                        <p style={{ fontSize: "14px", color: "#111827", fontWeight: 500, margin: 0 }}>{appt.time}</p>
+                                                    </div>
+                                                </div>
+
                                                 <div>
-                                                    <p style={{ fontSize: "11px", color: "#9ca3af", fontWeight: 600, margin: "0 0 4px 0", textTransform: "uppercase" }}>Time</p>
-                                                    <p style={{ fontSize: "14px", color: "#111827", fontWeight: 500, margin: 0 }}>{appt.time}</p>
+                                                    <p style={{ fontSize: "11px", color: "#9ca3af", fontWeight: 600, margin: "0 0 4px 0", textTransform: "uppercase" }}>Type</p>
+                                                    <p style={{ fontSize: "14px", color: "#111827", fontWeight: 500, margin: 0 }}>{appt.type}</p>
                                                 </div>
                                             </div>
 
-                                            <div>
-                                                <p style={{ fontSize: "11px", color: "#9ca3af", fontWeight: 600, margin: "0 0 4px 0", textTransform: "uppercase" }}>Type</p>
-                                                <p style={{ fontSize: "14px", color: "#111827", fontWeight: 500, margin: 0 }}>{appt.type}</p>
-                                            </div>
-                                        </div>
-
-                                        {expandedAppt === appt.id && (
-                                            <div 
-                                                onClick={(e) => e.stopPropagation()}
-                                                style={{
-                                                marginTop: "16px",
-                                                paddingTop: "16px",
-                                                borderTop: "1px solid #f3f4f6",
-                                                display: "flex",
-                                                flexDirection: "column",
-                                                gap: "12px",
-                                            }}>
-                                                {payingAppt === appt.id ? (
-                                                    <PayHereCheckout
-                                                        appointmentId={appt.id}
-                                                        amount={1500}
-                                                        patientDetails={{
-                                                            firstName: userProfile.name.split(" ")[0],
-                                                            lastName: userProfile.name.split(" ")[1] || "",
-                                                            email: userProfile.email,
-                                                            phone: userProfile.phone,
-                                                            address: "123 Main St",
-                                                            city: "Colombo",
-                                                        }}
-                                                        doctorName={appt.doctor}
-                                                    />
-                                                ) : (
-                                                    <div style={{ display: "flex", gap: "12px" }}>
-                                                        {appt.status === "Pending" && (
-                                                            <button 
-                                                                onClick={(e) => { e.stopPropagation(); setPayingAppt(appt.id); }}
-                                                                style={{
-                                                                flex: 1,
-                                                                padding: "10px",
-                                                                background: "#10b981",
-                                                                color: "white",
-                                                                border: "none",
-                                                                borderRadius: "8px",
-                                                                fontSize: "14px",
-                                                                fontWeight: 600,
-                                                                cursor: "pointer",
-                                                            }}>
-                                                                Pay Now
-                                                            </button>
-                                                        )}
-                                                        <button style={{
-                                                            flex: 1,
-                                                            padding: "10px",
-                                                            background: "#3b82f6",
-                                                            color: "white",
-                                                            border: "none",
-                                                            borderRadius: "8px",
-                                                            fontSize: "14px",
-                                                            fontWeight: 600,
-                                                            cursor: "pointer",
-                                                        }}>
-                                                            Reschedule
-                                                        </button>
+                                            {expandedAppt === appt.id && (
+                                                <div 
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    style={{
+                                                    marginTop: "16px",
+                                                    paddingTop: "16px",
+                                                    borderTop: "1px solid #f3f4f6",
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    gap: "12px",
+                                                }}>
+                                                     <div style={{ display: "flex", gap: "12px" }}>
                                                         <button style={{
                                                             flex: 1,
                                                             padding: "10px",
@@ -898,11 +841,11 @@ export default function ModernPatientDashboard() {
                                                             Details
                                                         </button>
                                                     </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </div>
                     )}
