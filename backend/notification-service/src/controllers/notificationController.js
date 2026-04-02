@@ -122,7 +122,8 @@ const getLogs = async (req, res, next) => {
  */
 const getMyLogs = async (req, res, next) => {
   try {
-    const logs = await NotificationLog.find({ recipientId: req.user.userId })
+    const id = req.user.id || req.user.userId || req.user._id;
+    const logs = await NotificationLog.find({ recipientId: id })
       .sort({ createdAt: -1 })
       .limit(50);
 

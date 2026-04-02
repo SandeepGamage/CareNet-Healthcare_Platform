@@ -130,6 +130,8 @@ export default function ModernPatientDashboard() {
     const [expandedAppt, setExpandedAppt] = useState(null);
     const [payingAppt, setPayingAppt] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [notifications, setNotifications] = useState([]);
+    const [showNotifDropdown, setShowNotifDropdown] = useState(false);
 
     const [userProfile, setUserProfile] = useState(() => {
         const stored = localStorage.getItem("user");
@@ -181,6 +183,27 @@ export default function ModernPatientDashboard() {
             }
         };
         fetchProfile();
+
+        const fetchNotifications = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch("http://localhost:5004/api/notifications/logs/my", {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    // Mix real logs with some simulated 'Gmail' style notifications
+                    const simulated = [
+                        { _id: 'sim1', subject: 'Gmail: Security Alert', body: 'A new device logged into your account.', createdAt: new Date().toISOString(), type: 'GMAIL' },
+                        { _id: 'sim2', subject: 'Gmail: Newsletter', body: 'Your weekly health tips are here.', createdAt: new Date(Date.now() - 3600000).toISOString(), type: 'GMAIL' },
+                    ];
+                    setNotifications([...simulated, ...data.data]);
+                }
+            } catch (err) {
+                console.log("Notif fetch failed", err);
+            }
+        };
+        fetchNotifications();
     }, []);
 
     return (
@@ -266,7 +289,78 @@ export default function ModernPatientDashboard() {
                 </div>
 
                 {/* Right Side */}
-                <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "20px", position: "relative" }}>
+                    
+                    {/* Notification Bell */}
+                    <div style={{ position: "relative" }}>
+                        <button 
+                            onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+                            style={{
+                                background: "none",
+                                border: "none",
+                                fontSize: "20px",
+                                cursor: "pointer",
+                                padding: "8px",
+                                color: "#4b5563",
+                                position: "relative"
+                            }}
+                        >
+                            🔔
+                            {notifications.length > 0 && (
+                                <span style={{
+                                    position: "absolute",
+                                    top: "6px",
+                                    right: "6px",
+                                    width: "8px",
+                                    height: "8px",
+                                    background: "#ef4444",
+                                    borderRadius: "50%",
+                                    border: "2px solid white"
+                                }} />
+                            )}
+                        </button>
+
+                        {showNotifDropdown && (
+                            <div style={{
+                                position: "absolute",
+                                top: "50px",
+                                right: "0",
+                                width: "320px",
+                                background: "white",
+                                borderRadius: "12px",
+                                boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+                                border: "1px solid #f3f4f6",
+                                zIndex: 100,
+                                overflow: "hidden"
+                            }}>
+                                <div style={{ padding: "16px", borderBottom: "1px solid #f3f4f6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <h3 style={{ margin: 0, fontSize: "14px", fontWeight: 600 }}>Notifications</h3>
+                                    <span style={{ fontSize: "11px", color: "#6b7280" }}>{notifications.length} Unread</span>
+                                </div>
+                                <div style={{ maxHeight: "350px", overflowY: "auto" }}>
+                                    {notifications.length === 0 ? (
+                                        <div style={{ padding: "32px", textAlign: "center", color: "#6b7280", fontSize: "13px" }}>No notifications</div>
+                                    ) : (
+                                        notifications.map(n => (
+                                            <div key={n._id} style={{ 
+                                                padding: "12px 16px", 
+                                                borderBottom: "1px solid #f9fafb", 
+                                                cursor: "pointer",
+                                                background: n.type === 'GMAIL' ? '#f0f9ff' : 'white'
+                                            }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = n.type === 'GMAIL' ? '#f0f9ff' : 'white'}>
+                                                <div style={{ fontSize: "12px", fontWeight: 600, color: "#111827", marginBottom: "2px" }}>
+                                                    {n.type === 'GMAIL' && '📧 '} {n.subject || n.eventType || 'System Alert'}
+                                                </div>
+                                                <div style={{ fontSize: "11px", color: "#4b5563", marginBottom: "4px" }}>{n.body}</div>
+                                                <div style={{ fontSize: "10px", color: "#9ca3af" }}>{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div style={{
                         display: "flex",
                         alignItems: "center",
