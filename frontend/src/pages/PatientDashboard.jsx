@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import PayHereCheckout from "../components/payment/PayHereCheckout";
 
 // ── Mini Sparkline Chart ───────────────────────────────────────────────────────
 function MiniChart({ data, color = "#3b82f6" }) {
@@ -127,6 +128,7 @@ const healthScoreData = [80, 82, 79, 85, 86, 84, 88, 87, 90, 89, 91, 92];
 export default function ModernPatientDashboard() {
     const [activeTab, setActiveTab] = useState("overview");
     const [expandedAppt, setExpandedAppt] = useState(null);
+    const [payingAppt, setPayingAppt] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     const [userProfile, setUserProfile] = useState({
@@ -640,7 +642,14 @@ export default function ModernPatientDashboard() {
                                 {appointments.map((appt) => (
                                     <div
                                         key={appt.id}
-                                        onClick={() => setExpandedAppt(expandedAppt === appt.id ? null : appt.id)}
+                                        onClick={() => {
+                                            if (expandedAppt !== appt.id) {
+                                                setExpandedAppt(appt.id);
+                                                setPayingAppt(null);
+                                            } else {
+                                                setExpandedAppt(null);
+                                            }
+                                        }}
                                         style={{
                                             background: "white",
                                             border: "1px solid #e5e7eb",
@@ -707,39 +716,77 @@ export default function ModernPatientDashboard() {
                                         </div>
 
                                         {expandedAppt === appt.id && (
-                                            <div style={{
+                                            <div 
+                                                onClick={(e) => e.stopPropagation()}
+                                                style={{
                                                 marginTop: "16px",
                                                 paddingTop: "16px",
                                                 borderTop: "1px solid #f3f4f6",
                                                 display: "flex",
+                                                flexDirection: "column",
                                                 gap: "12px",
                                             }}>
-                                                <button style={{
-                                                    flex: 1,
-                                                    padding: "10px",
-                                                    background: "#3b82f6",
-                                                    color: "white",
-                                                    border: "none",
-                                                    borderRadius: "8px",
-                                                    fontSize: "14px",
-                                                    fontWeight: 600,
-                                                    cursor: "pointer",
-                                                }}>
-                                                    Reschedule
-                                                </button>
-                                                <button style={{
-                                                    flex: 1,
-                                                    padding: "10px",
-                                                    background: "#f3f4f6",
-                                                    color: "#374151",
-                                                    border: "none",
-                                                    borderRadius: "8px",
-                                                    fontSize: "14px",
-                                                    fontWeight: 600,
-                                                    cursor: "pointer",
-                                                }}>
-                                                    Details
-                                                </button>
+                                                {payingAppt === appt.id ? (
+                                                    <PayHereCheckout
+                                                        appointmentId={appt.id}
+                                                        amount={1500}
+                                                        patientDetails={{
+                                                            firstName: userProfile.name.split(" ")[0],
+                                                            lastName: userProfile.name.split(" ")[1] || "",
+                                                            email: userProfile.email,
+                                                            phone: userProfile.phone,
+                                                            address: "123 Main St",
+                                                            city: "Colombo",
+                                                        }}
+                                                        doctorName={appt.doctor}
+                                                    />
+                                                ) : (
+                                                    <div style={{ display: "flex", gap: "12px" }}>
+                                                        {appt.status === "Pending" && (
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); setPayingAppt(appt.id); }}
+                                                                style={{
+                                                                flex: 1,
+                                                                padding: "10px",
+                                                                background: "#10b981",
+                                                                color: "white",
+                                                                border: "none",
+                                                                borderRadius: "8px",
+                                                                fontSize: "14px",
+                                                                fontWeight: 600,
+                                                                cursor: "pointer",
+                                                            }}>
+                                                                Pay Now
+                                                            </button>
+                                                        )}
+                                                        <button style={{
+                                                            flex: 1,
+                                                            padding: "10px",
+                                                            background: "#3b82f6",
+                                                            color: "white",
+                                                            border: "none",
+                                                            borderRadius: "8px",
+                                                            fontSize: "14px",
+                                                            fontWeight: 600,
+                                                            cursor: "pointer",
+                                                        }}>
+                                                            Reschedule
+                                                        </button>
+                                                        <button style={{
+                                                            flex: 1,
+                                                            padding: "10px",
+                                                            background: "#f3f4f6",
+                                                            color: "#374151",
+                                                            border: "none",
+                                                            borderRadius: "8px",
+                                                            fontSize: "14px",
+                                                            fontWeight: 600,
+                                                            cursor: "pointer",
+                                                        }}>
+                                                            Details
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
