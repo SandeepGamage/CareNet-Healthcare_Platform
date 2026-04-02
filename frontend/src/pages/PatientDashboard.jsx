@@ -98,6 +98,7 @@ export default function ModernPatientDashboard() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [notifications, setNotifications] = useState([]);
     const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
     const [appointmentsData, setAppointmentsData] = useState([]);
 
     const [userProfile, setUserProfile] = useState(() => {
@@ -342,12 +343,89 @@ export default function ModernPatientDashboard() {
                         <span style={{ width: "8px", height: "8px", background: "#10b981", borderRadius: "50%" }} />
                         Online
                     </div>
-                    <img src={userProfile.avatar} alt="Patient" style={{
-                        width: "36px",
-                        height: "36px",
-                        borderRadius: "50%",
-                        border: "2px solid #3b82f6",
-                    }} />
+                    <div style={{ position: "relative" }}>
+                        <img 
+                            src={userProfile.avatar} 
+                            alt="Patient" 
+                            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                            style={{
+                                width: "38px",
+                                height: "38px",
+                                borderRadius: "50%",
+                                border: "2px solid #3b82f6",
+                                cursor: "pointer",
+                                transition: "transform 0.2s"
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                        />
+
+                        {showProfileDropdown && (
+                            <div style={{
+                                position: "absolute",
+                                top: "50px",
+                                right: "0",
+                                width: "240px",
+                                background: "white",
+                                borderRadius: "12px",
+                                boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+                                border: "1px solid #f3f4f6",
+                                zIndex: 100,
+                                padding: "8px"
+                            }}>
+                                <div style={{ padding: "12px", borderBottom: "1px solid #f3f4f6", marginBottom: "8px" }}>
+                                    <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#111827" }}>{userProfile.name}</p>
+                                    <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#6b7280" }}>{userProfile.email}</p>
+                                </div>
+                                <button 
+                                    onClick={() => setActiveTab("settings")}
+                                    style={{
+                                        width: "100%",
+                                        padding: "10px 12px",
+                                        textAlign: "left",
+                                        background: "none",
+                                        border: "none",
+                                        borderRadius: "6px",
+                                        fontSize: "13px",
+                                        color: "#374151",
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "8px"
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                >
+                                    ⚙️ Account Settings
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        localStorage.clear();
+                                        window.location.href = "/login";
+                                    }}
+                                    style={{
+                                        width: "100%",
+                                        padding: "10px 12px",
+                                        textAlign: "left",
+                                        background: "none",
+                                        border: "none",
+                                        borderRadius: "6px",
+                                        fontSize: "13px",
+                                        color: "#dc2626",
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "8px"
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                >
+                                    🚪 Sign out
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </nav>
 
