@@ -117,6 +117,10 @@ exports.login = async (req, res) => {
       await user.save();
     }
 
+    if (user.role === 'doctor' && !user.isVerified) {
+      return res.status(403).json({ success: false, message: 'Your doctor account is pending admin verification.' });
+    }
+
     if (isGoogle) {
       // For Google login, return the JWT immediately
       const token = generateToken(user);
@@ -190,6 +194,30 @@ exports.getAllDoctors = async (req, res) => {
   }
 };
 
+// ── PUBLIC: GET /api/auth/doctors/verified ───────────────────────────
+// Returns only admin-approved doctors — accessible to any logged-in user (patients included)
+exports.getVerifiedDoctors = async (req, res) => {
+  try {
+    const doctors = await User.find({ role: 'doctor', isVerified: true })
+      .select('name email specialty consultationFee fee rating experience');
+    res.status(200).json({ success: true, count: doctors.length, data: doctors });
+  } catch (error) {
+    console.error('getVerifiedDoctors error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error fetching doctors.' });
+  }
+};
+
+// ── ADMIN: GET /api/auth/patients ───────────────────────────────────
+exports.getAllPatients = async (req, res) => {
+  try {
+    const patients = await User.find({ role: 'patient' });
+    res.status(200).json({ success: true, count: patients.length, data: patients });
+  } catch (error) {
+    console.error('getAllPatients error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error fetching patients.' });
+  }
+};
+
 // ── ADMIN: PUT /api/auth/doctors/:id/verify ─────────────────────────────────
 exports.approveDoctor = async (req, res) => {
   try {
@@ -208,13 +236,44 @@ exports.approveDoctor = async (req, res) => {
       to: doctor.email,
       subject: 'CareNet Account Verified',
       body: `Hello ${doctor.name}, your doctor account has been verified by an admin. You can now access telemedicine features.`,
-      type: 'EMAIL'
+      type: 'EMAIL',
+      apiPath: 'account',
+      eventType: 'ACCOUNT_UPDATE'
     });
 
     res.status(200).json({ success: true, message: 'Doctor verified successfully.', data: doctor });
   } catch (error) {
     console.error('approveDoctor error:', error.message);
     res.status(500).json({ success: false, message: 'Server error verifying doctors.' });
+  }
+};
+
+// ── ADMIN: DELETE /api/auth/doctors/:id/reject ──────────────────────────────
+exports.rejectDoctor = async (req, res) => {
+  try {
+    const doctorId = req.params.id;
+    const doctor = await User.findById(doctorId);
+
+    if (!doctor || doctor.role !== 'doctor') {
+      return res.status(404).json({ success: false, message: 'Doctor not found.' });
+    }
+
+    await User.findByIdAndDelete(doctorId);
+
+    // Notify doctor
+    sendNotification({
+      to: doctor.email,
+      subject: 'CareNet Account Application Update',
+      body: `Hello ${doctor.name}, your doctor account registration has been rejected by an admin. For more details, please contact our support.`,
+      type: 'EMAIL',
+      apiPath: 'account',
+      eventType: 'ACCOUNT_UPDATE'
+    });
+
+    res.status(200).json({ success: true, message: 'Doctor rejected successfully.' });
+  } catch (error) {
+    console.error('rejectDoctor error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error rejecting doctors.' });
   }
 };
 
@@ -239,7 +298,10 @@ exports.verifyOTP = async (req, res) => {
     await user.save();
     await VerificationCode.deleteMany({ userId }); // clear codes
 
-    const token = generateToken(user);
+    let token = null;
+    if (user.role !== 'doctor' || user.isVerified) {
+      token = generateToken(user);
+    }
 
     sendNotification({
       to: user.email,

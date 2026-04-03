@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Calendar,
   Users,
@@ -22,7 +23,8 @@ import {
   PlusCircle,
   Edit,
   Trash2,
-  Eye
+  Eye,
+  LogOut
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -33,11 +35,14 @@ const AdminDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const navigate = useNavigate();
 
   // Data states
   const [appointments, setAppointments] = useState([]);
   const [patients, setPatients] = useState([]);
   const [pendingDoctors, setPendingDoctors] = useState([]);
+  const [allDoctors, setAllDoctors] = useState([]);
   const [allDoctorsCount, setAllDoctorsCount] = useState(0);
   const [stats, setStats] = useState([
     { title: 'Total Patients', value: '0', change: '+0%', icon: Users, key: 'patients' },
@@ -60,6 +65,12 @@ const AdminDashboard = () => {
 
   // Get auth token from localStorage
   const getAuthToken = () => localStorage.getItem('token');
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userRole'); // Assuming role might be stored
+    navigate('/login');
+  };
 
   // Fetch appointments from your backend
   const fetchAppointments = async () => {
@@ -89,10 +100,10 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       const token = getAuthToken();
-      const response = await axios.get(`${API_BASE_URL}/patients`, {
+      const response = await axios.get(`http://localhost:3001/api/auth/admin/patients`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = Array.isArray(response.data) ? response.data : (response.data?.patients || []);
+      const data = Array.isArray(response.data?.data) ? response.data.data : [];
       setPatients(data);
       setError(null);
     } catch (err) {
@@ -142,10 +153,10 @@ const AdminDashboard = () => {
       const token = getAuthToken();
       // Fetch patients and doctors counts unconditionally for the dashboard overall stats
       const [patientsRes, doctorsRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/patients`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: [] })),
+        axios.get(`http://localhost:3001/api/auth/admin/patients`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { data: [] } })),
         axios.get(`http://localhost:3001/api/auth/admin/doctors`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { count: 0 } }))
       ]);
-      const pData = Array.isArray(patientsRes.data) ? patientsRes.data : (patientsRes.data?.patients || []);
+      const pData = Array.isArray(patientsRes.data?.data) ? patientsRes.data.data : [];
       setPatients(pData);
       setAllDoctorsCount(doctorsRes.data?.count || 0);
     } catch (err) {
@@ -215,6 +226,25 @@ const AdminDashboard = () => {
     }
   };
 
+  // Fetch all verified doctors
+  const fetchAllDoctors = async () => {
+    try {
+      setLoading(true);
+      const token = getAuthToken();
+      const response = await axios.get(`http://localhost:3001/api/auth/admin/doctors`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const docs = (response.data?.data || []).filter(d => d.isVerified);
+      setAllDoctors(docs);
+      setAllDoctorsCount(response.data?.count || docs.length);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch doctors');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Approve a doctor
   const approveDoctor = async (doctorId) => {
     try {
@@ -225,6 +255,20 @@ const AdminDashboard = () => {
       fetchPendingDoctors();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to approve doctor');
+    }
+  };
+
+  // Reject a doctor
+  const rejectDoctor = async (doctorId) => {
+    if (!window.confirm('Are you sure you want to reject this doctor application?')) return;
+    try {
+      const token = getAuthToken();
+      await axios.delete(`http://localhost:3001/api/auth/admin/doctors/${doctorId}/reject`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchPendingDoctors();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to reject doctor');
     }
   };
 
@@ -244,6 +288,9 @@ const AdminDashboard = () => {
     }
     if (activeTab === 'doctors') {
       fetchPendingDoctors();
+    }
+    if (activeTab === 'alldoctors') {
+      fetchAllDoctors();
     }
   }, [activeTab]);
 
@@ -285,6 +332,7 @@ const AdminDashboard = () => {
           {[
             { id: 'appointments', label: 'Appointments', icon: Calendar },
             { id: 'patients', label: 'Patients', icon: Users },
+            { id: 'alldoctors', label: 'All Doctors', icon: User },
             { id: 'doctors', label: 'Doctor Approvals', icon: CheckCircle },
             { id: 'analytics', label: 'Analytics', icon: Activity },
             { id: 'revenue', label: 'Revenue', icon: DollarSign },
@@ -306,13 +354,13 @@ const AdminDashboard = () => {
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
           <div className="flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
-            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
+            <button className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-700 transition-colors shadow-sm">
               <User className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
+            </button>
+            <button className="flex-1 text-left">
               <p className="text-sm font-medium text-gray-900">Admin User</p>
-              <p className="text-xs text-gray-500">admin@healthcare.com</p>
-            </div>
+              <p className="text-xs text-gray-500 hover:text-blue-600 transition-colors">carenet.admin.support@gmail.com</p>
+            </button>
           </div>
         </div>
       </aside>
@@ -347,8 +395,36 @@ const AdminDashboard = () => {
                 <Bell className="w-6 h-6" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-                <User className="w-4 h-4 text-white" />
+              <div className="relative">
+                <button 
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-700 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  <User className="w-4 h-4 text-white" />
+                </button>
+
+                {/* Profile Dropdown Menu */}
+                {showProfileMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowProfileMenu(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 z-50 py-1">
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <p className="text-sm font-medium text-gray-900">Admin User</p>
+                        <p className="text-xs text-gray-500 truncate">carenet.admin.support@gmail.com</p>
+                      </div>
+                      <button 
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2 transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Sign out</span>
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -608,6 +684,87 @@ const AdminDashboard = () => {
             </div>
           )}
 
+          {/* All Doctors Tab Content */}
+          {activeTab === 'alldoctors' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-gray-900">All Doctors <span className="ml-2 text-sm font-normal text-gray-500">({allDoctors.length} approved)</span></h2>
+                </div>
+              </div>
+              {loading ? (
+                <div className="p-12 text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="mt-2 text-gray-500">Loading doctors...</p>
+                </div>
+              ) : allDoctors.length === 0 ? (
+                <div className="p-12 text-center text-gray-500">
+                  <User className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>No approved doctors found.</p>
+                  <p className="text-sm mt-1">Approve doctors from the <button onClick={() => setActiveTab('doctors')} className="text-blue-600 underline">Doctor Approvals</button> tab.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                  {allDoctors.map((doctor) => (
+                    <div key={doctor._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                            <span className="text-lg font-semibold text-indigo-600">
+                              {doctor.name?.charAt(0) || 'D'}
+                            </span>
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{doctor.name}</h3>
+                            <p className="text-sm text-blue-600 font-medium">{doctor.specialty || 'General Medicine'}</p>
+                          </div>
+                        </div>
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Verified
+                        </span>
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        <div className="flex items-center space-x-2 text-sm text-gray-600">
+                          <Mail className="w-4 h-4 text-gray-400" />
+                          <span className="truncate">{doctor.email}</span>
+                        </div>
+                        {doctor.phone && (
+                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                            <Phone className="w-4 h-4 text-gray-400" />
+                            <span>{doctor.phone}</span>
+                          </div>
+                        )}
+                        {doctor.consultationFee && (
+                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                            <DollarSign className="w-4 h-4 text-gray-400" />
+                            <span>${doctor.consultationFee} / visit</span>
+                          </div>
+                        )}
+                        {doctor.experience && (
+                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                            <Activity className="w-4 h-4 text-gray-400" />
+                            <span>{doctor.experience} experience</span>
+                          </div>
+                        )}
+                        {doctor.qualifications && (
+                          <p className="text-xs text-gray-400 mt-1">{doctor.qualifications}</p>
+                        )}
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                        <span className="text-xs text-gray-400">Joined {formatDate(doctor.createdAt)}</span>
+                        {doctor.rating && (
+                          <span className="flex items-center gap-1 text-sm text-yellow-600">
+                            ★ {doctor.rating}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Doctors Approval Tab Content */}
           {activeTab === 'doctors' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -650,12 +807,20 @@ const AdminDashboard = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{doctor.specialty || 'Not specified'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatDate(doctor.createdAt)}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <button 
-                              onClick={() => approveDoctor(doctor._id)}
-                              className="px-4 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-sm font-medium transition-colors"
-                            >
-                              Approve
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => approveDoctor(doctor._id)}
+                                className="px-4 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-sm font-medium transition-colors"
+                              >
+                                Approve
+                              </button>
+                              <button 
+                                onClick={() => rejectDoctor(doctor._id)}
+                                className="px-4 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg text-sm font-medium transition-colors"
+                              >
+                                Reject
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}

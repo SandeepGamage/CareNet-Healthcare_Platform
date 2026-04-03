@@ -247,6 +247,14 @@ const templates = {
       <p>This code expires in 10 minutes. If you did not request this, please ignore this email.</p>
     `),
   }),
+  ACCOUNT_UPDATE: (d) => ({
+    subject: d.subject || 'Account Update',
+    html: wrap('Account Update', `
+      <h2>Account Status Update</h2>
+      <p>${d.message}</p>
+      <p>Thank you for using CareNet.</p>
+    `),
+  }),
 };
 
 /**

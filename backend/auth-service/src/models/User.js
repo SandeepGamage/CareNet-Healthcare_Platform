@@ -44,6 +44,22 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null, // Only applicable for doctors
     },
+    consultationFee: {
+      type: Number,
+      default: null, // Consultation fee in USD
+    },
+    rating: {
+      type: Number,
+      default: null, // Average rating out of 5
+    },
+    experience: {
+      type: String,
+      default: null, // e.g. "5 years"
+    },
+    qualifications: {
+      type: String,
+      default: null, // e.g. "MBBS, MD"
+    },
     profilePicture: {
       type: String,
       default: null,

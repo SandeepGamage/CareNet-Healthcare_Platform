@@ -88,6 +88,32 @@ const handleRefundNotification = async (req, res, next) => {
 };
 
 /**
+ * POST /api/notifications/account
+ * Called by auth-service for approval/rejection
+ */
+const handleAccountNotification = async (req, res, next) => {
+  try {
+    const { userId, message, subject, eventType } = req.body;
+    
+    if (!userId || !message) {
+      return res.status(400).json({ success: false, message: 'userId and message are required' });
+    }
+
+    // Dispatch notification
+    require('../services/notificationDispatcher').dispatchNotification({
+      eventType: eventType || 'ACCOUNT_UPDATE',
+      email: userId,
+      role: 'doctor', // default role
+      data: { message, subject },
+    }).catch((err) => logger.error(`Account notification dispatch error: ${err.message}`));
+
+    res.status(202).json({ success: true, message: 'Account notification queued' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * GET /api/notifications/logs
  * Admin: get all notification logs with filters
  */
@@ -170,6 +196,7 @@ module.exports = {
   handlePaymentNotification,
   handleRefundNotification,
   handleVerificationNotification,
+  handleAccountNotification,
   getLogs,
   getMyLogs,
 };

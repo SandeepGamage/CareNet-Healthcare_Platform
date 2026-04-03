@@ -12,8 +12,11 @@ const createPayment = async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation Errors:', errors.array());
       return res.status(400).json({ success: false, errors: errors.array() });
     }
+    console.log('Payment Request Body:', req.body);
+    console.log('Authorized User:', req.user);
 
     const {
       appointmentId,
@@ -25,36 +28,30 @@ const createPayment = async (req, res, next) => {
 
     const patientId = req.user.id || req.user.userId;
 
-    // Guard: prevent double-payment for the same appointment
-    const existing = await Transaction.findOne({
-      appointmentId,
-      status: { $in: ['pending', 'succeeded'] },
-    });
-
-    if (existing?.status === 'succeeded') {
-      return res.status(400).json({
-        success: false,
-        message: 'This appointment has already been paid.',
-      });
-    }
-
-    // Create a pending Transaction record — PayHere will confirm it via webhook
-    const transaction = await Transaction.create({
-      appointmentId,
-      payhereOrderId: appointmentId, // Use appointmentId as the unique PayHere order ID
-      patientId,
-      doctorId,
-      amount,
-      currency,
-      status  : 'pending',
-      metadata: {
-        doctorName      : metadata.doctorName       || '',
-        patientName     : req.user.name             || '',
-        specialty       : metadata.specialty        || '',
-        appointmentDate : metadata.appointmentDate  || '',
-        consultationType: metadata.consultationType || 'telemedicine',
+    // Atomic Upsert: Find and update OR create a new pending transaction
+    const transaction = await Transaction.findOneAndUpdate(
+      { appointmentId },
+      {
+        $setOnInsert: {
+          payhereOrderId: appointmentId,
+          patientId,
+          currency: currency.toUpperCase(),
+          status: 'pending',
+        },
+        $set: {
+          doctorId,
+          amount: parseFloat(amount),
+          metadata: {
+            doctorName: metadata.doctorName || '',
+            patientName: req.user.name || '',
+            specialty: metadata.specialty || '',
+            appointmentDate: metadata.appointmentDate || '',
+            consultationType: metadata.consultationType || 'telemedicine',
+          },
+        },
       },
-    });
+      { new: true, upsert: true, runValidators: true }
+    );
 
     // Generate PayHere MD5 Hash
     // Formula: md5(merchant_id + order_id + amount_formatted + currency + md5(secret).toUpperCase()).toUpperCase()

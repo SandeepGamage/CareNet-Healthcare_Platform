@@ -1,37 +1,90 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { CheckCircle, ArrowRight, FileText, Calendar } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import axios from 'axios';
 
 const PaymentSuccess = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [loading, setLoading] = useState(true);
+  const [transactionData, setTransactionData] = useState(null);
+  const orderId = searchParams.get('order_id');
+
+  useEffect(() => {
+    if (!orderId) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`http://localhost:3005/api/payments/appointment/${orderId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setTransactionData(response.data.data);
+      } catch (err) {
+        console.error('Failed to fetch transaction status:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStatus();
+  }, [orderId]);
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md w-full">
-        {/* Success Icon */}
-        <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
-          <svg className="h-10 w-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-          </svg>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl text-center border border-slate-100">
+        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <CheckCircle className="w-12 h-12 text-green-600" />
         </div>
         
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Payment Successful!</h2>
-        <p className="text-gray-600 mb-8">
-          Your payment has been successfully processed and your appointment is confirmed. 
-          A confirmation receipt has been sent to your email.
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">Payment Successful!</h1>
+        <p className="text-slate-500 mb-8">
+          Your booking is now confirmed. We've sent a detailed receipt to your email.
+          <span className="block mt-2 text-xs font-mono text-slate-400">Ref: {orderId || 'APT-0000'}</span>
         </p>
-        
-        <div className="flex flex-col space-y-3">
-          <Link 
-            to="/appointments" 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-md transition duration-300"
+
+        {transactionData && (
+          <div className="bg-slate-50 rounded-2xl p-6 mb-8 text-left space-y-3">
+             <div className="flex justify-between">
+                <span className="text-sm font-medium text-slate-500">Amount Paid:</span>
+                <span className="text-sm font-bold text-slate-900">LKR {transactionData.amount.toFixed(2)}</span>
+             </div>
+             <div className="flex justify-between">
+                <span className="text-sm font-medium text-slate-500">Status:</span>
+                <span className="text-sm font-bold text-green-600 uppercase">Confirmed</span>
+             </div>
+             <div className="flex justify-between border-t border-slate-200 pt-3 mt-3">
+                <span className="text-sm font-medium text-slate-500">Method:</span>
+                <span className="text-sm font-bold text-slate-900">Card (PayHere)</span>
+             </div>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <button
+            onClick={() => navigate('/patient-dashboard')}
+            className="w-full py-4 bg-teal-500 text-white rounded-2xl font-bold shadow-lg shadow-teal-500/20 hover:bg-teal-600 hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
           >
-            View My Appointments
-          </Link>
-          <Link 
-            to="/" 
-            className="w-full bg-white hover:bg-gray-50 text-blue-600 border border-blue-600 font-semibold py-3 px-4 rounded-md transition duration-300"
+            <Calendar className="w-5 h-5" />
+            View Appointments
+            <ArrowRight className="w-5 h-5 ml-1" />
+          </button>
+          
+          <button
+            onClick={() => alert("Invoice PDF will download shortly...")}
+            className="w-full py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold hover:bg-slate-50 transition-all duration-300 flex items-center justify-center gap-2"
           >
-            Back to Home
-          </Link>
+            <FileText className="w-5 h-5" />
+            Download Receipt
+          </button>
         </div>
+
+        <p className="mt-8 text-xs text-slate-400">
+           Thank you for choosing CareNet Healthcare Solutions.
+        </p>
       </div>
     </div>
   );

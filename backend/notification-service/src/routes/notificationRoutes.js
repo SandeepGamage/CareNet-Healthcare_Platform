@@ -5,6 +5,7 @@ const {
   handlePaymentNotification,
   handleRefundNotification,
   handleVerificationNotification,
+  handleAccountNotification,
   getLogs,
   getMyLogs,
 } = require('../controllers/notificationController');
@@ -18,6 +19,9 @@ router.post('/refund', handleRefundNotification);
 
 // ── Verification notifications (called by auth-service) ────────────────────
 router.post('/verify', handleVerificationNotification);
+
+// ── Account notifications (called by auth-service) ─────────────────────────
+router.post('/account', handleAccountNotification);
 
 // ── Authenticated routes ──────────────────────────────────────────────────────
 // Admin: view all notification logs

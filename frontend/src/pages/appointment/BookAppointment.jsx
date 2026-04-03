@@ -102,7 +102,7 @@ const BookAppointment = () => {
     fetchSpecialties();
   }, []);
   
-  // Filter doctors
+  // Filter doctors and derive specialty list from real data
   useEffect(() => {
     let filtered = doctors;
     if (searchTerm) {
@@ -115,6 +115,10 @@ const BookAppointment = () => {
       filtered = filtered.filter(doc => doc.specialty === selectedSpecialty);
     }
     setFilteredDoctors(filtered);
+
+    // Build specialty list from whatever doctors are loaded
+    const uniqueSpecialties = [...new Set(doctors.map(d => d.specialty).filter(Boolean))];
+    if (uniqueSpecialties.length > 0) setSpecialties(uniqueSpecialties);
   }, [searchTerm, selectedSpecialty, doctors]);
   
   // Fetch available slots when doctor or date changes
@@ -128,16 +132,30 @@ const BookAppointment = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/doctors`, {
+      // Fetch all verified (approved) doctors — public endpoint, no admin role needed
+      const response = await axios.get('http://localhost:3001/api/auth/doctors/verified', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setDoctors(response.data);
-      setFilteredDoctors(response.data);
+      // Map the real MongoDB doctor documents to the shape the UI expects
+      const doctorList = (response.data?.data || [])
+        .filter(doc => doc) // all returned are already verified
+        .map(doc => ({
+          id: doc._id,
+          name: doc.name,
+          specialty: doc.specialty || 'General Medicine',
+          email: doc.email,
+          rating: doc.rating || '4.8',
+          fee: doc.consultationFee || doc.fee || 100,
+          experience: doc.experience || 'N/A',
+        }));
+      setDoctors(doctorList);
+      setFilteredDoctors(doctorList);
+      setError(null);
     } catch (err) {
       console.error('Failed to fetch doctors:', err);
-      // Mock data for demonstration
-      setDoctors(mockDoctors);
-      setFilteredDoctors(mockDoctors);
+      setError('Unable to load doctors. Please make sure you are logged in and try again.');
+      setDoctors([]);
+      setFilteredDoctors([]);
     } finally {
       setLoading(false);
     }
@@ -890,6 +908,7 @@ const BookAppointment = () => {
                   <div className="mt-8 max-w-md mx-auto">
                     <PayHereCheckout 
                       appointmentId={appointmentId}
+                      doctorId={formData.doctorId}
                       amount={selectedDoctor?.fee || 150}
                       doctorName={selectedDoctor?.name || "Dr. Wilson"}
                       patientDetails={{
@@ -980,20 +999,5 @@ const BookAppointment = () => {
     </div>
   );
 };
-
-// Mock data for demonstration
-const mockDoctors = [
-  { id: 1, name: 'Dr. Sarah Wilson', specialty: 'Cardiology', rating: 4.9, fee: 150, experience: '12 years' },
-  { id: 2, name: 'Dr. Michael Chen', specialty: 'Neurology', rating: 4.8, fee: 180, experience: '10 years' },
-  { id: 3, name: 'Dr. Emily Brown', specialty: 'Pediatrics', rating: 4.9, fee: 120, experience: '8 years' },
-  { id: 4, name: 'Dr. James Rodriguez', specialty: 'Orthopedics', rating: 4.7, fee: 160, experience: '15 years' },
-  { id: 5, name: 'Dr. Lisa Anderson', specialty: 'Dermatology', rating: 4.8, fee: 140, experience: '7 years' },
-  { id: 6, name: 'Dr. Robert Taylor', specialty: 'Ophthalmology', rating: 4.6, fee: 130, experience: '9 years' },
-];
-
-const mockSlots = [
-  '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM',
-  '11:30 AM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM'
-];
 
 export default BookAppointment;

@@ -67,26 +67,26 @@ const OtpVerification = () => {
       }
 
       const endpoint = type === 'email' ? '/api/auth/verify-email' : '/api/auth/verify-phone';
-      const response = await axios.post(`${import.meta.env.VITE_AUTH_SERVICE_URL}${endpoint}`, {
+      const response = await axios.post(`http://localhost:3001${endpoint}`, {
         userId,
         code
       });
 
       if (response.data.success) {
-        setSuccess(`${type.charAt(0).toUpperCase() + type.slice(1)} verified! Logging you in...`);
-        
-        // Save the token and authenticate the user
         if (response.data.token) {
+          setSuccess(`${type.charAt(0).toUpperCase() + type.slice(1)} verified! Logging you in...`);
           localStorage.setItem("token", response.data.token);
           localStorage.setItem("user", JSON.stringify(response.data.user));
+          alert("Successfully authenticated!");
+        } else {
+          setSuccess(`${type.charAt(0).toUpperCase() + type.slice(1)} verified! Pending admin approval.`);
+          alert("Account verified! Please wait for admin approval before logging in.");
         }
 
-        // Show alert as requested by user
-        alert("Successfully authenticated!");
-
         setTimeout(() => {
-          console.log("OTP Verification Success, User Role:", response.data.user.role);
-          if (response.data.user.role === 'admin') {
+          if (!response.data.token) {
+            navigate('/login');
+          } else if (response.data.user.role === 'admin') {
             navigate('/admin-dashboard');
           } else {
             // Default to patient dashboard
@@ -109,7 +109,7 @@ const OtpVerification = () => {
     setSuccess('');
 
     try {
-      await axios.post(`${import.meta.env.VITE_AUTH_SERVICE_URL}/api/auth/resend-otp`, {
+      await axios.post(`http://localhost:3001/api/auth/resend-otp`, {
         userId,
         type: sendType // 'email' or 'phone'
       });

@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-const PayHereCheckout = ({ appointmentId, amount, patientDetails, doctorName }) => {
+const PayHereCheckout = ({ appointmentId, doctorId, amount, patientDetails, doctorName }) => {
   const [checkoutData, setCheckoutData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const hasInitialized = useRef(false);
 
-  const returnUrl  = "http://localhost:5173/payment/success";
-  const cancelUrl  = "http://localhost:5173/payment/cancel";
+  const returnUrl  = `${window.location.origin}/payment/success`;
+  const cancelUrl  = `${window.location.origin}/payment/cancel`;
   const notifyUrl  = "http://localhost:3005/api/payments/payhere/notify";
 
   useEffect(() => {
-    if (!appointmentId) return;
+    if (!appointmentId || hasInitialized.current) return;
+    hasInitialized.current = true;
 
     const initPayment = async () => {
       try {
@@ -26,7 +28,7 @@ const PayHereCheckout = ({ appointmentId, amount, patientDetails, doctorName }) 
           },
           body: JSON.stringify({
             appointmentId,
-            doctorId: appointmentId, // Fallback — use appointmentId if no separate doctorId
+            doctorId: doctorId || appointmentId, // Use real doctorId if available
             amount: parseFloat(amount),
             currency: 'LKR',
             metadata: { doctorName },
@@ -35,20 +37,23 @@ const PayHereCheckout = ({ appointmentId, amount, patientDetails, doctorName }) 
 
         const data = await res.json();
 
-        if (res.ok && data.success) {
+        if (!res.ok) {
+          throw new Error(data.message || 'Failed to initialize payment');
+        }
+
+        if (data.success) {
           setCheckoutData(data);
-        } else {
-          setError(data.message || 'Failed to initialize payment.');
         }
       } catch (err) {
-        setError('Payment service is unreachable. Please try again.');
+        console.error('Payment initialization failed:', err);
+        setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
     initPayment();
-  }, [appointmentId, amount]);
+  }, [appointmentId, doctorId, amount, doctorName]);
 
   if (loading) {
     return (
