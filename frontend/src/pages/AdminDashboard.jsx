@@ -37,11 +37,13 @@ const AdminDashboard = () => {
   // Data states
   const [appointments, setAppointments] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [pendingDoctors, setPendingDoctors] = useState([]);
+  const [allDoctorsCount, setAllDoctorsCount] = useState(0);
   const [stats, setStats] = useState([
     { title: 'Total Patients', value: '0', change: '+0%', icon: Users, key: 'patients' },
     { title: 'Appointments', value: '0', change: '+0%', icon: Calendar, key: 'appointments' },
     { title: 'Revenue', value: '$0', change: '+0%', icon: DollarSign, key: 'revenue' },
-    { title: 'Active Treatments', value: '0', change: '+0%', icon: Activity, key: 'treatments' },
+    { title: 'Total Doctors', value: '0', change: '+0%', icon: Activity, key: 'doctors' },
   ]);
 
   // Filter states
@@ -72,8 +74,8 @@ const AdminDashboard = () => {
       const response = await axios.get(`${API_BASE_URL}/appointments/all?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setAppointments(response.data.appointments);
-      updateStats(response.data.appointments);
+      const apts = Array.isArray(response.data) ? response.data : (response.data?.appointments || []);
+      setAppointments(apts);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch appointments');
@@ -90,7 +92,8 @@ const AdminDashboard = () => {
       const response = await axios.get(`${API_BASE_URL}/patients`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setPatients(response.data);
+      const data = Array.isArray(response.data) ? response.data : (response.data?.patients || []);
+      setPatients(data);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch patients');
@@ -133,11 +136,27 @@ const AdminDashboard = () => {
     }
   };
 
-  // Update stats based on appointments data
-  const updateStats = (appointmentsData) => {
-    const totalAppointments = appointmentsData.length;
-    const confirmedAppointments = appointmentsData.filter(a => a.status === 'CONFIRMED').length;
-    const totalRevenue = appointmentsData
+  // Fetch global dashboard counts on load
+  const fetchDashboardStatsData = async () => {
+    try {
+      const token = getAuthToken();
+      // Fetch patients and doctors counts unconditionally for the dashboard overall stats
+      const [patientsRes, doctorsRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/patients`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: [] })),
+        axios.get(`http://localhost:3001/api/auth/admin/doctors`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { count: 0 } }))
+      ]);
+      const pData = Array.isArray(patientsRes.data) ? patientsRes.data : (patientsRes.data?.patients || []);
+      setPatients(pData);
+      setAllDoctorsCount(doctorsRes.data?.count || 0);
+    } catch (err) {
+      console.error('Failed to fetch dashboard stats data');
+    }
+  };
+
+  // Automatically rebuild stats whenever appointments, patients, or doctors count changes
+  useEffect(() => {
+    const totalAppointments = appointments.length;
+    const totalRevenue = appointments
       .filter(a => a.status === 'COMPLETED')
       .reduce((sum, a) => sum + (a.consultationFee || 0), 0);
     
@@ -145,9 +164,9 @@ const AdminDashboard = () => {
       { title: 'Total Patients', value: patients.length || '0', change: '+12%', icon: Users, key: 'patients' },
       { title: 'Appointments', value: totalAppointments, change: '+8%', icon: Calendar, key: 'appointments' },
       { title: 'Revenue', value: `$${totalRevenue.toLocaleString()}`, change: '+23%', icon: DollarSign, key: 'revenue' },
-      { title: 'Active Treatments', value: confirmedAppointments, change: '+5%', icon: Activity, key: 'treatments' },
+      { title: 'Total Doctors', value: allDoctorsCount || '0', change: '+5%', icon: Users, key: 'doctors' },
     ]);
-  };
+  }, [appointments, patients, allDoctorsCount]);
 
   // Get status color and icon
   const getStatusColor = (status) => {
@@ -179,14 +198,52 @@ const AdminDashboard = () => {
     });
   };
 
+  // Fetch pending doctors
+  const fetchPendingDoctors = async () => {
+    try {
+      setLoading(true);
+      const token = getAuthToken();
+      const response = await axios.get(`http://localhost:3001/api/auth/admin/doctors/pending`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setPendingDoctors(response.data.data || []);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch pending doctors');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Approve a doctor
+  const approveDoctor = async (doctorId) => {
+    try {
+      const token = getAuthToken();
+      await axios.put(`http://localhost:3001/api/auth/admin/doctors/${doctorId}/verify`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchPendingDoctors();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to approve doctor');
+    }
+  };
+
   // Load data on component mount and when filters change
   useEffect(() => {
     fetchAppointments();
   }, [filters]);
 
+  // Load global data once on mount
+  useEffect(() => {
+    fetchDashboardStatsData();
+  }, []);
+
   useEffect(() => {
     if (activeTab === 'patients') {
       fetchPatients();
+    }
+    if (activeTab === 'doctors') {
+      fetchPendingDoctors();
     }
   }, [activeTab]);
 
@@ -228,6 +285,7 @@ const AdminDashboard = () => {
           {[
             { id: 'appointments', label: 'Appointments', icon: Calendar },
             { id: 'patients', label: 'Patients', icon: Users },
+            { id: 'doctors', label: 'Doctor Approvals', icon: CheckCircle },
             { id: 'analytics', label: 'Analytics', icon: Activity },
             { id: 'revenue', label: 'Revenue', icon: DollarSign },
           ].map((item) => (
@@ -545,6 +603,69 @@ const AdminDashboard = () => {
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Doctors Approval Tab Content */}
+          {activeTab === 'doctors' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">Pending Doctor Approvals</h2>
+              </div>
+              {loading ? (
+                <div className="p-12 text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="mt-2 text-gray-500">Loading pending doctors...</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doctor</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Specialty</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registered Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {pendingDoctors.map((doctor) => (
+                        <tr key={doctor._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <span className="text-sm font-medium text-indigo-600">
+                                  {doctor.name?.charAt(0) || 'D'}
+                                </span>
+                              </div>
+                              <div className="ml-3">
+                                <p className="text-sm font-medium text-gray-900">{doctor.name}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{doctor.email}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{doctor.specialty || 'Not specified'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatDate(doctor.createdAt)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button 
+                              onClick={() => approveDoctor(doctor._id)}
+                              className="px-4 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-sm font-medium transition-colors"
+                            >
+                              Approve
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {pendingDoctors.length === 0 && (
+                    <div className="p-12 text-center text-gray-500">
+                      No pending doctor approvals
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -134,30 +134,20 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Two-Factor Authentication: Always require OTP on Login
-    await VerificationCode.deleteMany({ userId: user._id });
+    // Direct Login without OTP as requested (OTP verification during signup only)
+    const token = generateToken(user);
 
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    await VerificationCode.create({
-      userId: user._id,
-      code: otpCode,
-      type: 'email',
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000), 
-    });
-
-    sendNotification({
-      to: email,
-      subject: 'CareNet Healthcare - Login Verification',
-      body: `Hello ${user.name}, your login verification code is: ${otpCode}. It expires in 10 minutes.`,
-      type: 'EMAIL'
-    });
-
-    return res.status(200).json({ 
-      success: true, 
-      message: 'A login verification code was sent to your email.', 
-      requiresVerification: true, 
-      userId: user._id 
+    return res.status(200).json({
+      success: true,
+      message: 'Login successful.',
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isVerified: user.isVerified,
+      },
     });
   } catch (error) {
     console.error('Login error:', error.message);
@@ -185,6 +175,17 @@ exports.getPendingDoctors = async (req, res) => {
     res.status(200).json({ success: true, count: pendingDoctors.length, data: pendingDoctors });
   } catch (error) {
     console.error('getPendingDoctors error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error fetching doctors.' });
+  }
+};
+
+// ── ADMIN: GET /api/auth/doctors ────────────────────────────────────
+exports.getAllDoctors = async (req, res) => {
+  try {
+    const doctors = await User.find({ role: 'doctor' });
+    res.status(200).json({ success: true, count: doctors.length, data: doctors });
+  } catch (error) {
+    console.error('getAllDoctors error:', error.message);
     res.status(500).json({ success: false, message: 'Server error fetching doctors.' });
   }
 };

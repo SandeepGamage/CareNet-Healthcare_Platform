@@ -14,6 +14,7 @@ const OtpVerification = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { userId, type } = location.state || {}; // type: 'email' or 'phone'
+  const [verifyType, setVerifyType] = useState(type || 'email');
 
   useEffect(() => {
     if (!userId || !type) {
@@ -100,7 +101,7 @@ const OtpVerification = () => {
     }
   };
 
-  const handleResend = async () => {
+  const handleResend = async (sendType) => {
     if (!canResend) return;
 
     setLoading(true);
@@ -110,9 +111,10 @@ const OtpVerification = () => {
     try {
       await axios.post(`${import.meta.env.VITE_AUTH_SERVICE_URL}/api/auth/resend-otp`, {
         userId,
-        type
+        type: sendType // 'email' or 'phone'
       });
-      setSuccess('A new verification code has been sent');
+      setSuccess(`A new verification code has been sent via ${sendType === 'phone' ? 'SMS' : 'Email'}`);
+      setVerifyType(sendType); // update current type
       setTimer(60);
       setCanResend(false);
     } catch (err) {
@@ -131,9 +133,9 @@ const OtpVerification = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h2 className="text-3xl font-bold text-gray-800">Verify Your {type === 'email' ? 'Email' : 'Phone'}</h2>
+          <h2 className="text-3xl font-bold text-gray-800">Verify Your {verifyType === 'email' ? 'Email' : 'Phone'}</h2>
           <p className="text-gray-500 mt-2">
-            We've sent a 6-digit verification code to your {type}.
+            We've sent a 6-digit verification code to your {verifyType}.
           </p>
         </div>
 
@@ -183,19 +185,33 @@ const OtpVerification = () => {
           </button>
         </form>
 
-        <div className="mt-8 text-center">
-          <p className="text-gray-600">
-            Didn't receive the code?{' '}
+        <div className="mt-8 text-center flex flex-col gap-2">
+          <p className="text-gray-600">Didn't receive the code?</p>
+          <div className="flex justify-center gap-4">
             <button
-              onClick={handleResend}
+              type="button"
+              onClick={() => handleResend('email')}
               disabled={!canResend || loading}
               className={`font-bold transition-all ${
                 canResend ? 'text-emerald-600 hover:text-emerald-700 cursor-pointer' : 'text-gray-400 cursor-not-allowed'
               }`}
             >
-              {canResend ? 'Resend Code' : `Resend in ${timer}s`}
+              {canResend ? 'Resend via Email' : `Wait ${timer}s`}
             </button>
-          </p>
+            {canResend && (
+              <>
+                <span className="text-gray-300">|</span>
+                <button
+                  type="button"
+                  onClick={() => handleResend('phone')}
+                  disabled={loading}
+                  className="font-bold text-emerald-600 hover:text-emerald-700 transition-all cursor-pointer"
+                >
+                  Get via SMS
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

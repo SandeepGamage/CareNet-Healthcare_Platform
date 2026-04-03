@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe, getPendingDoctors, approveDoctor, verifyOTP, resendOTP, deactivateAccount } = require('../controllers/authController');
+const { register, login, getMe, getPendingDoctors, getAllDoctors, approveDoctor, verifyOTP, resendOTP, deactivateAccount } = require('../controllers/authController');
 const protect = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/authMiddleware');
 
@@ -16,6 +16,7 @@ router.get('/me', protect, getMe);
 router.post('/deactivate', protect, deactivateAccount);
 
 // Admin Action: Setup Routes to manage doctors
+router.get('/admin/doctors', protect, authorize('admin'), getAllDoctors);
 router.get('/admin/doctors/pending', protect, authorize('admin'), getPendingDoctors);
 router.put('/admin/doctors/:id/verify', protect, authorize('admin'), approveDoctor);
 

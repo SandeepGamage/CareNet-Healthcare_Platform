@@ -47,7 +47,7 @@ const RegisterPage = () => {
       // Generate a random secure password for Google users to satisfy backend requirements
       const randomPassword = Math.random().toString(36).slice(-12) + "A1!x"; 
       
-      const response = await fetch("http://localhost:3006/api/auth/register", {
+      const response = await fetch("http://localhost:3001/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -94,7 +94,7 @@ const RegisterPage = () => {
       setSuccessMsg("");
 
       try {
-        const response = await fetch("http://localhost:3006/api/auth/register", {
+        const response = await fetch("http://localhost:3001/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, email, password, role: roleVal, specialty, phone }),
