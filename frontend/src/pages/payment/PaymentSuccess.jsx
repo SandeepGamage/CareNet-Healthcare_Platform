@@ -33,6 +33,34 @@ const PaymentSuccess = () => {
     fetchStatus();
   }, [orderId]);
 
+  const handleDownloadInvoice = async () => {
+    if (!transactionData?._id) {
+       alert("Transaction data not yet synced. Please wait a moment.");
+       return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        `http://localhost:3005/api/payments/invoices/${transactionData._id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'blob',
+        }
+      );
+      
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Receipt_${orderId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (err) {
+      console.error('Failed to download invoice:', err);
+      alert('Could not download receipt right now. Check your email!');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl text-center border border-slate-100">
@@ -74,7 +102,7 @@ const PaymentSuccess = () => {
           </button>
           
           <button
-            onClick={() => alert("Invoice PDF will download shortly...")}
+            onClick={handleDownloadInvoice}
             className="w-full py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold hover:bg-slate-50 transition-all duration-300 flex items-center justify-center gap-2"
           >
             <FileText className="w-5 h-5" />
