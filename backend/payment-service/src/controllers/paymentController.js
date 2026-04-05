@@ -44,6 +44,7 @@ const createPayment = async (req, res, next) => {
           metadata: {
             doctorName: metadata.doctorName || '',
             patientName: req.user.name || '',
+            patientEmail: req.user.email || '',
             specialty: metadata.specialty || '',
             appointmentDate: metadata.appointmentDate || '',
             consultationType: metadata.consultationType || 'telemedicine',
