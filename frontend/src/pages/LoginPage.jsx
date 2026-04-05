@@ -29,13 +29,13 @@ const LoginPage = () => {
            localStorage.setItem("user", JSON.stringify(data.user));
            alert("Successfully authenticated with Google!");
            
-           if (data.user.role === 'admin') {
-             navigate("/admin-dashboard");
-           } else if (data.user.role === 'patient') {
-             navigate("/patient-dashboard");
-           } else {
-             navigate("/");
-           }
+            if (data.user.role === 'admin') {
+              navigate("/admin-dashboard");
+            } else if (data.user.role === 'doctor') {
+              navigate("/doctor-dashboard");
+            } else {
+              navigate("/patient-dashboard");
+            }
         } else {
            alert(data.message || "Login failed. You might need to Register first.");
         }
@@ -82,8 +82,9 @@ const LoginPage = () => {
              
              if (data.user.role === 'admin') {
                navigate("/admin-dashboard");
+             } else if (data.user.role === 'doctor') {
+               navigate("/doctor-dashboard");
              } else {
-               // Default to patient dashboard if not admin
                navigate("/patient-dashboard");
              }
           }

@@ -7,6 +7,7 @@ import RegisterPage from './pages/RegisterPage'
 import OtpVerification from './pages/OtpVerification'
 import AdminDashboard from './pages/AdminDashboard'
 import PatientDashboard from './pages/PatientDashboard'
+import DoctorDashboard from './pages/DoctorDashboard'
 import BookAppointment from './pages/appointment/BookAppointment'
 import MyAppointments from './pages/appointment/AppointmentsViewAsPatient'
 import Symptom from './pages/ai-symptom/SymptomChecker'
@@ -26,6 +27,7 @@ function App() {
           <Route path="/verify-otp" element={<OtpVerification />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/patient-dashboard" element={<PatientDashboard />} />
+          <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
           <Route path="/book-appointment" element={<BookAppointment />} />
           <Route path="/my-appointments" element={<MyAppointments />} />
           <Route path="/ai-symptom" element={<Symptom />} />
