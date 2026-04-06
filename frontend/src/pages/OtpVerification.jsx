@@ -8,7 +8,9 @@ const OtpVerification = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [timer, setTimer] = useState(60);
+  const [smsTimer, setSmsTimer] = useState(20);
   const [canResend, setCanResend] = useState(false);
+  const [canRequestSms, setCanRequestSms] = useState(false);
   
   const inputRefs = useRef([]);
   const navigate = useNavigate();
@@ -17,23 +19,29 @@ const OtpVerification = () => {
   const [verifyType, setVerifyType] = useState(type || 'email');
 
   useEffect(() => {
-    if (!userId || !type) {
+    if (!userId) {
       navigate('/login');
     }
-  }, [userId, type, navigate]);
+  }, [userId, navigate]);
 
   useEffect(() => {
     let interval;
     if (timer > 0) {
       interval = setInterval(() => {
         setTimer((prev) => prev - 1);
+        if (smsTimer > 0) setSmsTimer((prev) => prev - 1);
       }, 1000);
     } else {
       setCanResend(true);
       clearInterval(interval);
     }
+
+    if (smsTimer === 0) {
+      setCanRequestSms(true);
+    }
+
     return () => clearInterval(interval);
-  }, [timer]);
+  }, [timer, smsTimer]);
 
   const handleChange = (index, value) => {
     if (isNaN(value)) return;
@@ -66,7 +74,7 @@ const OtpVerification = () => {
         throw new Error('Please enter a 6-digit code');
       }
 
-      const endpoint = type === 'email' ? '/api/auth/verify-email' : '/api/auth/verify-phone';
+      const endpoint = verifyType === 'email' ? '/api/auth/verify-email' : '/api/auth/verify-phone';
       const response = await axios.post(`http://localhost:3001${endpoint}`, {
         userId,
         code
@@ -74,12 +82,12 @@ const OtpVerification = () => {
 
       if (response.data.success) {
         if (response.data.token) {
-          setSuccess(`${type.charAt(0).toUpperCase() + type.slice(1)} verified! Logging you in...`);
+          setSuccess(`${verifyType.charAt(0).toUpperCase() + verifyType.slice(1)} verified! Logging you in...`);
           localStorage.setItem("token", response.data.token);
           localStorage.setItem("user", JSON.stringify(response.data.user));
           alert("Successfully authenticated!");
         } else {
-          setSuccess(`${type.charAt(0).toUpperCase() + type.slice(1)} verified! Pending admin approval.`);
+          setSuccess(`${verifyType.charAt(0).toUpperCase() + verifyType.slice(1)} verified! Pending admin approval.`);
           alert("Account verified! Please wait for admin approval before logging in.");
         }
 
@@ -102,7 +110,8 @@ const OtpVerification = () => {
   };
 
   const handleResend = async (sendType) => {
-    if (!canResend) return;
+    if (sendType === 'email' && !canResend) return;
+    if (sendType === 'phone' && !canRequestSms) return;
 
     setLoading(true);
     setError('');
@@ -115,8 +124,14 @@ const OtpVerification = () => {
       });
       setSuccess(`A new verification code has been sent via ${sendType === 'phone' ? 'SMS' : 'Email'}`);
       setVerifyType(sendType); // update current type
-      setTimer(60);
-      setCanResend(false);
+      
+      if (sendType === 'email') {
+        setTimer(60);
+        setCanResend(false);
+      } else {
+        setSmsTimer(60); // Reset SMS timer after request
+        setCanRequestSms(false);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to resend OTP');
     } finally {
@@ -133,9 +148,9 @@ const OtpVerification = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h2 className="text-3xl font-bold text-gray-800">Verify Your {verifyType === 'email' ? 'Email' : 'Phone'}</h2>
+          <h2 className="text-3xl font-bold text-gray-800">Verify Your Account</h2>
           <p className="text-gray-500 mt-2">
-            We've sent a 6-digit verification code to your {verifyType}.
+            Verification code sent to your <strong>{verifyType === 'email' ? 'Email' : 'Phone'}</strong> by default.
           </p>
         </div>
 
@@ -162,7 +177,7 @@ const OtpVerification = () => {
           )}
 
           {success && (
-            <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-lg animate-bounce">
+            <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-lg animate-pulse">
               <p className="text-sm text-emerald-700 font-semibold">{success}</p>
             </div>
           )}
@@ -185,36 +200,47 @@ const OtpVerification = () => {
           </button>
         </form>
 
-        <div className="mt-8 text-center flex flex-col gap-2">
-          <p className="text-gray-600">Didn't receive the code?</p>
-          <div className="flex justify-center gap-4">
-            <button
-              type="button"
-              onClick={() => handleResend('email')}
-              disabled={!canResend || loading}
-              className={`font-bold transition-all ${
-                canResend ? 'text-emerald-600 hover:text-emerald-700 cursor-pointer' : 'text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {canResend ? 'Resend via Email' : `Wait ${timer}s`}
-            </button>
-            {canResend && (
-              <>
-                <span className="text-gray-300">|</span>
+        <div className="mt-8 text-center flex flex-col gap-4">
+          <div className="space-y-1">
+             <p className="text-gray-600 text-sm">Didn't receive the email code?</p>
+             <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleResend('email')}
+                  disabled={!canResend || loading}
+                  className={`text-sm font-bold transition-all ${
+                    canResend ? 'text-emerald-600 hover:underline' : 'text-gray-400'
+                  }`}
+                >
+                  {canResend ? 'Resend Email' : `Resend Email in ${timer}s`}
+                </button>
+                
+                <div className="relative py-2">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+                  <span className="relative px-2 bg-white text-xs text-gray-400">OR</span>
+                </div>
+
                 <button
                   type="button"
                   onClick={() => handleResend('phone')}
-                  disabled={loading}
-                  className="font-bold text-emerald-600 hover:text-emerald-700 transition-all cursor-pointer"
+                  disabled={!canRequestSms || loading}
+                  className={`py-3 rounded-xl border-2 font-bold transition-all flex items-center justify-center gap-2 ${
+                    canRequestSms 
+                      ? 'border-emerald-600 text-emerald-600 hover:bg-emerald-50' 
+                      : 'border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                  }`}
                 >
-                  Get via SMS
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  {canRequestSms ? 'Get via SMS to Phone' : `SMS available in ${smsTimer}s`}
                 </button>
-              </>
-            )}
+             </div>
           </div>
         </div>
       </div>
     </div>
+
   );
 };
 
