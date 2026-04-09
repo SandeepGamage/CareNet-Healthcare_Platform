@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
@@ -9,22 +8,67 @@ services:
       - "5672:5672"
       - "15672:15672"
     restart: unless-stopped
+    networks:
+      - healthcare-network
 
   appointment-service:
-    build: ./backend/appointment-service     # ← uses the Dockerfile inside that folder
+    build: ./backend/appointment-service
     container_name: appointment-service
     ports:
-      - "3004:3004"
+      - "${APPOINTMENT_SERVICE_PORT}:${APPOINTMENT_SERVICE_PORT}"
     environment:
-      PORT: 3004
-      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/?appName=Cluster0
-      JWT_SECRET: ufjkrm*$&+!=JfldsJKLfesadk421!@$45922dakjfsafdafa38fjkdjasKLJKFAF
+      PORT: ${APPOINTMENT_SERVICE_PORT}
+      MONGO_URI: ${MONGO_URI_APPOINTMENT}
+      JWT_SECRET: ${JWT_SECRET_APPOINTMENT}
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     depends_on:
       - rabbitmq
     restart: unless-stopped
+    networks:
+      - healthcare-network
 
-  # your teammates will add their services here too
-  # auth-service: ...
-  # patient-service: ...
-  # etc.
+  symptom-service:
+    build: ./backend/ai-symptom-service
+    container_name: symptom-service
+    ports:
+      - "${AI_SYMPTOM_SERVICE_PORT}:${AI_SYMPTOM_SERVICE_PORT}"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PORT=${AI_SYMPTOM_SERVICE_PORT}
+      - NODE_ENV=production
+      - APPOINTMENT_SERVICE_URL=${APPOINTMENT_SERVICE_URL}
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+  # ─── Frontend (nginx) ────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: carenet-frontend
+    ports:
+      - '5173:80'
+    networks:
+      - healthcare-network
+    restart: unless-stopped
+
+  # ─── Payment Service ─────────────────────────────────────────────
+  payment-service:
+    build:
+      context: ./backend/payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - '5003:5003'
+    env_file:
+      - ./backend/payment-service/.env
+    networks:
+      - healthcare-network
+    volumes:
+      - ./backend/payment-service/logs:/app/logs
+    restart: unless-stopped
+
+networks:
+  healthcare-network:
+    driver: bridge

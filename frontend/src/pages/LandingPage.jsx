@@ -63,6 +63,25 @@ function cn(...classes) {
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      console.log("Navbar: User found in localStorage:", parsedUser);
+      setUser(parsedUser);
+    } else {
+      console.log("Navbar: No user found in localStorage");
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null);
+    window.location.reload();
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -108,15 +127,43 @@ const Navbar = () => {
         </nav>
 
         <div className="hidden md:flex items-center gap-4">
-          <Link to="/login" className="text-sm font-medium text-slate-800 hover:text-teal-500 transition-colors">
-            Log in
-          </Link>
-          <Link
-            to="/register"
-            className="px-5 py-2.5 rounded-full bg-teal-500 text-white text-sm font-semibold hover:bg-teal-600 shadow-lg hover:-translate-y-0.5 transition-all duration-200"
-          >
-            Get Started
-          </Link>
+          {user ? (
+            <>
+              <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-slate-50 border border-slate-100">
+                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold text-xs">
+                  {user.name.charAt(0)}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-slate-900">{user.name}</span>
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">{user.role}</span>
+                </div>
+              </div>
+              <Link
+                to={user.role === 'admin' ? '/admin-dashboard' : (user.role === 'patient' ? '/patient-dashboard' : '/')}
+                className="text-sm font-semibold text-slate-700 hover:text-teal-600 transition-colors"
+              >
+                Dashboard
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="px-5 py-2.5 rounded-full border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-all"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="text-sm font-medium text-slate-800 hover:text-teal-500 transition-colors">
+                Log in
+              </Link>
+              <Link
+                to="/register"
+                className="px-5 py-2.5 rounded-full bg-teal-500 text-white text-sm font-semibold hover:bg-teal-600 shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+              >
+                Get Started
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile Toggle */}
@@ -148,8 +195,31 @@ const Navbar = () => {
               </a>
             ))}
             <div className="h-px bg-slate-100 my-2" />
-            <Link to="/login" className="text-base font-medium text-slate-800 p-2 text-center" onClick={() => setMobileMenuOpen(false)}>Log in</Link>
-            <Link to="/register" className="p-3 rounded-xl bg-teal-500 text-white text-center font-semibold" onClick={() => setMobileMenuOpen(false)}>Get Started</Link>
+            <div className="h-px bg-slate-100 my-2" />
+            {user ? (
+              <>
+                <div className="p-2 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold text-sm">
+                    {user.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900">{user.name}</p>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider">{user.role}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="p-3 rounded-xl bg-slate-100 text-slate-600 text-center font-semibold"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="text-base font-medium text-slate-800 p-2 text-center" onClick={() => setMobileMenuOpen(false)}>Log in</Link>
+                <Link to="/register" className="p-3 rounded-xl bg-teal-500 text-white text-center font-semibold" onClick={() => setMobileMenuOpen(false)}>Get Started</Link>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

@@ -15,7 +15,6 @@ const RegisterPage = () => {
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [googleData, setGoogleData] = useState(null);
   const [googleRole, setGoogleRole] = useState("patient");
-  const [googlePhone, setGooglePhone] = useState("");
   const [googleSpecialty, setGoogleSpecialty] = useState("");
 
   const handleGoogleRegister = useGoogleLogin({
@@ -48,7 +47,7 @@ const RegisterPage = () => {
       // Generate a random secure password for Google users to satisfy backend requirements
       const randomPassword = Math.random().toString(36).slice(-12) + "A1!x"; 
       
-      const response = await fetch("http://localhost:3006/api/auth/register", {
+      const response = await fetch("http://localhost:3001/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -57,7 +56,7 @@ const RegisterPage = () => {
           password: randomPassword, 
           role: googleRole, 
           specialty: googleRole === 'doctor' ? googleSpecialty : null,
-          phone: googlePhone 
+          phone: "0000000000" 
         }),
       });
       
@@ -65,8 +64,9 @@ const RegisterPage = () => {
 
       if (response.ok && data.success) {
         setShowGoogleModal(false);
-        setSuccessMsg(data.message || "Google Registration successful! Redirecting to login...");
-        setTimeout(() => navigate("/login"), 2000);
+        setSuccessMsg(data.message || `Registration as ${googleRole} successful! Let's verify your email...`);
+        // Wait to see the success message before redirecting
+        setTimeout(() => navigate("/verify-otp", { state: { userId: data.userId, type: 'email', role: googleRole } }), 2000);
       } else {
         alert(data.message || "Registration failed. Please try again.");
       }
@@ -94,7 +94,7 @@ const RegisterPage = () => {
       setSuccessMsg("");
 
       try {
-        const response = await fetch("http://localhost:3006/api/auth/register", {
+        const response = await fetch("http://localhost:3001/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, email, password, role: roleVal, specialty, phone }),
@@ -103,9 +103,9 @@ const RegisterPage = () => {
         const data = await response.json();
 
         if (response.ok && data.success) {
-          setSuccessMsg(data.message || "Registration successful! Redirecting to login...");
+          setSuccessMsg(data.message || `Registration as ${roleVal} successful! Let's verify your email...`);
           // Wait to see the success message before redirecting
-          setTimeout(() => navigate("/login"), 2000);
+          setTimeout(() => navigate("/verify-otp", { state: { userId: data.userId, type: 'email' } }), 2000);
         } else {
           setErrorMsg(data.message || "Registration failed. Please try again.");
         }
@@ -153,6 +153,7 @@ const RegisterPage = () => {
 
           <div className="space-y-4 mb-8">
             <button 
+              type="button"
               onClick={handleGoogleRegister}
               className="w-full py-3.5 rounded-2xl bg-white border border-slate-200 text-slate-700 font-semibold shadow-sm hover:shadow-md hover:bg-slate-50 transition-all duration-300 flex items-center justify-center gap-3"
             >
@@ -356,20 +357,6 @@ const RegisterPage = () => {
                 </div>
               )}
 
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 ml-1">Phone Number</label>
-                <div className="relative group">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-teal-500 transition-colors" />
-                  <input
-                    type="tel"
-                    placeholder="+1 (555) 000-0000"
-                    value={googlePhone}
-                    onChange={(e) => setGooglePhone(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
-                    required
-                  />
-                </div>
-              </div>
 
               <div className="pt-4 flex gap-3">
                 <button

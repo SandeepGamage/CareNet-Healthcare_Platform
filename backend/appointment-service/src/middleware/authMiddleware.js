@@ -21,7 +21,9 @@ const protect = (req, res, next) => {
 // Only allow specific roles through
 const restrictTo = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    const userRole = (req.user.role || '').toUpperCase();
+    const allowedRoles = roles.map(r => r.toUpperCase());
+    if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
         message: `Access denied. Required role: ${roles.join(' or ')}`
       });

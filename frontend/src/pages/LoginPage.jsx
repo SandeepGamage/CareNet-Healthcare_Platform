@@ -10,14 +10,39 @@ const LoginPage = () => {
   const [errorMsg, setErrorMsg] = useState("");
 
   const handleGoogleLogin = useGoogleLogin({
-    onSuccess: (codeResponse) => {
-      console.log("Google Login Success:", codeResponse);
-      alert("Successfully authenticated with Google! Redirecting to dashboard...");
-      setTimeout(() => navigate("/"), 1500);
-    },
-    onError: (error) => {
-      console.log("Google Login Failed:", error);
-      alert("Google Login failed. Please try again.");
+    onSuccess: async (tokenResponse) => {
+      try {
+        const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        }).then(res => res.json());
+
+        const response = await fetch("http://localhost:3001/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: userInfo.email, isGoogle: true }),
+        });
+        
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+           localStorage.setItem("token", data.token);
+           localStorage.setItem("user", JSON.stringify(data.user));
+           alert("Successfully authenticated with Google!");
+           
+            if (data.user.role === 'admin') {
+              navigate("/admin-dashboard");
+            } else if (data.user.role === 'doctor') {
+              navigate("/doctor-dashboard");
+            } else {
+              navigate("/patient-dashboard");
+            }
+        } else {
+           alert(data.message || "Login failed. You might need to Register first.");
+        }
+      } catch (err) {
+        console.error("Google Login Error:", err);
+        alert("Google Login failed. Please try again.");
+      }
     },
   });
 
@@ -26,12 +51,17 @@ const LoginPage = () => {
     const email = e.target[0].value;
     const password = e.target[1].value;
     
+    if (!email || !password) {
+      setErrorMsg("Credentials missing.");
+      return;
+    }
+
     if (email && password) {
       setLoading(true);
       setErrorMsg("");
 
       try {
-        const response = await fetch("http://localhost:3006/api/auth/login", {
+        const response = await fetch("http://localhost:3001/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
@@ -40,10 +70,24 @@ const LoginPage = () => {
         const data = await response.json();
 
         if (response.ok && data.success) {
-          localStorage.setItem("token", data.token);
-          localStorage.setItem("user", JSON.stringify(data.user));
-          alert(`Welcome back! Authenticated as ${data.user.name}...`);
-          navigate("/");
+          if (data.requiresVerification) {
+             setErrorMsg(data.message);
+             setTimeout(() => navigate('/verify-otp', { state: { userId: data.userId, type: 'email' } }), 1500);
+          } else {
+             localStorage.setItem("token", data.token);
+             localStorage.setItem("user", JSON.stringify(data.user));
+             alert("Successfully authenticated!");
+             console.log("Login Success, User Role:", data.user.role);
+             alert(`Authenticated as ${data.user.role}! Redirecting...`);
+             
+             if (data.user.role === 'admin') {
+               navigate("/admin-dashboard");
+             } else if (data.user.role === 'doctor') {
+               navigate("/doctor-dashboard");
+             } else {
+               navigate("/patient-dashboard");
+             }
+          }
         } else {
           setErrorMsg(data.message || "Login failed. Please check your credentials.");
         }
@@ -91,6 +135,7 @@ const LoginPage = () => {
 
           <div className="space-y-4 mb-8">
             <button 
+              type="button"
               onClick={handleGoogleLogin}
               className="w-full py-3.5 rounded-2xl bg-white border border-slate-200 text-slate-700 font-semibold shadow-sm hover:shadow-md hover:bg-slate-50 transition-all duration-300 flex items-center justify-center gap-3 group"
             >
@@ -126,7 +171,6 @@ const LoginPage = () => {
                   type="email"
                   placeholder="name@example.com"
                   className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
-                  required
                 />
               </div>
             </div>
@@ -142,7 +186,6 @@ const LoginPage = () => {
                   type="password"
                   placeholder="••••••••"
                   className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
-                  required
                 />
               </div>
             </div>

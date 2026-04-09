@@ -2,16 +2,17 @@
 // Make sure you're using Node v18+ for native fetch to work
 const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3005';
 
-exports.sendNotification = async ({ to, subject, body, type = 'EMAIL' }) => {
+exports.sendNotification = async ({ to, subject, body, type = 'EMAIL', apiPath = 'verify', eventType }) => {
   try {
-    const response = await fetch(`${NOTIFICATION_SERVICE_URL}/api/notifications/send`, {
+    const response = await fetch(`${NOTIFICATION_SERVICE_URL}/api/notifications/${apiPath}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userId: to,      // can be email or user ID depending on notification-service
         message: body,
         subject: subject,
-        type: type       // 'EMAIL' or 'SMS'
+        type: type,      // 'EMAIL' or 'SMS'
+        eventType: eventType
       })
     });
     

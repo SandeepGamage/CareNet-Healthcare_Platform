@@ -16,6 +16,10 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email'],
     },
+    phone: {
+      type: String,
+      default: null,
+    },
     password: {
       type: String,
       required: [true, 'Password is required'],
@@ -27,6 +31,10 @@ const userSchema = new mongoose.Schema(
       enum: ['patient', 'doctor', 'admin'],
       default: 'patient',
     },
+    isOtpVerified: {
+      type: Boolean,
+      default: false, // Checks if email or phone is verified via OTP
+    },
     // Doctor-specific fields
     isVerified: {
       type: Boolean,
@@ -36,9 +44,29 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null, // Only applicable for doctors
     },
+    consultationFee: {
+      type: Number,
+      default: null, // Consultation fee in USD
+    },
+    rating: {
+      type: Number,
+      default: null, // Average rating out of 5
+    },
+    experience: {
+      type: String,
+      default: null, // e.g. "5 years"
+    },
+    qualifications: {
+      type: String,
+      default: null, // e.g. "MBBS, MD"
+    },
     profilePicture: {
       type: String,
       default: null,
+    },
+    isActive: {
+      type: Boolean,
+      default: true, // Account deactivation flag
     },
   },
   {
