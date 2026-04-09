@@ -111,6 +111,9 @@ const getSMSBody = (eventType, data) => {
     case 'PRESCRIPTION_ISSUED':
       return `💊 Dr. ${data.doctorName} has issued a prescription for you. Log in to view and download it.`;
 
+    case 'VERIFICATION_CODE_SMS':
+      return `🏥 CareNet Verification: ${data.code || data.message}. Valid for 10 minutes.`;
+
     default:
       return `Healthcare Platform notification. Please check your email for details.`;
   }

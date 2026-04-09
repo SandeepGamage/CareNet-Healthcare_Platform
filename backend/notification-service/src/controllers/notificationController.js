@@ -88,6 +88,32 @@ const handleRefundNotification = async (req, res, next) => {
 };
 
 /**
+ * POST /api/notifications/account
+ * Called by auth-service for approval/rejection
+ */
+const handleAccountNotification = async (req, res, next) => {
+  try {
+    const { userId, message, subject, eventType } = req.body;
+    
+    if (!userId || !message) {
+      return res.status(400).json({ success: false, message: 'userId and message are required' });
+    }
+
+    // Dispatch notification
+    require('../services/notificationDispatcher').dispatchNotification({
+      eventType: eventType || 'ACCOUNT_UPDATE',
+      email: userId,
+      role: 'doctor', // default role
+      data: { message, subject },
+    }).catch((err) => logger.error(`Account notification dispatch error: ${err.message}`));
+
+    res.status(202).json({ success: true, message: 'Account notification queued' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * GET /api/notifications/logs
  * Admin: get all notification logs with filters
  */
@@ -122,7 +148,8 @@ const getLogs = async (req, res, next) => {
  */
 const getMyLogs = async (req, res, next) => {
   try {
-    const logs = await NotificationLog.find({ recipientId: req.user.userId })
+    const id = req.user.id || req.user.userId || req.user._id;
+    const logs = await NotificationLog.find({ recipientId: id })
       .sort({ createdAt: -1 })
       .limit(50);
 
@@ -132,9 +159,44 @@ const getMyLogs = async (req, res, next) => {
   }
 };
 
+/**
+ * POST /api/notifications/verify
+ * Called by auth-service to send OTP codes
+ */
+const handleVerificationNotification = async (req, res, next) => {
+  try {
+    const { userId, message, subject, type } = req.body;
+    
+    if (!userId || !message) {
+      return res.status(400).json({ success: false, message: 'userId (email/phone) and message are required' });
+    }
+
+    // Extract optional 6-digit code for templates
+    const codeMatch = message.match(/\d{6}/);
+    const code = codeMatch ? codeMatch[0] : '';
+    
+    const eventType = type === 'SMS' ? 'VERIFICATION_CODE_SMS' : 'VERIFICATION_CODE_EMAIL';
+
+    // Dispatch notification
+    require('../services/notificationDispatcher').dispatchNotification({
+      eventType,
+      email: type === 'EMAIL' ? userId : null,
+      phone: type === 'SMS' ? userId : null,
+      role: 'user', // default role
+      data: { message, code, subject: subject || 'Verification Code' },
+    }).catch((err) => logger.error(`Verification notification dispatch error: ${err.message}`));
+
+    res.status(202).json({ success: true, message: 'Verification notification queued' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   handlePaymentNotification,
   handleRefundNotification,
+  handleVerificationNotification,
+  handleAccountNotification,
   getLogs,
   getMyLogs,
 };
