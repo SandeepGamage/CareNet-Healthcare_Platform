@@ -56,7 +56,7 @@ const RegisterPage = () => {
           password: randomPassword, 
           role: googleRole, 
           specialty: googleRole === 'doctor' ? googleSpecialty : null,
-          phone: "0000000000" 
+          phone: googleData.phone 
         }),
       });
       
@@ -64,9 +64,9 @@ const RegisterPage = () => {
 
       if (response.ok && data.success) {
         setShowGoogleModal(false);
-        setSuccessMsg(data.message || `Registration as ${googleRole} successful! Let's verify your email...`);
-        // Wait to see the success message before redirecting
-        setTimeout(() => navigate("/verify-otp", { state: { userId: data.userId, type: 'email', role: googleRole } }), 2000);
+        setSuccessMsg(data.message || `Registration successful! Verification code sent.`);
+        // Pass the correct verification type (phone if provided, else email)
+        setTimeout(() => navigate("/verify-otp", { state: { userId: data.userId, type: data.type || 'phone', role: googleRole } }), 2000);
       } else {
         alert(data.message || "Registration failed. Please try again.");
       }
@@ -103,9 +103,9 @@ const RegisterPage = () => {
         const data = await response.json();
 
         if (response.ok && data.success) {
-          setSuccessMsg(data.message || `Registration as ${roleVal} successful! Let's verify your email...`);
-          // Wait to see the success message before redirecting
-          setTimeout(() => navigate("/verify-otp", { state: { userId: data.userId, type: 'email' } }), 2000);
+          setSuccessMsg(data.message || `Registration successful! Verification code sent.`);
+          // Use data.type from backend response (it will be 'phone' or 'email')
+          setTimeout(() => navigate("/verify-otp", { state: { userId: data.userId, type: data.type } }), 2000);
         } else {
           setErrorMsg(data.message || "Registration failed. Please try again.");
         }
@@ -356,6 +356,22 @@ const RegisterPage = () => {
                   </div>
                 </div>
               )}
+
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 ml-1">Phone Number</label>
+                <div className="relative group">
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-teal-500 transition-colors" />
+                  <input
+                    type="tel"
+                    placeholder="+94 77 123 4567"
+                    value={googleData?.phone || ""}
+                    onChange={(e) => setGoogleData({ ...googleData, phone: e.target.value })}
+                    className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    required
+                  />
+                </div>
+              </div>
 
 
               <div className="pt-4 flex gap-3">

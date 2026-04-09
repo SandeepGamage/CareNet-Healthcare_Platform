@@ -18,12 +18,15 @@ exports.sendNotification = async ({ to, subject, body, type = 'EMAIL', apiPath =
     
     if (!response.ok) {
       console.warn(`[Auth Service] Notification Service responded with ${response.status}`);
+      return false;
     } else {
       console.log(`[Auth Service] Notification sent successfully to ${to}`);
+      return true;
     }
   } catch (error) {
     // We catch it and log so that if Notification Service is down,
     // the auth process doesn't fail.
     console.error('[Auth Service] Failed to reach Notification Service:', error.message);
+    return false;
   }
 };
