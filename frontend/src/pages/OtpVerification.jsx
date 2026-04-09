@@ -150,7 +150,7 @@ const OtpVerification = () => {
           </div>
           <h2 className="text-3xl font-bold text-gray-800">Verify Your Account</h2>
           <p className="text-gray-500 mt-2">
-            Verification code sent to your <strong>{verifyType === 'email' ? 'Email' : 'Phone'}</strong> by default.
+            Verification code sent to your <strong>{verifyType === 'email' ? 'Email' : 'Phone'}</strong>.
           </p>
         </div>
 
@@ -202,7 +202,7 @@ const OtpVerification = () => {
 
         <div className="mt-8 text-center flex flex-col gap-4">
           <div className="space-y-1">
-             <p className="text-gray-600 text-sm">Didn't receive the email code?</p>
+             <p className="text-gray-600 text-sm">Didn't receive the code?</p>
              <div className="flex flex-col gap-2">
                 <button
                   type="button"

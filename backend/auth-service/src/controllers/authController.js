@@ -53,28 +53,47 @@ exports.register = async (req, res) => {
     // Generate 6 digit OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // Default to email verification (but we save type based on phone if requested later)
+    // Default to 'phone' if number exists, otherwise 'email'
+    const verificationType = phone ? 'phone' : 'email';
+    
     await VerificationCode.create({
       userId: user._id,
       code: otpCode,
-      type: 'email',
+      type: verificationType,
       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 mins
     });
 
-    // Send the OTP via Email by default as requested
-    sendNotification({
-      to: email, 
-      subject: 'CareNet Healthcare - Verify Your Account',
-      body: `Hello ${name}, your verification code is: ${otpCode}. It expires in 10 minutes.`,
-      type: 'EMAIL'
-    });
+    let sentVia = 'email';
+    let smsSuccess = false;
+
+    // Prioritize SMS if phone is provided
+    if (phone) {
+      smsSuccess = await sendNotification({
+        to: phone,
+        subject: 'CareNet Healthcare - Verify Your Account',
+        body: `🏥 CareNet Verification: ${otpCode}. Valid for 10 minutes.`,
+        type: 'SMS'
+      });
+      if (smsSuccess) sentVia = 'phone';
+    }
+
+    // Fallback to Email if SMS failed or phone was not provided
+    if (!smsSuccess) {
+      await sendNotification({
+        to: email, 
+        subject: 'CareNet Healthcare - Verify Your Account',
+        body: `Hello ${name}, your verification code is: ${otpCode}. It expires in 10 minutes.`,
+        type: 'EMAIL',
+        apiPath: 'verify'
+      });
+      sentVia = 'email';
+    }
 
     res.status(201).json({
       success: true,
-      message: 'Account created successfully. A verification code has been sent to your email.',
+      message: `Account created successfully. A verification code has been sent to your ${sentVia}.`,
       userId: user._id,
-      type: 'email',
-      // We don't send JWT here yet
+      type: sentVia,
     });
   } catch (error) {
     console.error('Register error:', error.message);
@@ -341,23 +360,36 @@ exports.resendOTP = async (req, res) => {
     await VerificationCode.deleteMany({ userId });
 
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const sendType = type === 'phone' ? 'SMS' : 'EMAIL';
+    
+    // Prioritize phone for resend if requested, else email
+    const sendType = type === 'phone' && user.phone ? 'SMS' : 'EMAIL';
 
     await VerificationCode.create({
       userId: user._id,
       code: otpCode,
-      type: type || 'email',
+      type: sendType === 'SMS' ? 'phone' : 'email',
       expiresAt: new Date(Date.now() + 10 * 60 * 1000), 
     });
 
-    sendNotification({
+    const success = await sendNotification({
       to: sendType === 'SMS' ? user.phone : user.email,
       subject: 'CareNet Healthcare - New Verification Code',
       body: `Hello ${user.name}, your new verification code is: ${otpCode}. It expires in 10 minutes.`,
       type: sendType
     });
 
-    res.status(200).json({ success: true, message: `New code sent via ${sendType.toLowerCase()}.` });
+    if (!success && sendType === 'SMS') {
+       // Fallback to email if SMS resend fails
+       await sendNotification({
+         to: user.email,
+         subject: 'CareNet Healthcare - New Verification Code (SMS Fallback)',
+         body: `Hello ${user.name}, your new verification code is: ${otpCode}. It expires in 10 minutes.`,
+         type: 'EMAIL'
+       });
+       return res.status(200).json({ success: true, message: `SMS failed, code sent via email instead.` });
+    }
+
+    res.status(200).json({ success: true, message: `New code sent via ${sendType === 'SMS' ? 'sms' : 'email'}.` });
   } catch (error) {
     console.error('resendOTP error:', error.message);
     res.status(500).json({ success: false, message: 'Server error resending OTP.' });
