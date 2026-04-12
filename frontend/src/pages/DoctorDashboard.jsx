@@ -17,6 +17,7 @@ import {
   TrendingUp,
   MapPin
 } from "lucide-react";
+import Navbar from "../components/common/Navbar";
 
 // ── Mock Data ────────────────────────────────────────────────────────────────
 const MOCK_STATS = [
@@ -85,31 +86,25 @@ export default function DoctorDashboard() {
       {/* ── MAIN CONTENT ──────────────────────────────────────────────────── */}
       <main className="flex-1 overflow-y-auto">
         {/* Top Navbar */}
-        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-40">
-          <div className="flex items-center gap-6">
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500">
-              <Menu size={20} />
-            </button>
-            <h1 className="text-xl font-bold text-slate-800">Welcome, Dr. Ahamed Shaba</h1>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="relative hidden md:block">
+        <Navbar
+          onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+          title={<span className="text-xl font-bold text-slate-800">Welcome, Dr. Ahamed Shaba</span>}
+          userProfile={{
+            name: 'Dr. Ahamed Shaba',
+            email: 'doctor@carenet.com',
+            role: 'Doctor'
+          }}
+        >
+          <div className="hidden md:flex flex-1 justify-end pr-4">
+            <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text" placeholder="Search patients..." 
-                className="pl-10 pr-4 py-2.5 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500/20 w-64 text-sm"
+                className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500/20 text-sm"
               />
             </div>
-            <button className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all relative">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white shadow-sm" />
-            </button>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold cursor-pointer hover:shadow-lg transition-all">
-              AS
-            </div>
           </div>
-        </header>
+        </Navbar>
 
         <div className="p-8">
           {/* Dashboard Grid */}
