@@ -24,7 +24,10 @@ import {
   Edit,
   Trash2,
   Eye,
-  LogOut
+  LogOut,
+  LayoutDashboard,
+  TrendingUp,
+  ArrowLeft
 } from 'lucide-react';
 import axios from 'axios';
 import Navbar from '../components/common/Navbar';
@@ -32,7 +35,8 @@ import Navbar from '../components/common/Navbar';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState('appointments');
+  const [activeTab, setActiveTab] = useState('overview');
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -46,10 +50,10 @@ const AdminDashboard = () => {
   const [allDoctors, setAllDoctors] = useState([]);
   const [allDoctorsCount, setAllDoctorsCount] = useState(0);
   const [stats, setStats] = useState([
-    { title: 'Total Patients', value: '0', change: '+0%', icon: Users, key: 'patients' },
-    { title: 'Appointments', value: '0', change: '+0%', icon: Calendar, key: 'appointments' },
-    { title: 'Revenue', value: '$0', change: '+0%', icon: DollarSign, key: 'revenue' },
-    { title: 'Total Doctors', value: '0', change: '+0%', icon: Activity, key: 'doctors' },
+    { title: 'Total Patients', value: '0', change: '+12%', icon: Users, color: 'from-blue-500 to-blue-700', bg: 'bg-blue-50' },
+    { title: 'Appointments', value: '0', change: '+8%', icon: Calendar, color: 'from-indigo-500 to-indigo-700', bg: 'bg-indigo-50' },
+    { title: 'Revenue', value: '$0', change: '+23%', icon: DollarSign, color: 'from-emerald-500 to-emerald-700', bg: 'bg-emerald-50' },
+    { title: 'Total Doctors', value: '0', change: '+5%', icon: Activity, color: 'from-rose-500 to-rose-700', bg: 'bg-rose-50' },
   ]);
 
   // Filter states
@@ -59,7 +63,6 @@ const AdminDashboard = () => {
 
   // Modal states
   const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusUpdate, setStatusUpdate] = useState({ status: '', notes: '' });
   const [cancelReason, setCancelReason] = useState('');
@@ -171,18 +174,18 @@ const AdminDashboard = () => {
     const totalRevenue = appointments
       .filter(a => a.status === 'COMPLETED')
       .reduce((sum, a) => sum + (a.consultationFee || 0), 0);
-    
+
     setStats([
-      { title: 'Total Patients', value: patients.length || '0', change: '+12%', icon: Users, key: 'patients' },
-      { title: 'Appointments', value: totalAppointments, change: '+8%', icon: Calendar, key: 'appointments' },
-      { title: 'Revenue', value: `$${totalRevenue.toLocaleString()}`, change: '+23%', icon: DollarSign, key: 'revenue' },
-      { title: 'Total Doctors', value: allDoctorsCount || '0', change: '+5%', icon: Users, key: 'doctors' },
+      { title: 'Total Patients', value: patients.length || '0', change: '+12%', icon: Users, color: 'from-blue-500 to-blue-700', bg: 'bg-blue-50' },
+      { title: 'Appointments', value: totalAppointments, change: '+8%', icon: Calendar, color: 'from-indigo-500 to-indigo-700', bg: 'bg-indigo-50' },
+      { title: 'Revenue', value: `$${totalRevenue.toLocaleString()}`, change: '+23%', icon: DollarSign, color: 'from-emerald-500 to-emerald-700', bg: 'bg-emerald-50' },
+      { title: 'Total Doctors', value: allDoctorsCount || '0', change: '+5%', icon: Users, color: 'from-rose-500 to-rose-700', bg: 'bg-rose-50' },
     ]);
   }, [appointments, patients, allDoctorsCount]);
 
   // Get status color and icon
   const getStatusColor = (status) => {
-    switch(status) {
+    switch (status) {
       case 'CONFIRMED': return 'bg-green-100 text-green-800';
       case 'PENDING': return 'bg-yellow-100 text-yellow-800';
       case 'CANCELLED': return 'bg-red-100 text-red-800';
@@ -192,7 +195,7 @@ const AdminDashboard = () => {
   };
 
   const getStatusIcon = (status) => {
-    switch(status) {
+    switch (status) {
       case 'CONFIRMED': return <CheckCircle className="w-4 h-4" />;
       case 'PENDING': return <Clock className="w-4 h-4" />;
       case 'CANCELLED': return <AlertCircle className="w-4 h-4" />;
@@ -296,8 +299,8 @@ const AdminDashboard = () => {
   }, [activeTab]);
 
   // Filter appointments by search term
-  const filteredAppointments = appointments.filter(apt => 
-    searchTerm === '' || 
+  const filteredAppointments = appointments.filter(apt =>
+    searchTerm === '' ||
     apt.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     apt.doctorName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -306,22 +309,21 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed top-0 left-0 z-30 w-64 h-full bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+      <aside className={`fixed top-0 left-0 z-30 w-64 h-full bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-2">
             <Activity className="w-8 h-8 text-blue-600" />
-            <span className="text-xl font-bold text-gray-900">HealthCare Pro</span>
+            <span className="text-xl font-bold text-gray-900">CareNet</span>
           </div>
-          <button 
+          <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden text-gray-500 hover:text-gray-700"
           >
@@ -331,6 +333,7 @@ const AdminDashboard = () => {
 
         <nav className="p-4 space-y-1">
           {[
+            { id: 'overview', label: 'Overview', icon: LayoutDashboard },
             { id: 'appointments', label: 'Appointments', icon: Calendar },
             { id: 'patients', label: 'Patients', icon: Users },
             { id: 'alldoctors', label: 'All Doctors', icon: User },
@@ -341,11 +344,10 @@ const AdminDashboard = () => {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                activeTab === item.id
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === item.id
                   ? 'bg-blue-50 text-blue-700'
                   : 'text-gray-700 hover:bg-gray-100'
-              }`}
+                }`}
             >
               <item.icon className={`w-5 h-5 ${activeTab === item.id ? 'text-blue-700' : 'text-gray-500'}`} />
               <span className="font-medium">{item.label}</span>
@@ -395,7 +397,7 @@ const AdminDashboard = () => {
         {error && (
           <div className="m-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-600">{error}</p>
-            <button 
+            <button
               onClick={() => setError(null)}
               className="mt-2 text-sm text-red-700 hover:text-red-800"
             >
@@ -406,175 +408,435 @@ const AdminDashboard = () => {
 
         {/* Dashboard Content */}
         <div className="p-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 rounded-lg bg-blue-50">
-                    <stat.icon className="w-6 h-6 text-blue-600" />
+          {/* Stats Cards - Only show in Overview or List views */}
+          {(activeTab === 'overview' || (activeTab === 'appointments' && viewMode === 'list')) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {stats.map((stat, index) => (
+                <div key={index} className="relative overflow-hidden bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 group">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`p-3 rounded-xl ${stat.bg} group-hover:scale-110 transition-transform duration-300`}>
+                      <stat.icon className={`w-6 h-6 bg-gradient-to-br ${stat.color} bg-clip-text -webkit-background-clip-text`} style={{ color: 'transparent', fill: 'currentColor' }} />
+                    </div>
+                    <div className="flex items-center space-x-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">
+                      <TrendingUp className="w-4 h-4" />
+                      <span className="text-xs font-bold">{stat.change}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-1 text-green-600">
-                    <ArrowUp className="w-4 h-4" />
-                    <span className="text-sm font-medium">{stat.change}</span>
+                  <div className="relative z-10">
+                    <h3 className="text-3xl font-extrabold text-gray-900 tracking-tight">{stat.value}</h3>
+                    <p className="text-sm font-medium text-gray-500 mt-1 uppercase tracking-wider">{stat.title}</p>
+                  </div>
+                  <div className={`absolute -right-4 -bottom-4 w-24 h-24 bg-gradient-to-br ${stat.color} opacity-5 rounded-full blur-2xl group-hover:opacity-10 transition-opacity`}></div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Overview Tab Content */}
+          {activeTab === 'overview' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Recent Activity */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold text-gray-900">Recent Activity</h2>
+                    <button onClick={() => setActiveTab('appointments')} className="text-sm font-semibold text-blue-600 hover:text-blue-700">View all</button>
+                  </div>
+                  <div className="space-y-6">
+                    {appointments.slice(0, 5).map((apt, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stats[1].color} flex items-center justify-center text-white font-bold`}>
+                            {apt.patientName?.[0]}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{apt.patientName}</p>
+                            <p className="text-xs text-gray-500">{apt.type} with Dr. {apt.doctorName}</p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-medium text-gray-400">{formatDate(apt.appointmentDate)}</span>
+                      </div>
+                    ))}
+                    {appointments.length === 0 && <p className="text-center text-gray-500 py-4">No recent activity</p>}
                   </div>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900">{stat.value}</h3>
-                <p className="text-sm text-gray-600 mt-1">{stat.title}</p>
+
+                {/* Quick Stats/Alt Analytics */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold text-gray-900">Performance Snapshot</h2>
+                    <Activity className="w-5 h-5 text-gray-400" />
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm font-medium mb-2">
+                        <span className="text-gray-600">Patient Satisfaction</span>
+                        <span className="text-emerald-600">94%</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2">
+                        <div className="bg-emerald-500 h-2 rounded-full w-[94%] shadow-[0_0_10px_rgba(16,185,129,0.3)]"></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm font-medium mb-2">
+                        <span className="text-gray-600">Appointment Completion</span>
+                        <span className="text-blue-600">88%</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2">
+                        <div className="bg-blue-500 h-2 rounded-full w-[88%] shadow-[0_0_10px_rgba(59,130,246,0.3)]"></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm font-medium mb-2">
+                        <span className="text-gray-600">Resources Utilization</span>
+                        <span className="text-indigo-600">76%</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2">
+                        <div className="bg-indigo-500 h-2 rounded-full w-[76%] shadow-[0_0_10px_rgba(99,102,241,0.3)]"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-8 p-4 rounded-xl bg-gradient-to-r from-gray-900 to-gray-800 text-white">
+                    <p className="text-xs font-medium uppercase tracking-widest opacity-60 mb-1">Growth Forecast</p>
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <p className="text-2xl font-bold">+2.4%</p>
+                        <p className="text-[10px] opacity-60">Estimated revenue increase this month</p>
+                      </div>
+                      <TrendingUp className="w-8 h-8 opacity-20" />
+                    </div>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
           {/* Appointments Tab Content */}
           {activeTab === 'appointments' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                  <h2 className="text-xl font-semibold text-gray-900">All Appointments</h2>
-                  <div className="flex items-center space-x-3">
-                    <button 
-                      onClick={() => setShowFilters(!showFilters)}
-                      className="p-2 text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg"
-                    >
-                      <Filter className="w-5 h-5" />
-                    </button>
-                    <button className="p-2 text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg">
-                      <Download className="w-5 h-5" />
-                    </button>
-                    <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                      <PlusCircle className="w-5 h-5" />
-                      <span>New Appointment</span>
-                    </button>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {viewMode === 'list' ? (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="p-6 border-b border-gray-100">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                      <h2 className="text-2xl font-bold text-gray-900 tracking-tight">All Appointments</h2>
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => setShowFilters(!showFilters)}
+                          className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 border border-gray-200 rounded-xl transition-all"
+                        >
+                          <Filter className="w-5 h-5" />
+                        </button>
+                        <button className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 border border-gray-200 rounded-xl transition-all">
+                          <Download className="w-5 h-5" />
+                        </button>
+                        <button className="flex items-center space-x-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200 transition-all font-semibold">
+                          <PlusCircle className="w-5 h-5" />
+                          <span>New Appointment</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Filters */}
+                    {showFilters && (
+                      <div className="mt-6 p-6 bg-gray-50/50 rounded-2xl border border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top-2 duration-300">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Status</label>
+                          <select
+                            value={filters.status || ''}
+                            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                          >
+                            <option value="">All Status</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="CONFIRMED">Confirmed</option>
+                            <option value="COMPLETED">Completed</option>
+                            <option value="CANCELLED">Cancelled</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Date</label>
+                          <input
+                            type="date"
+                            value={filters.date || ''}
+                            onChange={(e) => setFilters({ ...filters, date: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Specialty Search</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Cardiology"
+                            value={filters.specialty || ''}
+                            onChange={(e) => setFilters({ ...filters, specialty: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-                
-                {/* Filters */}
-                {showFilters && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <select
-                      value={filters.status || ''}
-                      onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">All Status</option>
-                      <option value="PENDING">Pending</option>
-                      <option value="CONFIRMED">Confirmed</option>
-                      <option value="COMPLETED">Completed</option>
-                      <option value="CANCELLED">Cancelled</option>
-                    </select>
-                    <input
-                      type="date"
-                      value={filters.date || ''}
-                      onChange={(e) => setFilters({ ...filters, date: e.target.value })}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Specialty"
-                      value={filters.specialty || ''}
-                      onChange={(e) => setFilters({ ...filters, specialty: e.target.value })}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                )}
-              </div>
-              
-              {loading ? (
-                <div className="p-12 text-center">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <p className="mt-2 text-gray-500">Loading appointments...</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doctor</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Specialty</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {filteredAppointments.map((appointment) => (
-                        <tr key={appointment._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                <span className="text-sm font-medium text-blue-600">
-                                  {appointment.patientName?.split(' ').map(n => n[0]).join('') || 'P'}
+
+                  {loading ? (
+                    <div className="p-20 text-center">
+                      <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent shadow-sm"></div>
+                      <p className="mt-4 text-gray-500 font-medium">Fetching secure records...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-gray-50/50">
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Patient Details</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Medical Specialist</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Schedule</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Specialty</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {filteredAppointments.map((appointment) => (
+                            <tr key={appointment._id} className="group hover:bg-blue-50/30 transition-all duration-300">
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <div className="relative">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center border border-blue-100 group-hover:scale-110 transition-transform">
+                                      <span className="text-sm font-bold text-blue-600">
+                                        {appointment.patientName?.split(' ').map(n => n[0]).join('') || 'P'}
+                                      </span>
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white flex items-center justify-center border border-gray-100">
+                                      <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]"></div>
+                                    </div>
+                                  </div>
+                                  <div className="ml-4">
+                                    <p className="text-sm font-bold text-gray-900">{appointment.patientName}</p>
+                                    <p className="text-xs text-gray-500/80 font-medium">{appointment.patientEmail}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <p className="text-sm font-semibold text-gray-800">Dr. {appointment.doctorName}</p>
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-bold text-gray-900">{formatDate(appointment.appointmentDate)}</span>
+                                  <span className="text-xs font-medium text-gray-400 inline-flex items-center mt-1">
+                                    <Clock className="w-3 h-3 mr-1" /> {appointment.timeSlot}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold tracking-tight">
+                                  {appointment.specialty}
                                 </span>
-                              </div>
-                              <div className="ml-3">
-                                <p className="text-sm font-medium text-gray-900">{appointment.patientName}</p>
-                                <p className="text-xs text-gray-500">{appointment.patientEmail}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <p className="text-sm text-gray-900">{appointment.doctorName}</p>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <p className="text-sm text-gray-900">{formatDate(appointment.appointmentDate)}</p>
-                            <p className="text-xs text-gray-500">{appointment.timeSlot}</p>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-600">{appointment.specialty}</span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
-                              {getStatusIcon(appointment.status)}
-                              <span className="capitalize">{appointment.status?.toLowerCase()}</span>
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center space-x-2">
-                              <button 
-                                onClick={() => {
-                                  setSelectedAppointment(appointment);
-                                  setShowDetailsModal(true);
-                                }}
-                                className="text-blue-600 hover:text-blue-800"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              {appointment.status !== 'COMPLETED' && appointment.status !== 'CANCELLED' && (
-                                <button 
-                                  onClick={() => {
-                                    setSelectedAppointment(appointment);
-                                    setShowStatusModal(true);
-                                  }}
-                                  className="text-green-600 hover:text-green-800"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </button>
-                              )}
-                              {appointment.status !== 'CANCELLED' && appointment.status !== 'COMPLETED' && (
-                                <button 
-                                  onClick={() => {
-                                    if (window.confirm('Are you sure you want to cancel this appointment?')) {
-                                      const reason = prompt('Please provide a cancellation reason:');
-                                      if (reason) cancelAppointment(appointment._id, reason);
-                                    }
-                                  }}
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {filteredAppointments.length === 0 && (
-                    <div className="p-12 text-center text-gray-500">
-                      No appointments found
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <span className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border-2 ${appointment.status === 'CONFIRMED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                    appointment.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                      appointment.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                                        'bg-blue-50 text-blue-700 border-blue-100'
+                                  }`}>
+                                  {getStatusIcon(appointment.status)}
+                                  <span className="capitalize">{appointment.status?.toLowerCase()}</span>
+                                </span>
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="flex items-center justify-center space-x-2">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedAppointment(appointment);
+                                      setViewMode('detail');
+                                    }}
+                                    className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white hover:shadow-lg hover:shadow-blue-100 transition-all flex items-center space-x-2"
+                                    title="View Full Details"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    <span className="text-xs font-bold pr-1">Full View</span>
+                                  </button>
+                                  {appointment.status !== 'COMPLETED' && appointment.status !== 'CANCELLED' && (
+                                    <button
+                                      onClick={() => {
+                                        setSelectedAppointment(appointment);
+                                        setShowStatusModal(true);
+                                      }}
+                                      className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white hover:shadow-lg hover:shadow-emerald-100 transition-all"
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {appointment.status !== 'CANCELLED' && appointment.status !== 'COMPLETED' && (
+                                    <button
+                                      onClick={() => {
+                                        if (window.confirm('Are you sure you want to cancel this appointment?')) {
+                                          const reason = prompt('Please provide a cancellation reason:');
+                                          if (reason) cancelAppointment(appointment._id, reason);
+                                        }
+                                      }}
+                                      className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white hover:shadow-lg hover:shadow-rose-100 transition-all"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {filteredAppointments.length === 0 && (
+                        <div className="p-20 text-center">
+                          <div className="p-4 bg-gray-50 inline-block rounded-full mb-4">
+                            <Search className="w-10 h-10 text-gray-300" />
+                          </div>
+                          <p className="text-gray-500 font-bold">No appointments match your search criteria</p>
+                          <button onClick={() => { setSearchTerm(''); setFilters({}); }} className="mt-4 text-blue-600 font-bold hover:underline">Clear all filters</button>
+                        </div>
+                      )}
                     </div>
                   )}
+                </div>
+              ) : (
+                /* Appointment Detail View - "Only appointment should show" */
+                <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                  <div className="flex items-center justify-between bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-50 rounded-xl text-gray-600 transition-colors font-bold"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                      <span>Back to Appointments</span>
+                    </button>
+                    <div className="flex items-center space-x-3">
+                      <span className={`px-4 py-1.5 rounded-xl text-xs font-bold border-2 ${getStatusColor(selectedAppointment.status)} border-opacity-30`}>
+                        {selectedAppointment.status}
+                      </span>
+                      {selectedAppointment.status !== 'COMPLETED' && selectedAppointment.status !== 'CANCELLED' && (
+                        <button
+                          onClick={() => setShowStatusModal(true)}
+                          className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all"
+                        >
+                          Change Status
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Main Content Info */}
+                    <div className="lg:col-span-2 space-y-8">
+                      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-700 relative">
+                          <div className="absolute -bottom-12 left-8 p-1 bg-white rounded-3xl shadow-xl">
+                            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center border border-gray-100">
+                              <span className="text-3xl font-extrabold text-blue-600">
+                                {selectedAppointment.patientName?.[0]}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="pt-16 pb-8 px-8">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h1 className="text-3xl font-black text-gray-900 tracking-tight">{selectedAppointment.patientName}</h1>
+                              <p className="text-gray-500 font-medium flex items-center mt-1">
+                                <Mail className="w-4 h-4 mr-2 text-blue-400" /> {selectedAppointment.patientEmail}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Appointment ID</p>
+                              <p className="text-sm font-mono font-bold text-gray-700">{selectedAppointment._id}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center">
+                                <Activity className="w-4 h-4 mr-2 text-indigo-500" /> Consultation Reason
+                              </h3>
+                              <p className="text-gray-900 font-semibold leading-relaxed">
+                                {selectedAppointment.reason || 'No specific reason provided for this visit.'}
+                              </p>
+                            </div>
+                            <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center">
+                                <Clock className="w-4 h-4 mr-2 text-indigo-500" /> Additional Notes
+                              </h3>
+                              <p className="text-gray-900 font-semibold leading-relaxed italic">
+                                {selectedAppointment.notes || 'No administrative notes recorded yet.'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {selectedAppointment.cancelReason && (
+                        <div className="bg-rose-50 border border-rose-100 rounded-2xl p-6 flex items-start space-x-4">
+                          <AlertCircle className="w-6 h-6 text-rose-600 flex-shrink-0" />
+                          <div>
+                            <h4 className="text-sm font-bold text-rose-900 mb-1">Cancellation Record</h4>
+                            <p className="text-sm text-rose-700 font-medium leading-relaxed">{selectedAppointment.cancelReason}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sidebar Info */}
+                    <div className="space-y-8">
+                      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
+                        <h3 className="text-lg font-black text-gray-900 mb-6">Medical Personnel</h3>
+                        <div className="flex items-center p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 mb-6">
+                          <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white shrink-0">
+                            <User className="w-6 h-6" />
+                          </div>
+                          <div className="ml-4">
+                            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest leading-none mb-1">Primary Doctor</p>
+                            <p className="text-lg font-black text-indigo-900">Dr. {selectedAppointment.doctorName}</p>
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                            <span className="text-sm font-bold text-gray-500">Specialty</span>
+                            <span className="text-sm font-black text-gray-900">{selectedAppointment.specialty}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                            <span className="text-sm font-bold text-gray-500">Service Type</span>
+                            <span className="text-sm font-black text-gray-900 font-mono">{selectedAppointment.type}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-2">
+                            <span className="text-sm font-bold text-gray-500">Consultation Fee</span>
+                            <span className="text-lg font-black text-emerald-600">${selectedAppointment.consultationFee}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-gradient-to-br from-gray-900 to-indigo-900 rounded-3xl shadow-xl p-8 text-white relative overflow-hidden group">
+                        <div className="relative z-10">
+                          <h3 className="text-lg font-black mb-6">Schedule Details</h3>
+                          <div className="space-y-6">
+                            <div className="flex items-start">
+                              <Calendar className="w-5 h-5 mr-4 text-indigo-400" />
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Date</p>
+                                <p className="text-lg font-bold">{formatDate(selectedAppointment.appointmentDate)}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-start">
+                              <Clock className="w-5 h-5 mr-4 text-indigo-400" />
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Time Slot</p>
+                                <p className="text-lg font-bold">{selectedAppointment.timeSlot}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <button className="w-full mt-8 py-4 bg-white/10 hover:bg-white/20 rounded-2xl text-sm font-black transition-all border border-white/10 flex items-center justify-center">
+                            Export to PDF <Download className="w-4 h-4 ml-2" />
+                          </button>
+                        </div>
+                        <Activity className="absolute -right-8 -bottom-8 w-40 h-40 opacity-5 group-hover:scale-110 transition-transform duration-700" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -769,13 +1031,13 @@ const AdminDashboard = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatDate(doctor.createdAt)}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <button 
+                              <button
                                 onClick={() => approveDoctor(doctor._id)}
                                 className="px-4 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-sm font-medium transition-colors"
                               >
                                 Approve
                               </button>
-                              <button 
+                              <button
                                 onClick={() => rejectDoctor(doctor._id)}
                                 className="px-4 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg text-sm font-medium transition-colors"
                               >
@@ -816,8 +1078,8 @@ const AdminDashboard = () => {
                               <span>{count} ({percentage}%)</span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full" 
+                              <div
+                                className="bg-blue-600 h-2 rounded-full"
                                 style={{ width: `${percentage}%` }}
                               ></div>
                             </div>
@@ -912,9 +1174,8 @@ const AdminDashboard = () => {
                               {formatDate(appointment.appointmentDate)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                appointment.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                              }`}>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${appointment.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                }`}>
                                 {appointment.status === 'COMPLETED' ? 'Paid' : 'Pending'}
                               </span>
                             </td>
@@ -929,86 +1190,7 @@ const AdminDashboard = () => {
         </div>
       </main>
 
-      {/* Appointment Details Modal */}
-      {showDetailsModal && selectedAppointment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-xl font-semibold text-gray-900">Appointment Details</h3>
-              <button onClick={() => setShowDetailsModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-gray-500">Patient Name</label>
-                  <p className="font-medium">{selectedAppointment.patientName}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Patient Email</label>
-                  <p className="font-medium">{selectedAppointment.patientEmail}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Doctor</label>
-                  <p className="font-medium">{selectedAppointment.doctorName}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Specialty</label>
-                  <p className="font-medium">{selectedAppointment.specialty}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Date</label>
-                  <p className="font-medium">{formatDate(selectedAppointment.appointmentDate)}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Time Slot</label>
-                  <p className="font-medium">{selectedAppointment.timeSlot}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Type</label>
-                  <p className="font-medium">{selectedAppointment.type}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Consultation Fee</label>
-                  <p className="font-medium">${selectedAppointment.consultationFee}</p>
-                </div>
-                <div className="col-span-2">
-                  <label className="text-sm text-gray-500">Reason</label>
-                  <p className="font-medium">{selectedAppointment.reason || 'Not specified'}</p>
-                </div>
-                {selectedAppointment.notes && (
-                  <div className="col-span-2">
-                    <label className="text-sm text-gray-500">Notes</label>
-                    <p className="font-medium">{selectedAppointment.notes}</p>
-                  </div>
-                )}
-                {selectedAppointment.cancelReason && (
-                  <div className="col-span-2">
-                    <label className="text-sm text-gray-500">Cancellation Reason</label>
-                    <p className="font-medium text-red-600">{selectedAppointment.cancelReason}</p>
-                  </div>
-                )}
-                <div>
-                  <label className="text-sm text-gray-500">Status</label>
-                  <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedAppointment.status)}`}>
-                    {getStatusIcon(selectedAppointment.status)}
-                    <span className="capitalize">{selectedAppointment.status?.toLowerCase()}</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="p-6 border-t border-gray-200 flex justify-end">
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Update Status Modal */}
       {showStatusModal && selectedAppointment && (
