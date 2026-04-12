@@ -10,6 +10,7 @@ const errorHandler = require('./middleware/errorHandler');
 
 const notificationRoutes = require('./routes/notificationRoutes');
 const appointmentNotifRoutes = require('./routes/appointmentNotifRoutes');
+const inAppNotificationRoutes = require('./routes/inAppNotificationRoutes');
 
 const app = express();
 
@@ -43,6 +44,9 @@ app.use('/api/notifications', notificationRoutes);
 
 // Appointment-triggered notifications (called internally by appointment-service)
 app.use('/api/notifications/appointments', appointmentNotifRoutes);
+
+// In-app notifications for the dashboard bell
+app.use('/api/notifications/in-app', inAppNotificationRoutes);
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {

@@ -25,6 +25,7 @@ const services = [
   { prefix: '/api/appointments', target: APPOINTMENT_SERVICE_URL },
   { prefix: '/api/patients', target: PATIENT_SERVICE_URL },
   { prefix: '/api/doctors', target: DOCTOR_SERVICE_URL },
+  { prefix: '/socket.io', target: NOTIFICATION_SERVICE_URL, ws: true },
 ];
 
 // Health check
@@ -33,13 +34,14 @@ app.get('/health', (req, res) => {
 });
 
 // Setup proxies
-services.forEach(({ prefix, target }) => {
+services.forEach(({ prefix, target, ws }) => {
   app.use(
     prefix,
     createProxyMiddleware({
       target,
       changeOrigin: true,
-      pathRewrite: (path, req) => path, // keep the path as is since services handle /api/...
+      ws: ws || false,
+      pathRewrite: (path, req) => path,
       onError: (err, req, res) => {
         console.error(`Proxy Error for ${prefix}:`, err.message);
         res.status(502).json({ success: false, message: `Service at ${prefix} is currently unreachable.` });

@@ -2,55 +2,83 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Bell, LogOut, Settings, User } from 'lucide-react';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 
 export default function Navbar({ onMenuClick, title, userProfile, children }) {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const notifRef = useRef(null);
   const profileRef = useRef(null);
+  const socketRef = useRef(null);
 
-  // Close dropdowns on outside click
+  // ─── Socket.io Connection ──────────────────────────────────────────────────
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (notifRef.current && !notifRef.current.contains(event.target)) {
-        setShowNotifDropdown(false);
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    // Connect to the gateway (port 3001) which proxies /socket.io to notification-service
+    const socket = io('http://localhost:3001', {
+      auth: { token }
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => console.log('Connected to notification socket'));
+    
+    socket.on('new-notification', (notif) => {
+      setNotifications(prev => [notif, ...prev]);
+      setUnreadCount(prev => prev + 1);
+      
+      // Optional: Browser Notification API or Toast could be triggered here
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(notif.title, { body: notif.message });
       }
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setShowProfileDropdown(false);
-      }
+    });
+
+    return () => {
+      socket.disconnect();
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch notifications
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-        const res = await axios.get('http://localhost:3006/api/notifications/logs/my', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.data?.success) {
-          // Mix realistic simulated logs with backend data
-          const simulated = [
-            { _id: 'sim1', subject: 'System Update', body: 'Welcome to CareNet Pro. Your dashboard is ready.', createdAt: new Date().toISOString(), type: 'SYSTEM' },
-          ];
-          setNotifications([...simulated, ...res.data.data]);
-        }
-      } catch (err) {
-        // Fallback for demo if backend isn't available
-        setNotifications([
-          { _id: 'sim1', subject: 'System Update', body: 'Welcome to CareNet Pro.', createdAt: new Date().toISOString(), type: 'SYSTEM' }
-        ]);
-        console.log('Notification fetch failed:', err.message);
+  // ─── Fetch Notifications ───────────────────────────────────────────────────
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      // Using API Gateway path
+      const res = await axios.get('http://localhost:3001/api/notifications/in-app', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (res.data?.success) {
+        setNotifications(res.data.data);
+        setUnreadCount(res.data.unreadCount);
       }
-    };
+    } catch (err) {
+      console.log('Notification fetch failed:', err.message);
+    }
+  };
+
+  useEffect(() => {
     fetchNotifications();
   }, []);
+
+  const handleMarkAllRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.patch('http://localhost:3001/api/notifications/in-app/read-all', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error('Failed to mark all as read');
+    }
+  };
 
   const handleLogout = () => {
     localStorage.clear();
@@ -101,11 +129,14 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
             onClick={() => {
               setShowNotifDropdown(!showNotifDropdown);
               setShowProfileDropdown(false);
+              if (!showNotifDropdown && unreadCount > 0) {
+                // Optionally mark as read when opening? Or keep explicit.
+              }
             }}
             className="p-2.5 bg-gray-50 text-gray-500 rounded-xl hover:bg-gray-100 hover:text-blue-600 transition-all relative focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           >
             <Bell className="w-5 h-5" />
-            {notifications.length > 0 && (
+            {unreadCount > 0 && (
               <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white shadow-sm animate-pulse" />
             )}
           </button>
@@ -115,7 +146,7 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
               <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
                 <h3 className="text-sm font-semibold text-gray-800">Notifications</h3>
                 <span className="text-xs px-2.5 py-1 bg-blue-100 text-blue-700 font-medium rounded-full">
-                  {notifications.length} New
+                  {unreadCount} New
                 </span>
               </div>
               <div className="max-h-80 overflow-y-auto">
@@ -126,12 +157,12 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
                     {notifications.map(n => (
                       <div 
                         key={n._id} 
-                        className={`p-4 hover:bg-blue-50/50 cursor-pointer transition-colors ${n.type === 'GMAIL' ? 'bg-blue-50/30' : 'bg-white'}`}
+                        className={`p-4 hover:bg-blue-50/50 cursor-pointer transition-colors ${!n.isRead ? 'bg-blue-50/30' : 'bg-white'}`}
                       >
                         <div className="text-sm font-semibold text-gray-800 mb-1 flex items-center gap-2">
-                          {n.type === 'GMAIL' && '📧'} {n.subject || n.eventType || 'System Alert'}
+                          {n.title}
                         </div>
-                        <div className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{n.body}</div>
+                        <div className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{n.message}</div>
                         <div className="text-[10px] text-gray-400 mt-2 font-medium">
                           {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
                         </div>
@@ -140,7 +171,10 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
                   </div>
                 )}
               </div>
-              <div className="p-3 border-t border-gray-50 text-center bg-gray-50/50 hover:bg-gray-100 transition-colors cursor-pointer">
+              <div 
+                onClick={handleMarkAllRead}
+                className="p-3 border-t border-gray-50 text-center bg-gray-50/50 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
                 <span className="text-xs font-semibold text-blue-600">Mark all as read</span>
               </div>
             </div>

@@ -16,6 +16,12 @@ const notificationLogSchema = new mongoose.Schema(
         'CONSULTATION_STARTED',
         'CONSULTATION_COMPLETED',
         'PRESCRIPTION_ISSUED',
+        'VERIFICATION_CODE_EMAIL',
+        'VERIFICATION_CODE_SMS',
+        'ACCOUNT_UPDATE',
+        'PAYMENT_SUCCESS_DOCTOR',
+        'CONSULTATION_COMPLETED_DOCTOR',
+        'APPOINTMENT_BOOKED_DOCTOR',
       ],
       required: true,
       index: true,
@@ -26,7 +32,7 @@ const notificationLogSchema = new mongoose.Schema(
     recipientPhone: { type: String, default: null },
     recipientRole: {
       type: String,
-      enum: ['patient', 'doctor', 'admin'],
+      enum: ['patient', 'doctor', 'admin', 'user'],
       required: true,
     },
     recipientId: { type: String, default: null, index: true },
@@ -49,7 +55,7 @@ const notificationLogSchema = new mongoose.Schema(
     referenceId: { type: String, default: null },  // appointmentId / transactionId / etc.
     referenceType: {
       type: String,
-      enum: ['appointment', 'transaction', 'refund', 'consultation', 'prescription'],
+      enum: ['appointment', 'transaction', 'refund', 'consultation', 'prescription', null],
       default: null,
     },
 
