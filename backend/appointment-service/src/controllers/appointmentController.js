@@ -1,26 +1,5 @@
-// src/controllers/appointmentController.js
 const Appointment = require('../models/Appointment');
-const amqplib = require('amqplib');
-
-// Helper — publish event to RabbitMQ so notification-service
-// can send email/SMS. Wrapped in try/catch so if RabbitMQ is
-// down it doesn't crash the whole service.
-async function publishEvent(eventType, data) {
-  try {
-    const conn = await amqplib.connect(process.env.RABBITMQ_URL);
-    const channel = await conn.createChannel();
-    await channel.assertQueue('appointment_events', { durable: true });
-    channel.sendToQueue(
-      'appointment_events',
-      Buffer.from(JSON.stringify({ eventType, data })),
-      { persistent: true }
-    );
-    await channel.close();
-    await conn.close();
-  } catch (err) {
-    console.error('RabbitMQ publish failed (non-fatal):', err.message);
-  }
-}
+const { publishToQueue } = require('../utils/rabbitMQ');
 
 // ─── POST /api/appointments ───────────────────────────────
 // Patient books an appointment
@@ -60,15 +39,20 @@ exports.createAppointment = async (req, res) => {
       consultationFee
     });
 
-    // Notify patient + doctor asynchronously
-    await publishEvent('APPOINTMENT_BOOKED', {
-      appointmentId:   appointment._id,
-      patientName,
-      patientEmail,
-      doctorName,
-      appointmentDate,
-      timeSlot,
-      type
+    // Notify patient + doctor asynchronously via RabbitMQ
+    publishToQueue({
+      eventType: 'APPOINTMENT_BOOKED',
+      recipientId: req.user.id,
+      recipientRole: 'patient',
+      email: patientEmail,
+      referenceId: appointment._id,
+      data: {
+        patientName,
+        doctorName,
+        date: appointmentDate,
+        time: timeSlot,
+        type: type || 'IN_PERSON'
+      }
     });
 
     res.status(201).json({
@@ -164,14 +148,19 @@ exports.updateStatus = async (req, res) => {
     await appointment.save();
 
     // Notify about status change
-    await publishEvent('APPOINTMENT_STATUS_CHANGED', {
-      appointmentId: appointment._id,
-      patientEmail:  appointment.patientEmail,
-      patientName:   appointment.patientName,
-      doctorName:    appointment.doctorName,
-      status,
-      appointmentDate: appointment.appointmentDate,
-      timeSlot:      appointment.timeSlot
+    publishToQueue({
+      eventType: 'APPOINTMENT_STATUS_CHANGED',
+      recipientId: appointment.patientId,
+      recipientRole: 'patient',
+      email: appointment.patientEmail,
+      referenceId: appointment._id,
+      data: {
+        patientName:   appointment.patientName,
+        doctorName:    appointment.doctorName,
+        status,
+        date: appointment.appointmentDate,
+        time: appointment.timeSlot
+      }
     });
 
     res.json({ message: `Appointment ${status.toLowerCase()}`, appointment });
@@ -204,11 +193,16 @@ exports.cancelAppointment = async (req, res) => {
     appointment.cancelReason = req.body.reason || 'Cancelled by patient';
     await appointment.save();
 
-    await publishEvent('APPOINTMENT_CANCELLED', {
-      appointmentId: appointment._id,
-      patientEmail:  appointment.patientEmail,
-      patientName:   appointment.patientName,
-      doctorName:    appointment.doctorName
+    publishToQueue({
+      eventType: 'APPOINTMENT_CANCELLED',
+      recipientId: appointment.patientId,
+      recipientRole: 'patient',
+      email: appointment.patientEmail,
+      referenceId: appointment._id,
+      data: {
+        patientName:   appointment.patientName,
+        doctorName:    appointment.doctorName
+      }
     });
 
     res.json({ message: 'Appointment cancelled successfully' });
