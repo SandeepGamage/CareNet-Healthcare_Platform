@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: symptom-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: symptom-service
+  template:
+    metadata:
+      labels:
+        app: symptom-service
+    spec:
+      containers:
+        - name: symptom-service
+          image: symptom-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: APPOINTMENT_SERVICE_URL
+              value: "http://appointment-service:3004"
+            - name: GEMINI_API_KEY
+              value: "your_actual_key_here" # Should use Secrets in prod
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: symptom-service
+spec:
+  selector:
+    app: symptom-service
+  ports:
+    - port: 3000
+      targetPort: 3000

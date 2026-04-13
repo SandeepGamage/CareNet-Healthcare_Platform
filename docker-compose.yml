@@ -1,0 +1,171 @@
+version: '3.8'
+
+services:
+  # ─── Infrastructure ──────────────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: healthcare-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+  # ─── API Gateway ───────────────────────────────────────────────
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: api-gateway
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      AUTH_SERVICE_URL: http://auth-service:3006
+      NOTIFICATION_SERVICE_URL: http://notification-service:5004
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+      PATIENT_SERVICE_URL: http://patient-service:5005
+      DOCTOR_SERVICE_URL: http://doctor-service:5001
+    depends_on:
+      - auth-service
+      - appointment-service
+    networks:
+      - healthcare-network
+
+  # ─── Auth Service ──────────────────────────────────────────────
+  auth-service:
+    build: ./backend/auth-service
+    container_name: auth-service
+    ports:
+      - "3006:3006"
+    environment:
+      PORT: 3006
+      MONGO_URI: mongodb://mongodb:27017/carenet_auth
+      JWT_SECRET: ${JWT_SECRET_APPOINTMENT:-carenet_secret}
+    depends_on:
+      - mongodb
+    networks:
+      - healthcare-network
+
+  # ─── Appointment Service ─────────────────────────────────────────
+  appointment-service:
+    build: ./backend/appointment-service
+    container_name: appointment-service
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      MONGO_URI: mongodb://mongodb:27017/carenet_appointments
+      JWT_SECRET: ${JWT_SECRET_APPOINTMENT:-carenet_secret}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+      - mongodb
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+  # ─── Patient Service ────────────────────────────────────────────
+  patient-service:
+    build: ./backend/patient-service
+    container_name: patient-service
+    ports:
+      - "5005:5005"
+    environment:
+      PORT: 5005
+      MONGO_URI: mongodb://mongodb:27017/carenet_patients
+    depends_on:
+      - mongodb
+    networks:
+      - healthcare-network
+
+  # ─── Doctor Service ─────────────────────────────────────────────
+  doctor-service:
+    build: ./backend/doctor-service
+    container_name: doctor-service
+    ports:
+      - "5001:5001"
+    environment:
+      PORT: 5001
+      MONGO_URI: mongodb://mongodb:27017/carenet_doctors
+    depends_on:
+      - mongodb
+    networks:
+      - healthcare-network
+
+  # ─── Notification Service ───────────────────────────────────────
+  notification-service:
+    build: ./backend/notification-service
+    container_name: notification-service
+    ports:
+      - "5004:5004"
+    environment:
+      PORT: 5004
+      MONGO_URI: mongodb://mongodb:27017/carenet_notifications
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+      - mongodb
+    networks:
+      - healthcare-network
+
+  # ─── Symptom AI Service ──────────────────────────────────────────
+  symptom-service:
+    build: ./backend/ai-symptom-service
+    container_name: symptom-service
+    ports:
+      - "3000:3000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PORT=3000
+      - NODE_ENV=production
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:3004
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+  # ─── Frontend (nginx) ────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: carenet-frontend
+    ports:
+      - '5173:80'
+    networks:
+      - healthcare-network
+    restart: unless-stopped
+
+  # ─── Payment Service ─────────────────────────────────────────────
+  payment-service:
+    build:
+      context: ./backend/payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - '5003:5003'
+    environment:
+      PORT: 5003
+      MONGO_URI: mongodb://mongodb:27017/carenet_payments
+    networks:
+      - healthcare-network
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+networks:
+  healthcare-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
