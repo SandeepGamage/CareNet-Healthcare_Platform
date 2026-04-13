@@ -1,7 +1,42 @@
 const { sendTemplatedEmail } = require('./emailService');
 const { sendSMS, getSMSBody } = require('./smsService');
 const NotificationLog = require('../models/NotificationLog');
+const InAppNotification = require('../models/InAppNotification');
+const { sendNotificationToUser } = require('../socket');
 const logger = require('../utils/logger');
+
+const getTitle = (type) => {
+  switch (type) {
+    case 'APPOINTMENT_BOOKED': return 'New Appointment Booked';
+    case 'APPOINTMENT_CONFIRMED': return 'Appointment Confirmed';
+    case 'CONSULTATION_STARTED': return 'Consultation Started';
+    case 'CONSULTATION_COMPLETED': return 'Consultation Completed';
+    case 'PRESCRIPTION_ISSUED': return 'New Prescription';
+    case 'PAYMENT_SUCCESS': return 'Payment Successful';
+    default: return 'Healthcare Update';
+  }
+};
+
+const getMessage = (type, data) => {
+  switch (type) {
+    case 'APPOINTMENT_BOOKED': return `A new appointment has been scheduled for ${data?.appointmentDate || 'your selected date'}.`;
+    case 'CONSULTATION_STARTED': return `Dr. ${data?.doctorName || ''} is waiting for you in the virtual room.`;
+    case 'CONSULTATION_COMPLETED': return `Your telemedicine session with Dr. ${data?.doctorName || ''} has ended.`;
+    case 'PRESCRIPTION_ISSUED': return `You have a new prescription from Dr. ${data?.doctorName || ''}.`;
+    default: return 'You have a new update in your CareNet portal.';
+  }
+};
+
+const getLink = (type, refId) => {
+  switch (type) {
+    case 'APPOINTMENT_BOOKED': 
+    case 'APPOINTMENT_CONFIRMED':
+    case 'CONSULTATION_COMPLETED':
+      return `/dashboard/appointments/${refId}`;
+    case 'PRESCRIPTION_ISSUED': return `/dashboard/prescriptions`;
+    default: return '/dashboard';
+  }
+};
 
 /**
  * Dispatch a notification to a single recipient via all available channels.
@@ -29,6 +64,25 @@ const dispatchNotification = async ({
 }) => {
   const emailResult  = { sent: false, messageId: null, error: null };
   const smsResult    = { sent: false, messageSid: null, error: null };
+
+  // ── 0. Create In-App Notification & Push to Socket ────────────────────────
+  if (recipientId) {
+    try {
+      const inAppNotif = await InAppNotification.create({
+        recipientId,
+        recipientRole: role || 'patient',
+        title: getTitle(eventType),
+        message: getMessage(eventType, data),
+        eventType,
+        referenceId,
+        link: getLink(eventType, referenceId)
+      });
+      // Emit to user's browser in real time
+      sendNotificationToUser(recipientId, inAppNotif);
+    } catch (err) {
+      logger.error(`InAppNotification creation error: ${err.message}`);
+    }
+  }
 
   // ── Email ─────────────────────────────────────────────────────────────────
   if (email) {
