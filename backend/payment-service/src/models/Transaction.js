@@ -48,6 +48,7 @@ const transactionSchema = new mongoose.Schema(
     metadata: {
       doctorName      : String,
       patientName     : String,
+      patientEmail    : String,
       specialty       : String,
       appointmentDate : String,
       consultationType: { type: String, default: 'telemedicine' },

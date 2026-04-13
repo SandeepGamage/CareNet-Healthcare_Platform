@@ -71,7 +71,10 @@ const handlePayhereWebhook = async (req, res) => {
 
       // Send email/SMS notifications
       try {
-        await sendPaymentConfirmation({ transaction });
+        await sendPaymentConfirmation({ 
+          transaction,
+          patientEmail: transaction.metadata.patientEmail,
+        });
       } catch (err) {
         logger.error(`Notification failed: ${err.message}`);
       }

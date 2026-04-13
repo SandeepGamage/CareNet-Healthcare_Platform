@@ -1,4 +1,5 @@
 const { validationResult } = require('express-validator');
+const crypto               = require('crypto');
 const Transaction          = require('../models/Transaction');
 const Invoice              = require('../models/Invoice');
 const logger               = require('../utils/logger');
@@ -11,8 +12,11 @@ const createPayment = async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation Errors:', errors.array());
       return res.status(400).json({ success: false, errors: errors.array() });
     }
+    console.log('Payment Request Body:', req.body);
+    console.log('Authorized User:', req.user);
 
     const {
       appointmentId,
@@ -22,38 +26,42 @@ const createPayment = async (req, res, next) => {
       metadata = {},
     } = req.body;
 
-    const patientId = req.user.userId;
+    const patientId = req.user.id || req.user.userId;
 
-    // Guard: prevent double-payment for the same appointment
-    const existing = await Transaction.findOne({
-      appointmentId,
-      status: { $in: ['pending', 'succeeded'] },
-    });
-
-    if (existing?.status === 'succeeded') {
-      return res.status(400).json({
-        success: false,
-        message: 'This appointment has already been paid.',
-      });
-    }
-
-    // Create a pending Transaction record — PayHere will confirm it via webhook
-    const transaction = await Transaction.create({
-      appointmentId,
-      payhereOrderId: appointmentId, // Use appointmentId as the unique PayHere order ID
-      patientId,
-      doctorId,
-      amount,
-      currency,
-      status  : 'pending',
-      metadata: {
-        doctorName      : metadata.doctorName       || '',
-        patientName     : req.user.name             || '',
-        specialty       : metadata.specialty        || '',
-        appointmentDate : metadata.appointmentDate  || '',
-        consultationType: metadata.consultationType || 'telemedicine',
+    // Atomic Upsert: Find and update OR create a new pending transaction
+    const transaction = await Transaction.findOneAndUpdate(
+      { appointmentId },
+      {
+        $setOnInsert: {
+          payhereOrderId: appointmentId,
+          patientId,
+          currency: currency.toUpperCase(),
+          status: 'pending',
+        },
+        $set: {
+          doctorId,
+          amount: parseFloat(amount),
+          metadata: {
+            doctorName: metadata.doctorName || '',
+            patientName: req.user.name || '',
+            patientEmail: req.user.email || '',
+            specialty: metadata.specialty || '',
+            appointmentDate: metadata.appointmentDate || '',
+            consultationType: metadata.consultationType || 'telemedicine',
+          },
+        },
       },
-    });
+      { new: true, upsert: true, runValidators: true }
+    );
+
+    // Generate PayHere MD5 Hash
+    // Formula: md5(merchant_id + order_id + amount_formatted + currency + md5(secret).toUpperCase()).toUpperCase()
+    const merchantId     = process.env.PAYHERE_MERCHANT_ID;
+    const merchantSecret = process.env.PAYHERE_SECRET;
+    const amountFormatted = parseFloat(amount).toFixed(2);
+    const hashedSecret   = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
+    const hashInput      = `${merchantId}${appointmentId}${amountFormatted}LKR${hashedSecret}`;
+    const hash           = crypto.createHash('md5').update(hashInput).digest('hex').toUpperCase();
 
     logger.info(`PayHere payment initiated for appointment ${appointmentId}`);
 
@@ -61,11 +69,11 @@ const createPayment = async (req, res, next) => {
     res.status(201).json({
       success       : true,
       transactionId : transaction._id,
-      merchantId    : process.env.PAYHERE_MERCHANT_ID,
+      merchantId,
       orderId       : appointmentId,
-      amount        : amount.toFixed(2),
+      amount        : amountFormatted,
       currency      : currency.toUpperCase(),
-      hash          : '', // MD5 hash should be calculated on frontend or here depending on security config
+      hash,
       checkoutUrl   : 'https://sandbox.payhere.lk/pay/checkout',
     });
   } catch (error) {

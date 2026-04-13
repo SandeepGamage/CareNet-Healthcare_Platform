@@ -13,22 +13,45 @@ const refundRoutes   = require('./routes/refundRoutes');
 
 const app = express();
 
+// DEBUG: Log all requests
+app.use((req, res, next) => {
+  console.log(`[DEBUG] Incoming Request: ${req.method} ${req.url}`);
+  next();
+});
+
+// ─── Middleware ───────────────────────────────────────────────────────────────
+// Move CORS to top to catch all requests and preflights
+app.use(cors({
+  origin: (origin, callback) => {
+    // During development, allow all origins if requested
+    if (!origin || process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    const allowed = process.env.ALLOWED_ORIGINS?.split(',') || [];
+    if (allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+}));
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" } // Allow resources to be loaded across origins
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
+
 // ─── Database ─────────────────────────────────────────────────────────────────
 connectDB();
 
 // ─── PayHere Webhook (no auth required — called by PayHere servers) ──────────
 app.post('/api/payments/payhere/notify', express.urlencoded({ extended: true }), handlePayhereWebhook);
-
-// ─── Middleware ───────────────────────────────────────────────────────────────
-app.use(helmet());
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
