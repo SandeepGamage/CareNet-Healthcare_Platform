@@ -100,6 +100,7 @@ export default function ModernPatientDashboard() {
     const [payingAppt, setPayingAppt] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [appointmentsData, setAppointmentsData] = useState([]);
+    const [paymentsData, setPaymentsData] = useState([]);
 
     const [userProfile, setUserProfile] = useState(() => {
         const stored = localStorage.getItem("user");
@@ -179,8 +180,28 @@ export default function ModernPatientDashboard() {
             }
         };
 
+        const fetchPayments = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const response = await fetch("http://localhost:3005/api/payments/history", {
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.data) {
+                        setPaymentsData(data.data);
+                    }
+                }
+            } catch (err) {
+                console.log("Payment service unreachable");
+            }
+        };
+
         fetchProfile();
         fetchAppointments();
+        fetchPayments();
     }, []);
 
     return (
@@ -220,7 +241,7 @@ export default function ModernPatientDashboard() {
                 }}
             >
                 <div style={{ display: "flex", gap: "8px" }}>
-                    {["overview", "appointments", "vitals"].map((tab) => (
+                    {["overview", "appointments", "vitals", "payments"].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -277,6 +298,7 @@ export default function ModernPatientDashboard() {
                                     { icon: "📅", label: "Appointments", tab: "appointments" },
                                     { icon: "📋", label: "Medical Records", tab: "vitals" },
                                     { icon: "💊", label: "Prescriptions", tab: "prescriptions" },
+                                    { icon: "💳", label: "Payment History", tab: "payments" },
                                     { icon: "⚙️", label: "Settings", tab: "settings" },
                                 ].map((item, i) => (
                                     <button
@@ -768,6 +790,117 @@ export default function ModernPatientDashboard() {
                                 }}>
                                     Connect Device
                                 </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── PAYMENTS TAB ─────────────────────────────────────────────────── */}
+                    {activeTab === "payments" && (
+                        <div style={{ animation: "fadeIn 0.3s ease-in" }}>
+                            <div style={{
+                                background: "white",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: "16px",
+                                padding: "28px",
+                            }}>
+                                <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", margin: "0 0 24px 0" }}>
+                                    Payment History
+                                </h3>
+                                <div style={{ overflowX: "auto" }}>
+                                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                                        <thead>
+                                            <tr style={{ background: "#f9fafb", color: "#6b7280", fontSize: "12px", textTransform: "uppercase" }}>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Date</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Doctor</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Amount</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Status</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Invoice</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {paymentsData.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan="5" style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
+                                                        No payment history available.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                paymentsData.map((payment) => (
+                                                    <tr key={payment._id} style={{ borderBottom: "1px solid #f3f4f6", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                                                        <td style={{ padding: "16px", fontSize: "14px", color: "#111827" }}>
+                                                            {new Date(payment.createdAt).toLocaleDateString()}
+                                                        </td>
+                                                        <td style={{ padding: "16px", fontSize: "14px", color: "#6b7280" }}>
+                                                            {payment.metadata?.doctorName || 'Consultation'}
+                                                        </td>
+                                                        <td style={{ padding: "16px", fontSize: "14px", color: "#111827", fontWeight: 500 }}>
+                                                            {payment.currency} {payment.amount.toFixed(2)}
+                                                        </td>
+                                                        <td style={{ padding: "16px" }}>
+                                                            <span style={{
+                                                                background: payment.status === 'success' ? '#d1fae5' : payment.status === 'pending' ? '#fef3c7' : '#fee2e2',
+                                                                color: payment.status === 'success' ? '#065f46' : payment.status === 'pending' ? '#92400e' : '#991b1b',
+                                                                padding: "4px 8px",
+                                                                borderRadius: "4px",
+                                                                fontSize: "12px",
+                                                                fontWeight: 600,
+                                                                textTransform: "capitalize"
+                                                            }}>
+                                                                {payment.status}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: "16px" }}>
+                                                            {payment.status === 'success' && payment.invoiceId ? (
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            const res = await fetch(`http://localhost:3005/api/payments/invoices/${payment._id}`, {
+                                                                                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                                                                            });
+                                                                            if (!res.ok) throw new Error();
+                                                                            const blob = await res.blob();
+                                                                            const url = window.URL.createObjectURL(blob);
+                                                                            const a = document.createElement('a');
+                                                                            a.href = url;
+                                                                            a.download = `Invoice_${payment._id}.pdf`;
+                                                                            document.body.appendChild(a);
+                                                                            a.click();
+                                                                            a.remove();
+                                                                            window.URL.revokeObjectURL(url);
+                                                                        } catch (err) {
+                                                                            alert('Failed to download invoice. It might not be generated yet.');
+                                                                        }
+                                                                    }}
+                                                                    style={{
+                                                                        background: "transparent",
+                                                                        border: "1px solid #3b82f6",
+                                                                        color: "#3b82f6",
+                                                                        padding: "6px 12px",
+                                                                        borderRadius: "6px",
+                                                                        fontSize: "12px",
+                                                                        fontWeight: 600,
+                                                                        cursor: "pointer",
+                                                                        transition: "all 0.2s"
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.background = "#eff6ff";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.background = "transparent";
+                                                                    }}
+                                                                >
+                                                                    ⬇ Download
+                                                                </button>
+                                                            ) : (
+                                                                <span style={{ fontSize: "12px", color: "#9ca3af" }}>-</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     )}
