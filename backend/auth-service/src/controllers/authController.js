@@ -48,21 +48,22 @@ exports.register = async (req, res) => {
       }
     }
 
-    // Create user (doctor accounts need admin verification)
+    // Check for existing pending registration
+    await VerificationCode.deleteMany({ 'registrationData.email': email.toLowerCase() });
+
+    // Prepare user data for later creation
     const userData = { name, email, password, role: role || 'patient', phone: phone || null };
     if (role === 'doctor') {
       userData.specialty = specialty || null;
       userData.isVerified = false; // Doctor must be verified by admin
     }
 
-    const user = await User.create(userData);
-    
     // Generate 6 digit OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // Always send OTP via email by default
-    await VerificationCode.create({
-      userId: user._id,
+    // Create VerificationCode with registration data (User not created yet!)
+    const pRecord = await VerificationCode.create({
+      registrationData: userData,
       code: otpCode,
       type: 'email',
       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 mins
@@ -79,10 +80,10 @@ exports.register = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: `Account created successfully. A verification code has been sent to your email.`,
-      userId: user._id,
+      message: `A verification code has been sent to your email. Please verify to complete registration.`,
+      userId: pRecord._id, // Send the record ID as userId for frontend compatibility
       type: 'email',
-      hasPhone: !!phone, // let frontend know SMS fallback is available
+      hasPhone: !!phone,
     });
   } catch (error) {
     console.error('Register error:', error.message);
@@ -108,6 +109,17 @@ exports.login = async (req, res) => {
     }
 
     if (!user) {
+      // Check if registration is pending verification
+      const pending = await VerificationCode.findOne({ 'registrationData.email': email.toLowerCase() });
+      if (pending) {
+        return res.status(403).json({
+          success: false,
+          message: 'Please verify your account. Check your email for the OTP code.',
+          requiresOtp: true,
+          userId: pending._id,
+          hasPhone: !!pending.registrationData.phone,
+        });
+      }
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
@@ -120,7 +132,6 @@ exports.login = async (req, res) => {
     }
 
     // Block login if OTP was never completed (standard accounts only)
-    // Google logins are exempt — they verify identity via Google OAuth
     if (!isGoogle && !user.isOtpVerified) {
       return res.status(403).json({
         success: false,
@@ -308,18 +319,29 @@ exports.verifyOTP = async (req, res) => {
       return res.status(400).json({ success: false, message: 'User ID and code are required.' });
     }
 
-    const record = await VerificationCode.findOne({ userId, code });
-    if (!record) {
+    // Record could be a VerificationCode linked to a User OR a pending registration
+    const record = await VerificationCode.findById(userId);
+    if (!record || record.code !== code) {
       return res.status(400).json({ success: false, message: 'Invalid or expired verification code.' });
     }
 
-    // Mark as verified
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+    let user;
+    if (record.registrationData) {
+      // Finish registration: Create the user now
+      user = await User.create({
+        ...record.registrationData,
+        isOtpVerified: true
+      });
+    } else {
+      // Existing user verifying a new channel or re-verifying
+      user = await User.findById(record.userId);
+      if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+      user.isOtpVerified = true;
+      await user.save();
+    }
 
-    user.isOtpVerified = true;
-    await user.save();
-    await VerificationCode.deleteMany({ userId }); // clear codes
+    await VerificationCode.deleteMany({ _id: userId }); // clear this code
+    if (user._id) await VerificationCode.deleteMany({ userId: user._id }); // clear all codes for this user
 
     let token = null;
     if (user.role !== 'doctor' || user.isVerified) {
@@ -358,51 +380,64 @@ exports.resendOTP = async (req, res) => {
     const { userId, type } = req.body;
     if (!userId) return res.status(400).json({ success: false, message: 'User ID required.' });
     
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+    // Check if it's a pending registration or an existing user
+    let user = await User.findById(userId);
+    let pending = null;
+    
+    if (!user) {
+      pending = await VerificationCode.findById(userId);
+      if (!pending || !pending.registrationData) {
+        return res.status(404).json({ success: false, message: 'Registration record not found or expired.' });
+      }
+    }
 
-    await VerificationCode.deleteMany({ userId });
+    const email = user ? user.email : pending.registrationData.email;
+    const phone = user ? user.phone : pending.registrationData.phone;
+    const name = user ? user.name : pending.registrationData.name;
+
+    await VerificationCode.deleteMany({ _id: userId });
+    if (user) await VerificationCode.deleteMany({ userId: user._id });
 
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     
     // Default to email; only use SMS if user explicitly requested 'phone' and has a number
-    const usePhone = type === 'phone' && user.phone;
+    const usePhone = type === 'phone' && phone;
     const sendType = usePhone ? 'SMS' : 'EMAIL';
 
-    await VerificationCode.create({
-      userId: user._id,
+    const newRecordData = {
       code: otpCode,
       type: sendType === 'SMS' ? 'phone' : 'email',
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    });
+    };
+
+    if (user) newRecordData.userId = user._id;
+    else newRecordData.registrationData = pending.registrationData;
+
+    const newRecord = await VerificationCode.create(newRecordData);
 
     const notifSuccess = await sendNotification({
-      to: usePhone ? user.phone : user.email,
+      to: usePhone ? phone : email,
       subject: 'CareNet Healthcare - New Verification Code',
-      body: `Hello ${user.name}, your new verification code is: ${otpCode}. It expires in 10 minutes.`,
+      body: `Hello ${name}, your new verification code is: ${otpCode}. It expires in 10 minutes.`,
       type: sendType,
       apiPath: 'verify'
     });
 
-    // If SMS failed, fall back to email and let frontend know
+    // If SMS failed, fall back to email
     if (!notifSuccess && sendType === 'SMS') {
-      await VerificationCode.deleteMany({ userId });
-      await VerificationCode.create({
-        userId: user._id,
-        code: otpCode,
-        type: 'email',
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      });
+      newRecord.type = 'email';
+      await newRecord.save();
       await sendNotification({
-        to: user.email,
+        to: email,
         subject: 'CareNet Healthcare - New Verification Code',
-        body: `Hello ${user.name}, your new verification code is: ${otpCode}. It expires in 10 minutes.`,
+        body: `Hello ${name}, your new verification code is: ${otpCode}. It expires in 10 minutes.`,
         type: 'EMAIL',
         apiPath: 'verify'
       });
       return res.status(200).json({
         success: true,
         sentVia: 'email',
+        userId: newRecord._id,
         message: 'SMS delivery failed. Verification code sent to your email instead.'
       });
     }
@@ -410,6 +445,7 @@ exports.resendOTP = async (req, res) => {
     res.status(200).json({
       success: true,
       sentVia: sendType === 'SMS' ? 'phone' : 'email',
+      userId: newRecord._id,
       message: `New code sent via ${sendType === 'SMS' ? 'SMS to your phone' : 'email'}.`
     });
   } catch (error) {
