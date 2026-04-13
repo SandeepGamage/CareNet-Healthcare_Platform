@@ -60,7 +60,7 @@ services:
       dockerfile: Dockerfile
     container_name: payment-service
     ports:
-      - '5003:5003'
+      - '3005:3005'
     env_file:
       - ./backend/payment-service/.env
     networks:
@@ -69,6 +69,27 @@ services:
       - ./backend/payment-service/logs:/app/logs
     restart: unless-stopped
 
+  # ─── Notification Service ───────────────────────────────────────
+  notification-service:
+    build:
+      context: ./backend/notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    ports:
+      - '3006:3006'
+    env_file:
+      - ./backend/notification-service/.env
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+    networks:
+      - healthcare-network
+    volumes:
+      - ./backend/notification-service/logs:/app/logs
+    restart: unless-stopped
+
 networks:
   healthcare-network:
     driver: bridge
+
