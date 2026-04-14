@@ -105,14 +105,19 @@ export default function ModernPatientDashboard() {
     const [userProfile, setUserProfile] = useState(() => {
         const stored = localStorage.getItem("user");
         if (stored) {
-            const u = JSON.parse(stored);
-            return {
-                name: u.name || "User",
-                patientId: u.id ? `#${u.id.slice(-4).toUpperCase()}` : "#0000",
-                email: u.email || "",
-                phone: u.phone || "Not set",
-                avatar: u.profilePicture || `https://ui-avatars.com/api/?name=${u.name || 'User'}&background=random`
-            };
+            try {
+                const u = JSON.parse(stored);
+                return {
+                    name: u.name || "User",
+                    patientId: u.id ? `#${u.id.slice(-4).toUpperCase()}` : "#0000",
+                    email: u.email || "",
+                    phone: u.phone || "Not set",
+                    avatar: u.profilePicture || `https://ui-avatars.com/api/?name=${u.name || 'User'}&background=random`
+                };
+            } catch (error) {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+            }
         }
         return {
             name: "Alex Johnson",
