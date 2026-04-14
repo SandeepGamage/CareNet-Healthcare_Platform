@@ -104,7 +104,7 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       const token = getAuthToken();
-      const response = await axios.get(`http://localhost:3001/api/auth/admin/patients`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/patients`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = Array.isArray(response.data?.data) ? response.data.data : [];
@@ -157,8 +157,8 @@ const AdminDashboard = () => {
       const token = getAuthToken();
       // Fetch patients and doctors counts unconditionally for the dashboard overall stats
       const [patientsRes, doctorsRes] = await Promise.all([
-        axios.get(`http://localhost:3001/api/auth/admin/patients`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { data: [] } })),
-        axios.get(`http://localhost:3001/api/auth/admin/doctors`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { count: 0 } }))
+        axios.get(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/patients`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { data: [] } })),
+        axios.get(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/doctors`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { count: 0 } }))
       ]);
       const pData = Array.isArray(patientsRes.data?.data) ? patientsRes.data.data : [];
       setPatients(pData);
@@ -218,7 +218,7 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       const token = getAuthToken();
-      const response = await axios.get(`http://localhost:3001/api/auth/admin/doctors/pending`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/doctors/pending`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setPendingDoctors(response.data.data || []);
@@ -235,7 +235,7 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       const token = getAuthToken();
-      const response = await axios.get(`http://localhost:3001/api/auth/admin/doctors`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/doctors`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const docs = (response.data?.data || []).filter(d => d.isVerified);
@@ -253,7 +253,7 @@ const AdminDashboard = () => {
   const approveDoctor = async (doctorId) => {
     try {
       const token = getAuthToken();
-      await axios.put(`http://localhost:3001/api/auth/admin/doctors/${doctorId}/verify`, {}, {
+      await axios.put(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/doctors/${doctorId}/verify`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchPendingDoctors();
@@ -267,7 +267,7 @@ const AdminDashboard = () => {
     if (!window.confirm('Are you sure you want to reject this doctor application?')) return;
     try {
       const token = getAuthToken();
-      await axios.delete(`http://localhost:3001/api/auth/admin/doctors/${doctorId}/reject`, {
+      await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/doctors/${doctorId}/reject`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchPendingDoctors();

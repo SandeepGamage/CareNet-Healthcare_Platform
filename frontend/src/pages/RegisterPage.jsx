@@ -150,7 +150,7 @@ const RegisterPage = () => {
     setLoading(true);
     try {
       const randomPassword = Math.random().toString(36).slice(-12) + "A1!x";
-      const response = await fetch("http://localhost:3001/api/auth/register", {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -196,7 +196,7 @@ const RegisterPage = () => {
 
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:3001/api/auth/register", {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), email: email.trim(), password, role, specialty: role === "doctor" ? specialty : null, phone: phone.trim() }),
