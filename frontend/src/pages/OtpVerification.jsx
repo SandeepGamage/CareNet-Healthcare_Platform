@@ -70,7 +70,7 @@ const OtpVerification = () => {
       if (code.length !== 6) throw new Error('Please enter a 6-digit code');
 
       // Both email and phone OTPs use the same verify endpoint
-      const response = await axios.post(`http://localhost:3001/api/auth/verify-email`, {
+      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/verify-email`, {
         userId,
         code,
       });
@@ -108,7 +108,7 @@ const OtpVerification = () => {
     setSuccess('');
 
     try {
-      const res = await axios.post(`http://localhost:3001/api/auth/resend-otp`, {
+      const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/resend-otp`, {
         userId,
         type: sendType, // 'email' or 'phone'
       });
