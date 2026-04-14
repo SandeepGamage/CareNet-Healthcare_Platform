@@ -23,8 +23,9 @@ app.use('/api/appointments', appointmentRoutes);
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log('Connected to MongoDB Atlas - appointment_db');
-    app.listen(process.env.PORT, () =>
-      console.log(`Appointment service running on port ${process.env.PORT}`)
+    const PORT = process.env.PORT || 3004;
+    app.listen(PORT, () =>
+      console.log(`Appointment service running on port ${PORT}`)
     );
   })
   .catch(err => {
