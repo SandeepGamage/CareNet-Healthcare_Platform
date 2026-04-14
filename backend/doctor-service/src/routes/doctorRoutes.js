@@ -5,6 +5,7 @@ const {
   authorizeDoctorAdminPatient,
 } = require("../middleware/authMiddleware");
 const {
+  normalizeDoctorPayload,
   createProfile,
   getAllProfiles,
   updateProfile,
@@ -14,8 +15,8 @@ const {
 const router = express.Router();
 
 router.get("/", protect, authorizeDoctorAdminPatient, getAllProfiles);
-router.post("/", protect, authorizeDoctor, createProfile);
-router.put("/:id", protect, authorizeDoctor, updateProfile);
+router.post("/", protect, authorizeDoctor, normalizeDoctorPayload, createProfile);
+router.put("/:id", protect, authorizeDoctor, normalizeDoctorPayload, updateProfile);
 router.delete("/:id", protect, authorizeDoctor, deleteProfile);
 
 module.exports = router;

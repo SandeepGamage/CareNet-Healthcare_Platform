@@ -29,14 +29,23 @@ const doctorSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
-    availability: {
+    availableHours: {
       type: String,
       trim: true,
       default: "",
+    },
+    isAvailable: {
+      type: Boolean,
+      default: false,
+    },
+    consultationFee: {
+      type: Number,
+      min: 0,
+      default: 0,
     },
   },
   { timestamps: true },
 );
 
 module.exports = mongoose.model("Doctor", doctorSchema);
-//asdasdasd
+//test comment
