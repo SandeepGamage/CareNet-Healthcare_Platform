@@ -90,7 +90,7 @@ docker build -t carenet-appointment-service:1.0 ./backend/appointment-service
 docker build -t symptom-service:latest ./backend/ai-symptom-service
 docker build -t auth-service:latest ./backend/auth-service
 docker build -t api-gateway:latest ./backend/api-gateway
-@REM docker build -t patient-service:latest ./backend/patient-service
+docker build -t patient-service:latest ./backend/patient-service
 @REM docker build -t doctor-service:latest ./backend/doctor-service
 docker build -t payment-service:latest ./backend/payment-service
 docker build -t notification-service:latest ./backend/notification-service
