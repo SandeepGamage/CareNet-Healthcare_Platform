@@ -14,12 +14,18 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 
 // Database Connection
-mongoose
-  .connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/carenet')
-  .then(() => console.log('MongoDB connected for Auth Service'))
-  .catch((err) => console.error('MongoDB connection error:', err));
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/carenet_auth');
+    console.log('MongoDB connected for Auth Service');
+  } catch (err) {
+    console.error('MongoDB connection failed. Retrying in 5 seconds...', err.message);
+    setTimeout(connectDB, 5000);
+  }
+};
+connectDB();
 
-const PORT = process.env.PORT || 3006;
+const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
   console.log(`Auth Service running on port ${PORT}`);

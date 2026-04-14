@@ -28,14 +28,16 @@ services:
     build: ./backend/api-gateway
     container_name: api-gateway
     ports:
-      - "3001:3001"
+      - "8000:8080"
     environment:
-      PORT: 3001
-      AUTH_SERVICE_URL: http://auth-service:3006
-      NOTIFICATION_SERVICE_URL: http://notification-service:5004
+      PORT: 8080
+      AUTH_SERVICE_URL: http://auth-service:3001
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
       APPOINTMENT_SERVICE_URL: http://appointment-service:3004
-      PATIENT_SERVICE_URL: http://patient-service:5005
-      DOCTOR_SERVICE_URL: http://doctor-service:5001
+      PATIENT_SERVICE_URL: http://patient-service:3002
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      TELEMEDICINE_SERVICE_URL: http://telemedicine-service:3007
+      SYMPTOM_SERVICE_URL: http://symptom-service:3008
     depends_on:
       - auth-service
       - appointment-service
@@ -47,9 +49,9 @@ services:
     build: ./backend/auth-service
     container_name: auth-service
     ports:
-      - "3006:3006"
+      - "3001:3001"
     environment:
-      PORT: 3006
+      PORT: 3001
       MONGO_URI: mongodb://mongodb:27017/carenet_auth
       JWT_SECRET: ${JWT_SECRET_APPOINTMENT:-carenet_secret}
     depends_on:
@@ -75,42 +77,18 @@ services:
     networks:
       - healthcare-network
 
-  # ─── Patient Service ────────────────────────────────────────────
-  patient-service:
-    build: ./backend/patient-service
-    container_name: patient-service
-    ports:
-      - "5005:5005"
-    environment:
-      PORT: 5005
-      MONGO_URI: mongodb://mongodb:27017/carenet_patients
-    depends_on:
-      - mongodb
-    networks:
-      - healthcare-network
 
-  # ─── Doctor Service ─────────────────────────────────────────────
-  doctor-service:
-    build: ./backend/doctor-service
-    container_name: doctor-service
-    ports:
-      - "5001:5001"
-    environment:
-      PORT: 5001
-      MONGO_URI: mongodb://mongodb:27017/carenet_doctors
-    depends_on:
-      - mongodb
-    networks:
-      - healthcare-network
+
+
 
   # ─── Notification Service ───────────────────────────────────────
   notification-service:
     build: ./backend/notification-service
     container_name: notification-service
     ports:
-      - "5004:5004"
+      - "3006:3006"
     environment:
-      PORT: 5004
+      PORT: 3006
       MONGO_URI: mongodb://mongodb:27017/carenet_notifications
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     depends_on:
@@ -124,10 +102,10 @@ services:
     build: ./backend/ai-symptom-service
     container_name: symptom-service
     ports:
-      - "3000:3000"
+      - "3008:3008"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - PORT=3000
+      - PORT=3008
       - NODE_ENV=production
       - APPOINTMENT_SERVICE_URL=http://appointment-service:3004
     restart: unless-stopped
@@ -153,15 +131,17 @@ services:
       dockerfile: Dockerfile
     container_name: payment-service
     ports:
-      - '5003:5003'
+      - '3005:3005'
     environment:
-      PORT: 5003
+      PORT: 3005
       MONGO_URI: mongodb://mongodb:27017/carenet_payments
     networks:
       - healthcare-network
     depends_on:
       - mongodb
     restart: unless-stopped
+
+
 
 networks:
   healthcare-network:

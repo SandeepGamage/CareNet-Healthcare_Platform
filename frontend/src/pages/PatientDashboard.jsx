@@ -105,14 +105,19 @@ export default function ModernPatientDashboard() {
     const [userProfile, setUserProfile] = useState(() => {
         const stored = localStorage.getItem("user");
         if (stored) {
-            const u = JSON.parse(stored);
-            return {
-                name: u.name || "User",
-                patientId: u.id ? `#${u.id.slice(-4).toUpperCase()}` : "#0000",
-                email: u.email || "",
-                phone: u.phone || "Not set",
-                avatar: u.profilePicture || `https://ui-avatars.com/api/?name=${u.name || 'User'}&background=random`
-            };
+            try {
+                const u = JSON.parse(stored);
+                return {
+                    name: u.name || "User",
+                    patientId: u.id ? `#${u.id.slice(-4).toUpperCase()}` : "#0000",
+                    email: u.email || "",
+                    phone: u.phone || "Not set",
+                    avatar: u.profilePicture || `https://ui-avatars.com/api/?name=${u.name || 'User'}&background=random`
+                };
+            } catch (error) {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+            }
         }
         return {
             name: "Alex Johnson",
@@ -128,7 +133,7 @@ export default function ModernPatientDashboard() {
             try {
                 const token = localStorage.getItem("token");
                 // Using auth-service at port 3001
-                const response = await fetch("http://localhost:3001/api/auth/me", {
+                const response = await fetch("${import.meta.env.VITE_API_BASE_URL}/auth/me", {
                     headers: {
                         "Authorization": `Bearer ${token}`
                     }

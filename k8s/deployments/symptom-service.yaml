@@ -17,10 +17,10 @@ spec:
           image: symptom-service:latest
           imagePullPolicy: Never
           ports:
-            - containerPort: 3000
+            - containerPort: 3008
           env:
             - name: PORT
-              value: "3000"
+              value: "3008"
             - name: APPOINTMENT_SERVICE_URL
               value: "http://appointment-service:3004"
             - name: GEMINI_API_KEY
@@ -34,5 +34,5 @@ spec:
   selector:
     app: symptom-service
   ports:
-    - port: 3000
-      targetPort: 3000
+    - port: 3008
+      targetPort: 3008

@@ -133,7 +133,7 @@ const BookAppointment = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       // Fetch all verified (approved) doctors — public endpoint, no admin role needed
-      const response = await axios.get('http://localhost:3001/api/auth/doctors/verified', {
+      const response = await axios.get('${import.meta.env.VITE_API_BASE_URL}/auth/doctors/verified', {
         headers: { Authorization: `Bearer ${token}` }
       });
       // Map the real MongoDB doctor documents to the shape the UI expects
