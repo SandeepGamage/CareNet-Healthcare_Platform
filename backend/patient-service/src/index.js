@@ -6,6 +6,7 @@ const morgan = require("morgan");
 const path = require("path");
 
 const patientRoutes = require("./routes/PatientRoutes");
+const medicalReportRoutes = require("./routes/MedicalReportRoutes");
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/api/patients", patientRoutes);
+app.use("/api/patients", medicalReportRoutes);
 
 // Multer and other middleware errors
 app.use((error, req, res, next) => {

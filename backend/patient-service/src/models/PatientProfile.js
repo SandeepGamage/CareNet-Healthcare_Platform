@@ -2,6 +2,13 @@ const mongoose = require("mongoose");
 
 const patientProfileSchema = new mongoose.Schema(
   {
+    patientId: {
+      type: String,
+      required: [true, "Patient ID is required"],
+      unique: true,
+      index: true,
+      trim: true,
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       required: [true, "User ID is required"],
