@@ -133,7 +133,7 @@ export default function ModernPatientDashboard() {
             try {
                 const token = localStorage.getItem("token");
                 // Using auth-service at port 3001
-                const response = await fetch("http://localhost:3001/api/auth/me", {
+                const response = await fetch("${import.meta.env.VITE_API_BASE_URL}/auth/me", {
                     headers: {
                         "Authorization": `Bearer ${token}`
                     }

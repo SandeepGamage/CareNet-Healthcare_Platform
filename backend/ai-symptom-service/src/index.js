@@ -6,7 +6,7 @@ const symptomRoutes = require("./routes/symptom");
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3008;
 
 // Middleware
 app.use(cors());
