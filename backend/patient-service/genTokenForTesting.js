@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const SECRET = 'ufjkrm*$&+!=JfldsJKLfesadk421!@$45922dakjfsafdafa38fjkdjasKLJKFAF';
 
 const patientToken = jwt.sign(
-  { id: '64f111111111111111111111', email: 'kamal@gmail.com', role: 'patient' },
+  { id: '64f111111111111111111112', email: 'kamal@gmail.com', role: 'patient' },
   SECRET,
   { expiresIn: '24h' }
 );
