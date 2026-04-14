@@ -1,6 +1,13 @@
 const asyncHandler = require('../utils/asyncHandler');
 const { createDoctor, getAllDoctors, updateDoctor, deleteDoctor } = require('../services/doctorService');
 
+const normalizeDoctorPayload = (req, _res, next) => {
+  if (req.body && req.body.consultationFee !== undefined) {
+    req.body.consultationFee = Number(req.body.consultationFee);
+  }
+  next();
+};
+
 const createProfile = asyncHandler(async (req, res) => {
   const profile = await createDoctor(req.user, req.body);
 
@@ -41,6 +48,7 @@ const deleteProfile = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  normalizeDoctorPayload,
   createProfile,
   getAllProfiles,
   updateProfile,

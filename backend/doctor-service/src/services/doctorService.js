@@ -10,6 +10,19 @@ const ensureObjectId = (id, label) => {
   }
 };
 
+const parseNonNegativeNumber = (value, fieldName, defaultValue = 0) => {
+  if (value === undefined || value === null || value === '') {
+    return defaultValue;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new ApiError(400, `${fieldName} must be a non-negative number`);
+  }
+
+  return parsed;
+};
+
 const createDoctor = async (user, payload) => {
   const userId = resolveUserId(user);
   if (!userId) {
@@ -25,7 +38,7 @@ const createDoctor = async (user, payload) => {
     throw new ApiError(409, 'Doctor profile already exists');
   }
 
-  const { specialization, bio, qualifications, experienceYears, availability } = payload;
+  const { specialization, bio, qualifications, experienceYears, availableHours, isAvailable, consultationFee } = payload;
 
   if (!specialization) {
     throw new ApiError(400, 'specialization is required');
@@ -36,8 +49,10 @@ const createDoctor = async (user, payload) => {
     specialization,
     bio: bio || '',
     qualifications: qualifications || '',
-    experienceYears: Number.isFinite(Number(experienceYears)) ? Number(experienceYears) : 0,
-    availability: availability || '',
+    experienceYears: parseNonNegativeNumber(experienceYears, 'experienceYears'),
+    availableHours: availableHours || '',
+    isAvailable: typeof isAvailable === 'boolean' ? isAvailable : false,
+    consultationFee: parseNonNegativeNumber(consultationFee, 'consultationFee'),
   });
 };
 
@@ -63,7 +78,7 @@ const updateDoctor = async (user, doctorId, payload) => {
     throw new ApiError(403, 'You can update only your own doctor profile');
   }
 
-  const allowedFields = ['specialization', 'bio', 'qualifications', 'experienceYears', 'availability'];
+  const allowedFields = ['specialization', 'bio', 'qualifications', 'experienceYears', 'availableHours', 'isAvailable', 'consultationFee'];
   const updates = {};
 
   allowedFields.forEach((field) => {
@@ -71,7 +86,11 @@ const updateDoctor = async (user, doctorId, payload) => {
   });
 
   if (updates.experienceYears !== undefined) {
-    updates.experienceYears = Number(updates.experienceYears);
+    updates.experienceYears = parseNonNegativeNumber(updates.experienceYears, 'experienceYears');
+  }
+
+  if (updates.consultationFee !== undefined) {
+    updates.consultationFee = parseNonNegativeNumber(updates.consultationFee, 'consultationFee');
   }
 
   return Doctor.findByIdAndUpdate(doctorId, updates, {
