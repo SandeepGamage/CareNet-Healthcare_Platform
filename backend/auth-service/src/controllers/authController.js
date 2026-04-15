@@ -56,10 +56,10 @@ exports.register = async (req, res) => {
     }
 
     const user = await User.create(userData);
-    
+
     // Generate 6 digit OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
+
     // Always send OTP via email by default
     await VerificationCode.create({
       userId: user._id,
@@ -357,14 +357,14 @@ exports.resendOTP = async (req, res) => {
   try {
     const { userId, type } = req.body;
     if (!userId) return res.status(400).json({ success: false, message: 'User ID required.' });
-    
+
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
 
     await VerificationCode.deleteMany({ userId });
 
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
+
     // Default to email; only use SMS if user explicitly requested 'phone' and has a number
     const usePhone = type === 'phone' && user.phone;
     const sendType = usePhone ? 'SMS' : 'EMAIL';

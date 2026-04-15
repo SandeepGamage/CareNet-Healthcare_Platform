@@ -78,10 +78,6 @@ const appointmentSchema = new mongoose.Schema({
     default: false
   },
 
-  tokenNum: {
-    type: Number
-  },
-
   // if type is TELEMEDICINE, store the room link here
   meetingLink: {
     type: String

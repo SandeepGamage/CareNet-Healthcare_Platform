@@ -3,6 +3,8 @@ const cors = require('cors');
 const http = require('http');
 const https = require('https');
 require('dotenv').config();
+const cron = require('node-cron');
+const { resetAllDoctorSlots } = require('./src/services/doctorService');
 
 const connectDB = require('./src/config/db');
 const prescriptionRoutes = require('./src/routes/prescriptionRoutes');
@@ -110,6 +112,18 @@ connectDB()
     }
 
     console.log('Connected to MongoDB - CareNet_DB');
+
+    // Schedule midnight slot renewal
+    cron.schedule('0 0 * * *', async () => {
+      console.log('Running midnight slot renewal for all doctors...');
+      try {
+        const result = await resetAllDoctorSlots();
+        console.log(`Successfully reset slots for ${result.updated} doctors.`);
+      } catch (err) {
+        console.error('Failed to reset doctor slots:', err.message);
+      }
+    });
+
     app.listen(process.env.PORT || 5001, () =>
       console.log(`Doctor service running on port ${process.env.PORT || 5001}`)
     );

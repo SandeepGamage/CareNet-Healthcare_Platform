@@ -1,20 +1,7 @@
-version: '3.8'
 
 services:
   # ─── Infrastructure ──────────────────────────────────────────────
 
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-user}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-password}
-    restart: unless-stopped
-    networks:
-      - healthcare-network
 
   # ─── API Gateway ───────────────────────────────────────────────
 
@@ -64,35 +51,47 @@ services:
 
   # ─── Patient Service ──────────────────────────────────────────
 
-  # patient-service:
-  #   build: ./backend/patient-service
-  #   container_name: patient-service
-  #   ports:
-  #     - "3002:3002"
-  #   environment:
-  #     PORT: 3002
-  #     MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
-  #     JWT_SECRET: ${JWT_SECRET:-carenet_secret}
-  #     NODE_ENV: ${NODE_ENV:-production}
-  #   restart: unless-stopped
-  #   networks:
-  #     - healthcare-network
+  patient-service:
+    build: ./backend/patient-service
+    container_name: patient-service
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      NODE_ENV: ${NODE_ENV:-production}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+    restart: unless-stopped
+    networks:
+      - healthcare-network
 
   # ─── Doctor Service ──────────────────────────────────────────
 
-  # doctor-service:
-  #   build: ./backend/doctor-service
-  #   container_name: doctor-service
-  #   ports:
-  #     - "3003:3003"
-  #   environment:
-  #     PORT: 3003
-  #     MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
-  #     JWT_SECRET: ${JWT_SECRET:-carenet_secret}
-  #     NODE_ENV: ${NODE_ENV:-production}
-  #   restart: unless-stopped
-  #   networks:
-  #     - healthcare-network
+  doctor-service:
+    build: ./backend/doctor-service
+    container_name: doctor-service
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./backend/doctor-service:/app
+      - /app/node_modules
+    command: npm run dev
+    environment:
+      PORT: 3003
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      NODE_ENV: ${NODE_ENV:-development}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      PATIENT_SERVICE_URL: http://patient-service:3002
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+    restart: unless-stopped
+    networks:
+      - healthcare-network
 
   # ─── Appointment Service ─────────────────────────────────────────
 
@@ -105,10 +104,11 @@ services:
       PORT: 3004
       MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-user}:${RABBITMQ_PASS:-password}@rabbitmq:5672
       NODE_ENV: ${NODE_ENV:-production}
-    depends_on:
-      - rabbitmq
+      AUTH_SERVICE_URL: http://auth-service:3001
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      PATIENT_SERVICE_URL: http://patient-service:3002
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
     restart: unless-stopped
     networks:
       - healthcare-network
@@ -147,7 +147,6 @@ services:
       PORT: 3006
       MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-user}:${RABBITMQ_PASS:-password}@rabbitmq:5672
       EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
       EMAIL_PORT: ${EMAIL_PORT:-587}
       EMAIL_USER: ${EMAIL_USER}
@@ -157,8 +156,6 @@ services:
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
       TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER}
       NODE_ENV: ${NODE_ENV:-production}
-    depends_on:
-      - rabbitmq
     restart: unless-stopped
     networks:
       - healthcare-network

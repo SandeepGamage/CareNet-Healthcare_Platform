@@ -9,16 +9,24 @@ const {
   createProfile,
   getAllProfiles,
   getAvailableProfilesByTime,
+  getProfileByUserId,
+  getProfileById,
   updateProfile,
   deleteProfile,
+  bookSlot,
+  resetAllSlots,
 } = require("../controllers/doctorController");
 
 const router = express.Router();
 
 router.get("/", protect, authorizeDoctorAdminPatient, getAllProfiles);
 router.get("/available", protect, authorizeDoctorAdminPatient, getAvailableProfilesByTime);
+router.get("/user/:userId", protect, authorizeDoctorAdminPatient, getProfileByUserId);
+router.get("/details/:id", protect, authorizeDoctorAdminPatient, getProfileById);
 router.post("/", protect, authorizeDoctor, normalizeDoctorPayload, createProfile);
 router.put("/:id", protect, authorizeDoctor, normalizeDoctorPayload, updateProfile);
+router.patch("/book-slot/:id", protect, bookSlot); // Can be called by appointment service
+router.post("/reset-slots", protect, resetAllSlots);
 router.delete("/:id", protect, authorizeDoctor, deleteProfile);
 
 module.exports = router;

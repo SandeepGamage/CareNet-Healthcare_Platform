@@ -1,42 +1,72 @@
-import { useState } from "react";
-import { Edit, Mail, MapPin, Phone, Clock3, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Edit, Mail, MapPin, Phone, Clock3, Check, Loader2 } from "lucide-react";
+import axios from "axios";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function Profile() {
+	const [doctor, setDoctor] = useState(null);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		fetchProfile();
+	}, []);
+
+	const fetchProfile = async () => {
+		try {
+			setLoading(true);
+			const token = localStorage.getItem("token");
+			const userStr = localStorage.getItem("user");
+			if (!userStr) return;
+			const user = JSON.parse(userStr);
+
+			const response = await axios.get(`${API_BASE_URL}/doctors/profile/user/${user.id || user._id}`, {
+				headers: { Authorization: `Bearer ${token}` }
+			});
+
+			if (response.data.success) {
+				setDoctor(response.data.data);
+			}
+		} catch (error) {
+			console.error("Error fetching doctor profile:", error);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	if (loading) {
+		return (
+			<div className="flex h-screen items-center justify-center">
+				<Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+			</div>
+		);
+	}
+
+	if (!doctor) {
+		return (
+			<div className="p-8 text-center">
+				<p className="text-slate-600">No doctor profile found. Please contact admin.</p>
+			</div>
+		);
+	}
+
 	const doctorProfile = {
-		name: "Dr. Sarah Johnson",
-		location: "New York, USA",
-		email: "sarah.johnson@healthcare.com",
-		phone: "+1 (555) 123-4567",
-		specialization: "Cardiologist",
-		bio: "Experienced cardiologist with 12+ years of clinical practice. Specializing in heart disease prevention and treatment.",
-		qualifications: [
-			"MD, Columbia University",
-			"Board Certified, American Board of Internal Medicine",
-			"Fellow, American College of Cardiology",
-		],
-		experienceYears: 12,
-		availableHours: "09:00-17:00",
-		isAvailable: true,
-		consultationFee: 150,
+		name: doctor.name || "Doctor",
+		location: doctor.location || "Hospital Clinic",
+		email: doctor.email || "",
+		phone: doctor.phone || "",
+		specialization: doctor.specialization,
+		bio: doctor.bio || "No bio provided.",
+		qualifications: doctor.qualifications ? [doctor.qualifications] : [],
+		experienceYears: doctor.experienceYears || 0,
+		availableHours: doctor.availableHours || "Not set",
+		availableSlots: doctor.availableSlots || [],
+		isAvailable: doctor.isAvailable,
+		consultationFee: doctor.consultationFee || 0,
 		rating: 4.8,
 		profileViews: 1248,
 		appointmentsCompleted: 856,
 		patientsServed: 342,
-	};
-
-	const [availableHours, setAvailableHours] = useState(doctorProfile.availableHours);
-	const [hoursInput, setHoursInput] = useState(doctorProfile.availableHours);
-	const [hoursMessage, setHoursMessage] = useState("");
-
-	const handleSaveAvailableHours = () => {
-		const trimmedHours = hoursInput.trim();
-		if (!trimmedHours) {
-			setHoursMessage("Please enter available hours in HH:MM-HH:MM format.");
-			return;
-		}
-
-		setAvailableHours(trimmedHours);
-		setHoursMessage("Available hours updated for this session.");
 	};
 
 	return (
@@ -49,7 +79,7 @@ export default function Profile() {
 				{/* Profile Picture */}
 				<div className="absolute -bottom-16 left-8 z-10">
 					<div className="w-40 h-40 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 border-4 border-white shadow-lg flex items-center justify-center">
-						<span className="text-5xl font-bold text-white">SJ</span>
+						<span className="text-5xl font-bold text-white">{doctorProfile.name.charAt(0)}</span>
 					</div>
 				</div>
 			</div>
@@ -83,36 +113,6 @@ export default function Profile() {
 								<span className="text-sm">${doctorProfile.consultationFee}</span>
 							</div>
 					</div>
-				</div>
-
-				{/* Availability Editor */}
-				<div className="mb-8 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-					<h2 className="text-lg font-bold text-slate-800 mb-4">Available Hours</h2>
-					<p className="text-sm text-slate-600 mb-4">
-						Update your working hours for the doctor dashboard display.
-					</p>
-					<div className="flex flex-col gap-3 md:flex-row md:items-center">
-						<div className="relative flex-1">
-							<Clock3 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-							<input
-								type="text"
-								value={hoursInput}
-								onChange={(e) => setHoursInput(e.target.value)}
-								placeholder="09:00-17:00"
-								className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-							/>
-						</div>
-						<button
-							onClick={handleSaveAvailableHours}
-							className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-						>
-							Save Hours
-						</button>
-					</div>
-					{hoursMessage && <p className="mt-3 text-sm text-slate-600">{hoursMessage}</p>}
-					<p className="mt-3 text-sm text-slate-600">
-						Current available hours: <span className="font-semibold text-slate-800">{availableHours}</span>
-					</p>
 				</div>
 
 				{/* About Section */}
@@ -153,7 +153,7 @@ export default function Profile() {
 						<div className="grid gap-4 md:grid-cols-3">
 							<div className="rounded-xl bg-slate-50 p-4">
 								<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Available Hours</p>
-								<p className="mt-2 text-base font-semibold text-slate-800">{availableHours}</p>
+								<p className="mt-2 text-base font-semibold text-slate-800">{doctorProfile.availableHours}</p>
 							</div>
 							<div className="rounded-xl bg-slate-50 p-4">
 								<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Consultation Fee</p>
