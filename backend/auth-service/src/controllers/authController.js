@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Doctor = require('../models/Doctor');
+const Patient = require('../models/Patient');
 const VerificationCode = require('../models/VerificationCode');
 const { sendNotification } = require('../utils/notify');
 
@@ -196,11 +198,26 @@ exports.login = async (req, res) => {
 // ── GET /api/auth/me (Protected: verify token) ────────────────────────────────
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    let user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
-    res.status(200).json({ success: true, user });
+
+    // Attach profile data
+    let profile = null;
+    if (user.role === 'doctor') {
+      profile = await Doctor.findOne({ userId: user._id });
+    } else if (user.role === 'patient') {
+      profile = await Patient.findOne({ userId: user._id });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      user: {
+        ...user.toObject(),
+        profile
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error.' });
   }
@@ -209,7 +226,14 @@ exports.getMe = async (req, res) => {
 // ── ADMIN: GET /api/auth/doctors/pending ────────────────────────────────────
 exports.getPendingDoctors = async (req, res) => {
   try {
-    const pendingDoctors = await User.find({ role: 'doctor', isVerified: false });
+    const pendingDoctorProfiles = await Doctor.find({ isVerified: false }).populate('userId');
+    const pendingDoctors = pendingDoctorProfiles.map(p => ({
+      ...p.toObject(),
+      ...p.userId?.toObject(),
+      _id: p.userId?._id, // Ensure ID is consistent
+      profileId: p._id
+    }));
+
     res.status(200).json({ success: true, count: pendingDoctors.length, data: pendingDoctors });
   } catch (error) {
     console.error('getPendingDoctors error:', error.message);
@@ -220,7 +244,11 @@ exports.getPendingDoctors = async (req, res) => {
 // ── ADMIN: GET /api/auth/doctors ────────────────────────────────────
 exports.getAllDoctors = async (req, res) => {
   try {
-    const doctors = await User.find({ role: 'doctor' });
+    const doctorProfiles = await Doctor.find().populate('userId');
+    const doctors = doctorProfiles.map(p => ({
+      ...p.userId?.toObject(),
+      profile: p.toObject()
+    }));
     res.status(200).json({ success: true, count: doctors.length, data: doctors });
   } catch (error) {
     console.error('getAllDoctors error:', error.message);
@@ -232,8 +260,16 @@ exports.getAllDoctors = async (req, res) => {
 // Returns only admin-approved doctors — accessible to any logged-in user (patients included)
 exports.getVerifiedDoctors = async (req, res) => {
   try {
-    const doctors = await User.find({ role: 'doctor', isVerified: true })
-      .select('name email specialty consultationFee fee rating experience');
+    const doctorProfiles = await Doctor.find({ isVerified: true }).populate('userId', 'name email phone');
+    const doctors = doctorProfiles.map(p => ({
+      _id: p.userId?._id,
+      name: p.userId?.name,
+      email: p.userId?.email,
+      specialty: p.specialty,
+      consultationFee: p.consultationFee,
+      rating: p.rating,
+      experience: p.experience
+    }));
     res.status(200).json({ success: true, count: doctors.length, data: doctors });
   } catch (error) {
     console.error('getVerifiedDoctors error:', error.message);
@@ -244,7 +280,11 @@ exports.getVerifiedDoctors = async (req, res) => {
 // ── ADMIN: GET /api/auth/patients ───────────────────────────────────
 exports.getAllPatients = async (req, res) => {
   try {
-    const patients = await User.find({ role: 'patient' });
+    const patientProfiles = await Patient.find().populate('userId');
+    const patients = patientProfiles.map(p => ({
+      ...p.userId?.toObject(),
+      profile: p.toObject()
+    }));
     res.status(200).json({ success: true, count: patients.length, data: patients });
   } catch (error) {
     console.error('getAllPatients error:', error.message);
@@ -256,14 +296,17 @@ exports.getAllPatients = async (req, res) => {
 exports.approveDoctor = async (req, res) => {
   try {
     const doctorId = req.params.id;
-    const doctor = await User.findById(doctorId);
+    const doctorProfile = await Doctor.findOne({ userId: doctorId });
 
-    if (!doctor || doctor.role !== 'doctor') {
-      return res.status(404).json({ success: false, message: 'Doctor not found.' });
+    if (!doctorProfile) {
+      return res.status(404).json({ success: false, message: 'Doctor profile not found.' });
     }
 
-    doctor.isVerified = true;
-    await doctor.save();
+    doctorProfile.isVerified = true;
+    await doctorProfile.save();
+
+    const doctor = await User.findById(doctorId);
+
 
     // Notify doctor
     sendNotification({
@@ -292,7 +335,9 @@ exports.rejectDoctor = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Doctor not found.' });
     }
 
+    await Doctor.findOneAndDelete({ userId: doctorId });
     await User.findByIdAndDelete(doctorId);
+
 
     // Notify doctor
     sendNotification({
@@ -332,6 +377,26 @@ exports.verifyOTP = async (req, res) => {
         ...record.registrationData,
         isOtpVerified: true
       });
+
+      // Create linked profile based on role
+      if (user.role === 'doctor') {
+        await Doctor.create({
+          userId: user._id,
+          specialty: record.registrationData.specialty || null,
+          qualifications: record.registrationData.qualifications || null,
+          experience: record.registrationData.experience || null,
+          consultationFee: record.registrationData.consultationFee || null,
+          isVerified: false
+        });
+      } else if (user.role === 'patient') {
+        await Patient.create({
+          userId: user._id,
+          dateOfBirth: record.registrationData.dateOfBirth || null,
+          bloodGroup: record.registrationData.bloodGroup || null,
+          gender: record.registrationData.gender || 'other'
+        });
+      }
+
     } else {
       // Existing user verifying a new channel or re-verifying
       user = await User.findById(record.userId);

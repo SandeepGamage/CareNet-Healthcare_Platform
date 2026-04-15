@@ -13,7 +13,7 @@ const isValidEmail  = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 const isValidPhone  = (v) => /^(\+94|0094|0)?[\s\-]?7[0-9][\s\-]?[0-9]{3}[\s\-]?[0-9]{4}$/.test(v.trim());
 const isStrongPass  = (v) => v.length >= 8;
 
-const validateRegisterForm = ({ name, email, phone, password, role, specialty }) => {
+const validateRegisterForm = ({ name, email, phone, password, role, specialty, qualifications, experience, consultationFee }) => {
   const errors = {};
   if (!name.trim())             errors.name = "Full name is required.";
   else if (name.trim().length < 2) errors.name = "Name must be at least 2 characters.";
@@ -29,8 +29,11 @@ const validateRegisterForm = ({ name, email, phone, password, role, specialty })
   else if (!/[A-Z]/.test(password)) errors.password = "Include at least one uppercase letter.";
   else if (!/[0-9]/.test(password)) errors.password = "Include at least one number.";
 
-  if (role === "doctor" && !specialty.trim())
-    errors.specialty = "Specialty is required for doctor accounts.";
+  if (role === "doctor") {
+    if (!specialty?.trim()) errors.specialty = "Specialty is required.";
+    if (!qualifications?.trim()) errors.qualifications = "Qualifications is required.";
+  }
+
 
   return errors;
 };
@@ -101,11 +104,20 @@ const RegisterPage = () => {
   const [phone, setPhone]       = useState("");
   const [password, setPassword] = useState("");
   const [specialty, setSpecialty] = useState("");
+  const [qualifications, setQualifications] = useState("");
+  const [experience, setExperience] = useState("");
+  const [consultationFee, setConsultationFee] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [bloodGroup, setBloodGroup] = useState("");
+  const [gender, setGender] = useState("other");
 
   // touch tracking
   const [touched, setTouched] = useState({});
   const touch = (f) => setTouched((t) => ({ ...t, [f]: true }));
-  const liveErrors = validateRegisterForm({ name, email, phone, password, role, specialty });
+  const liveErrors = validateRegisterForm({
+    name, email, phone, password, role, specialty, qualifications, experience, consultationFee
+  });
+
   const getErr = (f) => (touched[f] ? liveErrors[f] : undefined);
 
   // ── Google Modal State ──────────────────────────────────────────────────────
@@ -199,7 +211,21 @@ const RegisterPage = () => {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), email: email.trim(), password, role, specialty: role === "doctor" ? specialty : null, phone: phone.trim() }),
+        body: JSON.stringify({ 
+        name: name.trim(), 
+        email: email.trim(), 
+        password, 
+        role, 
+        phone: phone.trim(),
+        // Extra fields
+        specialty: role === "doctor" ? specialty : null,
+        qualifications: role === "doctor" ? qualifications : null,
+        experience: role === "doctor" ? experience : null,
+        consultationFee: role === "doctor" ? consultationFee : null,
+        dateOfBirth: role === "patient" ? dateOfBirth : null,
+        bloodGroup: role === "patient" ? bloodGroup : null,
+        gender: role === "patient" ? gender : null,
+      }),
       });
 
       const data = await response.json();
@@ -319,31 +345,97 @@ const RegisterPage = () => {
               </div>
             </div>
 
-            {/* Specialty — doctor only */}
+            {/* Doctor specific fields */}
             <AnimatePresence>
               {role === "doctor" && (
                 <motion.div
-                  key="specialty"
+                  key="doctor-fields"
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
+                  className="space-y-4 overflow-hidden"
                 >
-                  <div className="space-y-1 pt-1">
-                    <label className="text-sm font-semibold text-slate-700 ml-1">Specialty</label>
-                    <div className="relative group">
-                      <Stethoscope className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${getErr("specialty") ? "text-red-400" : "text-slate-400 group-focus-within:text-teal-500"}`} />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Specialty</label>
+                      <div className="relative group">
+                        <Stethoscope className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${getErr("specialty") ? "text-red-400" : "text-slate-400 group-focus-within:text-teal-500"}`} />
+                        <input
+                          type="text"
+                          placeholder="e.g. Cardiologist"
+                          value={specialty}
+                          onChange={(e) => setSpecialty(e.target.value)}
+                          onBlur={() => touch("specialty")}
+                          className={inputCls(!!getErr("specialty"))}
+                        />
+                      </div>
+                      <FieldError msg={getErr("specialty")} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Fee (LKR)</label>
                       <input
-                        type="text"
-                        placeholder="e.g. Cardiologist, General Physician"
-                        value={specialty}
-                        onChange={(e) => setSpecialty(e.target.value)}
-                        onBlur={() => touch("specialty")}
-                        className={inputCls(!!getErr("specialty"))}
+                        type="number"
+                        placeholder="e.g. 1500"
+                        value={consultationFee}
+                        onChange={(e) => setConsultationFee(e.target.value)}
+                        className={inputCls(false)}
                       />
                     </div>
-                    <FieldError msg={getErr("specialty")} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-slate-700 ml-1">Qualifications</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. MBBS, MD"
+                      value={qualifications}
+                      onChange={(e) => setQualifications(e.target.value)}
+                      onBlur={() => touch("qualifications")}
+                      className={inputCls(!!getErr("qualifications"))}
+                    />
+                    <FieldError msg={getErr("qualifications")} />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Patient specific fields */}
+            <AnimatePresence>
+              {role === "patient" && (
+                <motion.div
+                  key="patient-fields"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="space-y-4 overflow-hidden pt-1"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Date of Birth</label>
+                      <input
+                        type="date"
+                        value={dateOfBirth}
+                        onChange={(e) => setDateOfBirth(e.target.value)}
+                        className={inputCls(false)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Blood Group</label>
+                      <select
+                        value={bloodGroup}
+                        onChange={(e) => setBloodGroup(e.target.value)}
+                        className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer"
+                      >
+                        <option value="">Select</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                      </select>
+                    </div>
                   </div>
                 </motion.div>
               )}
