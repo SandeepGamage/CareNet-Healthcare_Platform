@@ -51,19 +51,85 @@ const parseTimeToMinutes = (value) => {
 
   const normalized = value.trim().toUpperCase();
 
+  // 1. Handle HH:mm format (24h)
   const twentyFourHourMatch = normalized.match(/^(\d{1,2}):(\d{2})$/);
   if (twentyFourHourMatch) {
     const hours = Number(twentyFourHourMatch[1]);
     const minutes = Number(twentyFourHourMatch[2]);
-
-    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-      return null;
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+      return hours * 60 + minutes;
     }
+  }
 
-    return hours * 60 + minutes;
+  // 2. Handle HH:mm AM/PM format
+  const twelveHourMatch = normalized.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+  if (twelveHourMatch) {
+    let hours = Number(twelveHourMatch[1]);
+    const minutes = Number(twelveHourMatch[2]);
+    const ampm = twelveHourMatch[3];
+
+    if (hours >= 1 && hours <= 12 && minutes >= 0 && minutes <= 59) {
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+      return hours * 60 + minutes;
+    }
+  }
+
+  // 3. Handle HH AM/PM format
+  const shortTwelveHourMatch = normalized.match(/^(\d{1,2})\s*(AM|PM)$/);
+  if (shortTwelveHourMatch) {
+    let hours = Number(shortTwelveHourMatch[1]);
+    const ampm = shortTwelveHourMatch[2];
+
+    if (hours >= 1 && hours <= 12) {
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+      return hours * 60;
+    }
   }
 
   return null;
+};
+
+const formatMinutesToTime = (minutes) => {
+  let hh = Math.floor(minutes / 60);
+  const mm = minutes % 60;
+  const ampm = hh >= 12 ? 'PM' : 'AM';
+  hh = hh % 12;
+  hh = hh ? hh : 12; // the hour '0' should be '12'
+  const strMm = mm.toString().padStart(2, '0');
+  return `${hh}:${strMm} ${ampm}`;
+};
+
+const generateTimeSlots = (rangeString, duration) => {
+  const range = parseAvailableHoursRange(rangeString);
+  if (!range) return [];
+
+  const slots = [];
+  let current = range.startMinutes;
+  const end = range.endMinutes;
+
+  // Handle cross-midnight if necessary, but usually range is within a day
+  if (range.crossesMidnight) {
+    // 1. From start to midnight (1440 mins)
+    while (current + duration <= 1440) {
+      slots.push(formatMinutesToTime(current));
+      current += duration;
+    }
+    // 2. From midnight to end
+    current = 0;
+    while (current + duration <= end) {
+      slots.push(formatMinutesToTime(current));
+      current += duration;
+    }
+  } else {
+    while (current + duration <= end) {
+      slots.push(formatMinutesToTime(current));
+      current += duration;
+    }
+  }
+
+  return slots;
 };
 
 const parseAvailableHoursRange = (value) => {
@@ -128,6 +194,9 @@ const createDoctor = async (user, payload) => {
     throw new ApiError(400, 'specialization is required');
   }
 
+  const duration = parseNonNegativeNumber(payload.slotDuration, 'slotDuration', 30);
+  const slots = availableHours ? generateTimeSlots(availableHours, duration) : [];
+
   return Doctor.create({
     userId,
     specialization,
@@ -137,6 +206,8 @@ const createDoctor = async (user, payload) => {
     availableHours: availableHours || '',
     isAvailable: typeof isAvailable === 'boolean' ? isAvailable : false,
     consultationFee: parseNonNegativeNumber(consultationFee, 'consultationFee'),
+    slotDuration: duration,
+    availableSlots: slots
   });
 };
 
@@ -214,11 +285,30 @@ const getAvailableDoctorsByTime = async (timeValue, filters = {}) => {
   };
 
   const doctors = await Doctor.find(query).sort({ createdAt: -1 });
-
   return doctors.filter((doctor) => {
     const range = parseAvailableHoursRange(doctor.availableHours);
     return isTimeWithinRange(targetMinutes, range);
   });
+};
+
+const getDoctorById = async (id) => {
+  ensureObjectId(id, 'doctor profile id');
+  return Doctor.findById(id);
+};
+
+const getDoctorAvailability = async (id) => {
+  const doctor = await getDoctorById(id);
+  if (!doctor) return null;
+
+  const range = parseAvailableHoursRange(doctor.availableHours);
+  return {
+    doctorId: doctor._id,
+    isAvailable: doctor.isAvailable,
+    availableHours: doctor.availableHours,
+    availableSlots: doctor.availableSlots,
+    slotDuration: doctor.slotDuration,
+    parsedRange: range // { startMinutes, endMinutes, crossesMidnight }
+  };
 };
 
 const updateDoctor = async (user, doctorId, payload) => {
@@ -239,7 +329,7 @@ const updateDoctor = async (user, doctorId, payload) => {
     throw new ApiError(403, 'You can update only your own doctor profile');
   }
 
-  const allowedFields = ['specialization', 'bio', 'qualifications', 'experienceYears', 'availableHours', 'isAvailable', 'consultationFee'];
+  const allowedFields = ['specialization', 'bio', 'qualifications', 'experienceYears', 'availableHours', 'isAvailable', 'consultationFee', 'maxDailyAppointments', 'slotDuration'];
   const updates = {};
 
   allowedFields.forEach((field) => {
@@ -254,10 +344,43 @@ const updateDoctor = async (user, doctorId, payload) => {
     updates.consultationFee = parseNonNegativeNumber(updates.consultationFee, 'consultationFee');
   }
 
+  // If availableHours or slotDuration changed, regenerate slots
+  if (updates.availableHours !== undefined || updates.slotDuration !== undefined) {
+    const hours = updates.availableHours !== undefined ? updates.availableHours : existingDoctor.availableHours;
+    const duration = updates.slotDuration !== undefined ? Number(updates.slotDuration) : existingDoctor.slotDuration;
+    updates.availableSlots = generateTimeSlots(hours, duration);
+  }
+
   return Doctor.findByIdAndUpdate(doctorId, updates, {
     new: true,
     runValidators: true,
   });
+};
+
+const bookDoctorSlot = async (doctorId, slot) => {
+  ensureObjectId(doctorId, 'doctor profile id');
+  const doctor = await Doctor.findById(doctorId);
+  if (!doctor) throw new ApiError(404, 'Doctor not found');
+
+  if (!doctor.availableSlots.includes(slot)) {
+    throw new ApiError(400, 'Slot is not available');
+  }
+
+  return Doctor.findByIdAndUpdate(doctorId,
+    { $pull: { availableSlots: slot } },
+    { new: true }
+  );
+};
+
+const resetAllDoctorSlots = async () => {
+  const doctors = await Doctor.find();
+  const results = await Promise.all(doctors.map(async (doc) => {
+    if (doc.availableHours) {
+      const slots = generateTimeSlots(doc.availableHours, doc.slotDuration || 30);
+      return Doctor.findByIdAndUpdate(doc._id, { availableSlots: slots });
+    }
+  }));
+  return { updated: results.length };
 };
 
 const deleteDoctor = async (user, doctorId) => {
@@ -284,11 +407,15 @@ const deleteDoctor = async (user, doctorId) => {
 module.exports = {
   createDoctor,
   getAllDoctors,
-  getDoctorByUser,
   getDoctorByUserId,
+  getDoctorById,
+  getDoctorAvailability,
+  getDoctorByUser,
   getAvailableDoctorsByTime,
   updateMyAvailableHours,
   updateDoctor,
   deleteDoctor,
   getDoctorProfileForFrontend,
+  bookDoctorSlot,
+  resetAllDoctorSlots
 };
