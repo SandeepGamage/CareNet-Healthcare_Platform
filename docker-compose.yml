@@ -64,35 +64,35 @@ services:
 
   # ─── Patient Service ──────────────────────────────────────────
 
-  # patient-service:
-  #   build: ./backend/patient-service
-  #   container_name: patient-service
-  #   ports:
-  #     - "3002:3002"
-  #   environment:
-  #     PORT: 3002
-  #     MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
-  #     JWT_SECRET: ${JWT_SECRET:-carenet_secret}
-  #     NODE_ENV: ${NODE_ENV:-production}
-  #   restart: unless-stopped
-  #   networks:
-  #     - healthcare-network
+  patient-service:
+    build: ./backend/patient-service
+    container_name: patient-service
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      NODE_ENV: ${NODE_ENV:-production}
+    restart: unless-stopped
+    networks:
+      - healthcare-network
 
   # ─── Doctor Service ──────────────────────────────────────────
 
-  # doctor-service:
-  #   build: ./backend/doctor-service
-  #   container_name: doctor-service
-  #   ports:
-  #     - "3003:3003"
-  #   environment:
-  #     PORT: 3003
-  #     MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
-  #     JWT_SECRET: ${JWT_SECRET:-carenet_secret}
-  #     NODE_ENV: ${NODE_ENV:-production}
-  #   restart: unless-stopped
-  #   networks:
-  #     - healthcare-network
+  doctor-service:
+    build: ./backend/doctor-service
+    container_name: doctor-service
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      NODE_ENV: ${NODE_ENV:-production}
+    restart: unless-stopped
+    networks:
+      - healthcare-network
 
   # ─── Appointment Service ─────────────────────────────────────────
 

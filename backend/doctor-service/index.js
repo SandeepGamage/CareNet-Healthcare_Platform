@@ -88,8 +88,8 @@ app.get('/health/dependencies', async (req, res) => {
   });
 });
 
-app.use('/api/doctors/prescriptions', prescriptionRoutes);
-app.use('/api/doctors/profile', doctorRoutes);
+app.use('/prescriptions', prescriptionRoutes);
+app.use('/profile', doctorRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
@@ -110,8 +110,8 @@ connectDB()
     }
 
     console.log('Connected to MongoDB - CareNet_DB');
-    app.listen(process.env.PORT || 5001, () =>
-      console.log(`Doctor service running on port ${process.env.PORT || 5001}`)
+    app.listen(process.env.PORT || 3003, () =>
+      console.log(`Doctor service running on port ${process.env.PORT || 3003}`)
     );
   })
   .catch((err) => {

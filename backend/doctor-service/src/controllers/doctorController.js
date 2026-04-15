@@ -1,5 +1,13 @@
 const asyncHandler = require('../utils/asyncHandler');
-const { createDoctor, getAllDoctors, getAvailableDoctorsByTime, updateDoctor, deleteDoctor } = require('../services/doctorService');
+const {
+  createDoctor,
+  getAllDoctors,
+  getDoctorByUser,
+  getAvailableDoctorsByTime,
+  updateMyAvailableHours,
+  updateDoctor,
+  deleteDoctor,
+} = require('../services/doctorService');
 
 const normalizeDoctorPayload = (req, _res, next) => {
   if (req.body && req.body.consultationFee !== undefined) {
@@ -25,6 +33,47 @@ const getAllProfiles = asyncHandler(async (_req, res) => {
     success: true,
     message: 'Doctor profiles fetched successfully',
     data: profiles,
+  });
+});
+
+
+// Utility to format doctor profile for frontend
+const formatDoctorProfile = (doctor, user) => {
+  return {
+    name: user && user.name ? user.name : undefined,
+    email: user && user.email ? user.email : undefined,
+    specialization: doctor.specialization,
+    bio: doctor.bio,
+    qualifications: doctor.qualifications,
+    experienceYears: doctor.experienceYears,
+    availableHours: doctor.availableHours,
+    isAvailable: doctor.isAvailable,
+    consultationFee: doctor.consultationFee,
+    // Add more fields as needed
+  };
+};
+
+const getMyProfile = asyncHandler(async (req, res) => {
+  // Populate userId to get name/email
+  const doctor = await getDoctorByUser(req.user);
+  await doctor.populate('userId', 'name email');
+  const user = doctor.userId;
+  const profile = formatDoctorProfile(doctor, user);
+
+  res.status(200).json({
+    success: true,
+    message: 'Doctor profile fetched successfully',
+    data: profile,
+  });
+});
+
+const updateMyProfileAvailableHours = asyncHandler(async (req, res) => {
+  const profile = await updateMyAvailableHours(req.user, req.body?.availableHours);
+
+  res.status(200).json({
+    success: true,
+    message: 'Available hours updated successfully',
+    data: profile,
   });
 });
 
@@ -62,7 +111,9 @@ module.exports = {
   normalizeDoctorPayload,
   createProfile,
   getAllProfiles,
+  getMyProfile,
   getAvailableProfilesByTime,
+  updateMyProfileAvailableHours,
   updateProfile,
   deleteProfile,
 };
