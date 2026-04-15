@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import PayHereCheckout from "../components/payment/PayHereCheckout";
-import Navbar from "../components/common/Navbar";
+import Navbar from "../../components/common/Navbar";
+import PatientProfile from "./PatientProfile/PatientProfile";
+import MedicalRecordsTab from "./MedicalRecords/MedicalRecordsTab";
+import PrescriptionsTab from "./Prescriptions/PrescriptionsTab";
 
 // ── Mini Sparkline Chart ───────────────────────────────────────────────────────
 function MiniChart({ data, color = "#3b82f6" }) {
@@ -246,7 +248,7 @@ export default function ModernPatientDashboard() {
                 }}
             >
                 <div style={{ display: "flex", gap: "8px" }}>
-                    {["overview", "appointments", "vitals", "payments"].map((tab) => (
+                    {["overview", "appointments", "vitals", "prescriptions", "payments", "profile"].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -304,6 +306,7 @@ export default function ModernPatientDashboard() {
                                     { icon: "📋", label: "Medical Records", tab: "vitals" },
                                     { icon: "💊", label: "Prescriptions", tab: "prescriptions" },
                                     { icon: "💳", label: "Payment History", tab: "payments" },
+                                    { icon: "👤", label: "Profile", tab: "profile" },
                                     { icon: "⚙️", label: "Settings", tab: "settings" },
                                 ].map((item, i) => (
                                     <button
@@ -768,34 +771,14 @@ export default function ModernPatientDashboard() {
                     {/* ── VITALS TAB ─────────────────────────────────────────────────── */}
                     {activeTab === "vitals" && (
                         <div style={{ animation: "fadeIn 0.3s ease-in" }}>
-                            <div style={{
-                                background: "white",
-                                border: "1px solid #e5e7eb",
-                                borderRadius: "16px",
-                                padding: "40px",
-                                textAlign: "center",
-                            }}>
-                                <p style={{ fontSize: "48px", margin: "0 0 16px 0" }}>📈</p>
-                                <h3 style={{ fontSize: "24px", fontWeight: 600, color: "#111827", margin: "0 0 8px 0" }}>
-                                    Vitals Dashboard Coming Soon
-                                </h3>
-                                <p style={{ fontSize: "16px", color: "#6b7280", margin: 0 }}>
-                                    Connect your health devices to track vitals in real-time
-                                </p>
-                                <button style={{
-                                    marginTop: "24px",
-                                    padding: "12px 24px",
-                                    background: "#3b82f6",
-                                    color: "white",
-                                    border: "none",
-                                    borderRadius: "8px",
-                                    fontSize: "16px",
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                }}>
-                                    Connect Device
-                                </button>
-                            </div>
+                            <MedicalRecordsTab />
+                        </div>
+                    )}
+
+                    {/* ── PRESCRIPTIONS TAB ─────────────────────────────────────────── */}
+                    {activeTab === "prescriptions" && (
+                        <div style={{ animation: "fadeIn 0.3s ease-in" }}>
+                            <PrescriptionsTab />
                         </div>
                     )}
 
@@ -971,6 +954,9 @@ export default function ModernPatientDashboard() {
                              </div>
                         </div>
                     )}
+
+                    {/* ── PROFILE TAB ──────────────────────────────────────────────── */}
+                    {activeTab === "profile" && <PatientProfile />}
                 </main>
             </div>
         </div>
