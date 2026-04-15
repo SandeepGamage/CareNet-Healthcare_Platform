@@ -67,6 +67,10 @@ services:
       PORT: 3002
       MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_REPORTS_BUCKET: ${SUPABASE_REPORTS_BUCKET:-reports}
       NODE_ENV: ${NODE_ENV:-production}
       AUTH_SERVICE_URL: http://auth-service:3001
       DOCTOR_SERVICE_URL: http://doctor-service:3003

@@ -8,6 +8,7 @@ export default function MedicalRecordsTab() {
     const [loadingReports, setLoadingReports] = useState(true);
     const [listMessage, setListMessage] = useState("");
     const [deletingReportId, setDeletingReportId] = useState(null);
+    const [pendingDeleteReportId, setPendingDeleteReportId] = useState(null);
     const [editingReport, setEditingReport] = useState(null);
 
     const patientServiceBase = useMemo(
@@ -54,15 +55,17 @@ export default function MedicalRecordsTab() {
         fetchReports();
     }, [fetchReports]);
 
+    const confirmDeleteReport = (reportId) => {
+        if (deletingReportId) {
+            return;
+        }
+        setPendingDeleteReportId(reportId);
+    };
+
     const handleDeleteReport = async (reportId) => {
         const token = localStorage.getItem("token");
         if (!token) {
             setListMessage("Please login to delete medical reports.");
-            return;
-        }
-
-        const confirmed = window.confirm("Are you sure you want to delete this medical report?");
-        if (!confirmed) {
             return;
         }
 
@@ -89,8 +92,13 @@ export default function MedicalRecordsTab() {
             setListMessage("Patient service unavailable. Could not delete medical report.");
         } finally {
             setDeletingReportId(null);
+            setPendingDeleteReportId(null);
         }
     };
+
+    const pendingDeleteReport = reports.find(
+        (report) => (report.medicalReportId || report._id) === pendingDeleteReportId
+    );
 
     const getFileUrl = (fileUrl) => {
         if (!fileUrl) {
@@ -99,6 +107,7 @@ export default function MedicalRecordsTab() {
         if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
             return fileUrl;
         }
+
         return `${patientServiceBase}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`;
     };
 
@@ -174,7 +183,7 @@ export default function MedicalRecordsTab() {
 
                                             <button
                                                 type="button"
-                                                onClick={() => handleDeleteReport(report.medicalReportId || report._id)}
+                                                onClick={() => confirmDeleteReport(report.medicalReportId || report._id)}
                                                 disabled={deletingReportId === (report.medicalReportId || report._id)}
                                                 className="inline-flex items-center gap-2 rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
                                             >
@@ -216,6 +225,37 @@ export default function MedicalRecordsTab() {
                     )}
                 </div>
             </div>
+
+            {pendingDeleteReportId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
+                    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+                        <h3 className="text-lg font-bold text-slate-800">Delete Medical Report?</h3>
+                        <p className="mt-2 text-sm text-slate-600">
+                            This action cannot be undone.
+                            {pendingDeleteReport?.title ? ` Report: ${pendingDeleteReport.title}` : ""}
+                        </p>
+
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setPendingDeleteReportId(null)}
+                                disabled={Boolean(deletingReportId)}
+                                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleDeleteReport(pendingDeleteReportId)}
+                                disabled={Boolean(deletingReportId)}
+                                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                            >
+                                {Boolean(deletingReportId) ? "Deleting..." : "Yes, Delete"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
