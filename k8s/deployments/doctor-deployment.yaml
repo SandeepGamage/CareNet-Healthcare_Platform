@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: doctor-service
+  labels:
+    app: doctor-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: doctor-service
+  template:
+    metadata:
+      labels:
+        app: doctor-service
+    spec:
+      containers:
+        - name: doctor-service
+          image: carenet-doctor-service:1.0
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5001
+          env:
+            - name: PORT
+              valueFrom:
+                secretKeyRef:
+                  name: doctor-secret
+                  key: PORT
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: doctor-secret
+                  key: MONGO_URI
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: doctor-secret
+                  key: JWT_SECRET
+            - name: PATIENT_SERVICE_URL
+              value: "http://patient-service:3002"
+            - name: APPOINTMENT_SERVICE_URL
+              value: "http://appointment-service:3004"
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:3001"
+            - name: DOCTOR_SERVICE_URL
+              value: "http://doctor-service:3003"
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-service:3006"
+            - name: PAYMENT_SERVICE_URL
+              value: "http://payment-service:3005"
+            - name: SYMPTOM_SERVICE_URL
+              value: "http://symptom-service:3008"
+            - name: TELEMEDICINE_SERVICE_URL
+              value: "http://telemedicine-service:3007"
