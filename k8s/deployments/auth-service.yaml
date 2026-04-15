@@ -26,6 +26,8 @@ spec:
                 secretKeyRef:
                   name: appointment-secret
                   key: MONGO_URI
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-service:3006"
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

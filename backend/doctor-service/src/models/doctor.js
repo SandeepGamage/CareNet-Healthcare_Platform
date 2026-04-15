@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+
 const doctorSchema = new mongoose.Schema(
   {
     userId: {
@@ -55,5 +56,7 @@ const doctorSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+
 
 module.exports = mongoose.model("Doctor", doctorSchema);

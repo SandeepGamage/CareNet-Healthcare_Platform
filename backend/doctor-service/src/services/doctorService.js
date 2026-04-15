@@ -1,3 +1,16 @@
+// Get doctor by user (used by other service functions)
+const getDoctorByUser = async (user) => {
+  const userId = resolveUserId(user);
+  if (!userId) {
+    throw new ApiError(401, 'Invalid token payload: missing user id');
+  }
+  ensureObjectId(userId, 'user id in token payload');
+  const doctor = await Doctor.findOne({ userId });
+  if (!doctor) {
+    throw new ApiError(404, 'Doctor profile not found');
+  }
+  return doctor;
+};
 const mongoose = require('mongoose');
 const Doctor = require('../models/doctor');
 const ApiError = require('../utils/ApiError');
@@ -202,6 +215,60 @@ const getAllDoctors = async () => {
   return Doctor.find().sort({ createdAt: -1 });
 };
 
+const getDoctorByUserId = async (userId) => {
+  if (!userId) {
+    throw new ApiError(400, 'User ID is required');
+  }
+  ensureObjectId(userId, 'user id');
+
+  const doctor = await Doctor.findOne({ userId });
+  if (!doctor) {
+    throw new ApiError(404, 'Doctor profile not found');
+  }
+  return doctor;
+};
+
+
+// Returns doctor profile with populated user (name/email) and formatted for frontend
+const getDoctorProfileForFrontend = async (user) => {
+  const userId = resolveUserId(user);
+  if (!userId) {
+    throw new ApiError(401, 'Invalid token payload: missing user id');
+  }
+  ensureObjectId(userId, 'user id in token payload');
+  const doctor = await Doctor.findOne({ userId }).populate('userId', 'name email');
+  if (!doctor) {
+    throw new ApiError(404, 'Doctor profile not found');
+  }
+  const userObj = doctor.userId;
+  return {
+    name: userObj && userObj.name ? userObj.name : undefined,
+    email: userObj && userObj.email ? userObj.email : undefined,
+    specialization: doctor.specialization,
+    bio: doctor.bio,
+    qualifications: doctor.qualifications,
+    experienceYears: doctor.experienceYears,
+    availableHours: doctor.availableHours,
+    isAvailable: doctor.isAvailable,
+    consultationFee: doctor.consultationFee,
+    // Add more fields as needed
+  };
+};
+
+const updateMyAvailableHours = async (user, availableHours) => {
+  const doctor = await getDoctorByUser(user);
+
+  const trimmedHours = String(availableHours || '').trim();
+  if (!trimmedHours) {
+    throw new ApiError(400, 'availableHours is required');
+  }
+
+  doctor.availableHours = trimmedHours;
+  await doctor.save();
+
+  return doctor;
+};
+
 const getAvailableDoctorsByTime = async (timeValue, filters = {}) => {
   if (!timeValue) {
     throw new ApiError(400, 'time is required');
@@ -348,9 +415,12 @@ module.exports = {
   getDoctorByUserId,
   getDoctorById,
   getDoctorAvailability,
+  getDoctorByUser,
   getAvailableDoctorsByTime,
+  updateMyAvailableHours,
   updateDoctor,
   deleteDoctor,
+  getDoctorProfileForFrontend,
   bookDoctorSlot,
   resetAllDoctorSlots
 };

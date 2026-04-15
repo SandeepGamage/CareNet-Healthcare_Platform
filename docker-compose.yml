@@ -1,4 +1,3 @@
-
 services:
   # ─── Infrastructure ──────────────────────────────────────────────
 
@@ -44,6 +43,12 @@ services:
       PORT: 3001
       MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+      PATIENT_SERVICE_URL: http://patient-service:3002
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      SUPABASE_URL: ${SUPABASE_URL:-https://lppiedfxwxlalsrnnjto.supabase.co}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwcGllZGZ4d3hsYWxzcm5uanRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0OTI4NzksImV4cCI6MjA4NjA2ODg3OX0.IOCsb9fRhN7Ze6hgSGqnMuyxwutLSdC60H6eThcXw1k}
+      SUPABASE_BUCKET: ${SUPABASE_BUCKET:-user-profile}
       NODE_ENV: ${NODE_ENV:-production}
     restart: unless-stopped
     networks:
@@ -113,6 +118,48 @@ services:
     networks:
       - healthcare-network
 
+ # ─── Telemedicine Service ───────────────────────────────────────
+  telemedicine-service:
+    build: ./backend/telemedicine-service
+    container_name: telemedicine-service
+    ports:
+      - "3007:3007"
+    environment:
+      PORT: 3007
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET_APPOINTMENT:-carenet_secret}
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+      JITSI_DOMAIN: meet.jit.si
+      JITSI_APP_ID: ${JITSI_APP_ID:-}
+      JITSI_APP_SECRET: ${JITSI_APP_SECRET:-}
+    depends_on:
+      - mongodb
+      - appointment-service
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+ # ─── Telemedicine Service ───────────────────────────────────────
+  telemedicine-service:
+    build: ./backend/telemedicine-service
+    container_name: telemedicine-service
+    ports:
+      - "3007:3007"
+    environment:
+      PORT: 3007
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET_APPOINTMENT:-carenet_secret}
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+      JITSI_DOMAIN: meet.jit.si
+      JITSI_APP_ID: ${JITSI_APP_ID:-}
+      JITSI_APP_SECRET: ${JITSI_APP_SECRET:-}
+    depends_on:
+      - mongodb
+      - appointment-service
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
   # ─── Payment Service ─────────────────────────────────────────────
 
   payment-service:
@@ -147,14 +194,13 @@ services:
       PORT: 3006
       MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
-      EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
-      EMAIL_PORT: ${EMAIL_PORT:-587}
-      EMAIL_USER: ${EMAIL_USER}
-      EMAIL_PASS: ${EMAIL_PASS}
-      EMAIL_FROM: ${EMAIL_FROM:-CareNet <noreply@carenet.com>}
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
-      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      EMAIL_HOST: smtp.gmail.com
+      EMAIL_PORT: 587
+      EMAIL_SECURE: "false"
+      EMAIL_USER: carenet.admin.support@gmail.com
+      EMAIL_PASS: dunmjxijnykwlloc
+      EMAIL_FROM: "CareNet Healthcare <carenet.admin.support@gmail.com>"
       NODE_ENV: ${NODE_ENV:-production}
     restart: unless-stopped
     networks:
