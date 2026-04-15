@@ -3,10 +3,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   HeartPulse, Mail, Lock, ArrowLeft, ArrowRight,
   Eye, EyeOff, AlertCircle, KeyRound, X, CheckCircle2,
-  RefreshCw, ShieldCheck,
+  RefreshCw, ShieldCheck, Stethoscope, Phone, User,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGoogleLogin } from "@react-oauth/google";
+
+// Phone validation (Sri Lanka)
+const isValidPhone = (v) => /^(\+94|0094|0)?[\s\-]?7[0-9][\s\-]?[0-9]{3}[\s\-]?[0-9]{4}$/.test(v.trim());
 
 // ── Validation helpers ────────────────────────────────────────────────────────
 const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -86,6 +89,23 @@ const LoginPage = () => {
 
   const liveErrors = validateLoginForm({ email, password });
   const getErr = (field) => (touched[field] ? liveErrors[field] : undefined);
+
+  // ── Google Registration Modal State ──────────────────────────────────────────
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleData, setGoogleData] = useState(null);
+  const [googleRole, setGoogleRole] = useState("patient");
+  const [googlePhone, setGooglePhone] = useState("");
+  const [googlePhoneErr, setGooglePhoneErr] = useState("");
+  const [googleSpecialty, setGoogleSpecialty] = useState("");
+  const [googleSpecErr, setGoogleSpecErr] = useState("");
+  const [googleQualifications, setGoogleQualifications] = useState("");
+  const [googleQualErr, setGoogleQualErr] = useState("");
+  const [googleConsultationFee, setGoogleConsultationFee] = useState("");
+  const [googleDateOfBirth, setGoogleDateOfBirth] = useState("");
+  const [googleBloodGroup, setGoogleBloodGroup] = useState("");
+  const [googleGender, setGoogleGender] = useState("other");
+  const [googleModalLoading, setGoogleModalLoading] = useState(false);
+  const [googleSuccessMsg, setGoogleSuccessMsg] = useState("");
 
   // ── Forgot Password State ────────────────────────────────────────────────────
   const [showForgot, setShowForgot] = useState(false);
@@ -228,7 +248,21 @@ const LoginPage = () => {
           localStorage.setItem("user", JSON.stringify(data.user));
           redirectByRole(data.user.role);
         } else {
-          setServerError(data.message || "Google login failed. You may need to register first.");
+          // User not found → show registration modal with Google profile info
+          setGoogleData({ name: userInfo.name, email: userInfo.email });
+          setGooglePhone("");
+          setGooglePhoneErr("");
+          setGoogleSpecialty("");
+          setGoogleSpecErr("");
+          setGoogleQualifications("");
+          setGoogleQualErr("");
+          setGoogleConsultationFee("");
+          setGoogleDateOfBirth("");
+          setGoogleBloodGroup("");
+          setGoogleGender("other");
+          setGoogleRole("patient");
+          setGoogleSuccessMsg("");
+          setShowGoogleModal(true);
         }
       } catch {
         setServerError("Google Login failed. Please try again.");
@@ -236,6 +270,65 @@ const LoginPage = () => {
     },
     onError: () => setServerError("Google Login failed. Please try again."),
   });
+
+  // ── Google Modal Submit (register new user) ────────────────────────────────
+  const handleGoogleModalSubmit = async (e) => {
+    e.preventDefault();
+    let hasErr = false;
+
+    if (!isValidPhone(googlePhone)) { setGooglePhoneErr("Enter a valid phone number (e.g. +94 77 123 4567)."); hasErr = true; }
+    else setGooglePhoneErr("");
+
+    if (googleRole === "doctor") {
+      if (!googleSpecialty.trim()) { setGoogleSpecErr("Specialty is required."); hasErr = true; }
+      else setGoogleSpecErr("");
+      if (!googleQualifications.trim()) { setGoogleQualErr("Qualifications is required."); hasErr = true; }
+      else setGoogleQualErr("");
+    }
+
+    if (hasErr) return;
+
+    setGoogleModalLoading(true);
+    try {
+      const randomPassword = Math.random().toString(36).slice(-12) + "A1!x";
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: googleData.name,
+          email: googleData.email,
+          password: randomPassword,
+          role: googleRole,
+          phone: googlePhone,
+          specialty: googleRole === "doctor" ? googleSpecialty : null,
+          qualifications: googleRole === "doctor" ? googleQualifications : null,
+          consultationFee: googleRole === "doctor" ? googleConsultationFee : null,
+          dateOfBirth: googleRole === "patient" ? googleDateOfBirth : null,
+          bloodGroup: googleRole === "patient" ? googleBloodGroup : null,
+          gender: googleRole === "patient" ? googleGender : null,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setShowGoogleModal(false);
+        setGoogleSuccessMsg(data.message || "Registration successful! Verification code sent.");
+        setTimeout(() =>
+          navigate("/verify-otp", {
+            state: { userId: data.userId, type: data.type || "email", hasPhone: data.hasPhone || false, role: googleRole },
+          }), 2000
+        );
+      } else {
+        setServerError(data.message || "Registration failed. Please try again.");
+        setShowGoogleModal(false);
+      }
+    } catch {
+      setServerError("Unable to connect to the server.");
+      setShowGoogleModal(false);
+    } finally {
+      setGoogleModalLoading(false);
+    }
+  };
 
   const redirectByRole = (role) => {
     if (role === "admin") navigate("/admin-dashboard");
@@ -743,6 +836,195 @@ const LoginPage = () => {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Google Profile Completion Modal ────────────────────────────────── */}
+      <AnimatePresence>
+        {showGoogleModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-white rounded-3xl p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto"
+            >
+              <h2 className="text-2xl font-bold text-slate-900 mb-1">Complete Your Profile</h2>
+              <p className="text-slate-500 mb-6 text-sm">
+                Welcome, <span className="font-semibold text-slate-700">{googleData?.name}</span>! No account found for <span className="font-semibold text-teal-600">{googleData?.email}</span>. Fill in the details below to create your account.
+              </p>
+
+              {googleSuccessMsg && (
+                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                  className="mb-5 bg-teal-50 text-teal-600 p-3 rounded-xl text-sm font-medium border border-teal-100 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />{googleSuccessMsg}
+                </motion.div>
+              )}
+
+              <form onSubmit={handleGoogleModalSubmit} className="space-y-4" noValidate>
+                {/* Role */}
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-slate-700 ml-1">Role</label>
+                  <select
+                    value={googleRole}
+                    onChange={(e) => setGoogleRole(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer"
+                  >
+                    <option value="patient">Patient</option>
+                    <option value="doctor">Doctor / Professional</option>
+                  </select>
+                </div>
+
+                {/* Doctor-specific fields */}
+                <AnimatePresence>
+                  {googleRole === "doctor" && (
+                    <motion.div
+                      key="google-doctor-fields"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="space-y-4 overflow-hidden"
+                    >
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Specialty</label>
+                          <div className="relative group">
+                            <Stethoscope className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${googleSpecErr ? "text-red-400" : "text-slate-400 group-focus-within:text-teal-500"}`} />
+                            <input
+                              type="text" placeholder="e.g. Cardiologist"
+                              value={googleSpecialty}
+                              onChange={(e) => { setGoogleSpecialty(e.target.value); setGoogleSpecErr(""); }}
+                              className={modalInputClass(!!googleSpecErr)}
+                            />
+                          </div>
+                          <FieldError msg={googleSpecErr} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Fee (LKR)</label>
+                          <input
+                            type="number" placeholder="e.g. 1500"
+                            value={googleConsultationFee}
+                            onChange={(e) => setGoogleConsultationFee(e.target.value)}
+                            className={modalInputClass(false)}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Qualifications</label>
+                        <input
+                          type="text" placeholder="e.g. MBBS, MD"
+                          value={googleQualifications}
+                          onChange={(e) => { setGoogleQualifications(e.target.value); setGoogleQualErr(""); }}
+                          className={modalInputClass(!!googleQualErr)}
+                        />
+                        <FieldError msg={googleQualErr} />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Patient-specific fields */}
+                <AnimatePresence>
+                  {googleRole === "patient" && (
+                    <motion.div
+                      key="google-patient-fields"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="space-y-4 overflow-hidden"
+                    >
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Date of Birth</label>
+                          <input
+                            type="date"
+                            value={googleDateOfBirth}
+                            onChange={(e) => setGoogleDateOfBirth(e.target.value)}
+                            className={modalInputClass(false)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Blood Group</label>
+                          <select
+                            value={googleBloodGroup}
+                            onChange={(e) => setGoogleBloodGroup(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer text-sm"
+                          >
+                            <option value="">Select</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Gender</label>
+                        <select
+                          value={googleGender}
+                          onChange={(e) => setGoogleGender(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer text-sm"
+                        >
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Phone */}
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-slate-700 ml-1">Phone Number</label>
+                  <div className="relative group">
+                    <Phone className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${googlePhoneErr ? "text-red-400" : "text-slate-400 group-focus-within:text-teal-500"}`} />
+                    <input
+                      type="tel" placeholder="+94 77 123 4567"
+                      value={googlePhone}
+                      onChange={(e) => { setGooglePhone(e.target.value); setGooglePhoneErr(""); }}
+                      className={modalInputClass(!!googlePhoneErr)}
+                    />
+                  </div>
+                  <FieldError msg={googlePhoneErr} />
+                </div>
+
+                {/* Notice */}
+                {googleRole === "doctor" ? (
+                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed">
+                    <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                    <p><strong>Doctor accounts require verification.</strong> Administrators will review your credentials before full access is granted.</p>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-teal-50/50 border border-teal-100 text-teal-800 text-xs leading-relaxed">
+                    <ShieldCheck className="w-5 h-5 text-teal-500 shrink-0 mt-0.5" />
+                    <p>By creating an account, you agree to our Terms of Service and Privacy Policy.</p>
+                  </div>
+                )}
+
+                <div className="pt-2 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowGoogleModal(false)}
+                    className="w-1/3 py-3 rounded-2xl bg-slate-100 text-slate-600 font-semibold hover:bg-slate-200 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={googleModalLoading}
+                    className={`w-2/3 py-3 rounded-2xl ${googleModalLoading ? "bg-teal-400" : "bg-teal-500"} text-white font-bold hover:shadow-lg hover:-translate-y-0.5 transition-all shadow-teal-500/25`}
+                  >
+                    {googleModalLoading ? "Creating Account..." : "Create Account & Verify"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

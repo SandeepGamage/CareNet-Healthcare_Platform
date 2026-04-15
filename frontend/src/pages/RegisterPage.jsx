@@ -128,6 +128,12 @@ const RegisterPage = () => {
   const [googlePhone, setGooglePhone]         = useState("");
   const [googlePhoneErr, setGooglePhoneErr]   = useState("");
   const [googleSpecErr, setGoogleSpecErr]     = useState("");
+  const [googleQualifications, setGoogleQualifications] = useState("");
+  const [googleQualErr, setGoogleQualErr]     = useState("");
+  const [googleConsultationFee, setGoogleConsultationFee] = useState("");
+  const [googleDateOfBirth, setGoogleDateOfBirth] = useState("");
+  const [googleBloodGroup, setGoogleBloodGroup] = useState("");
+  const [googleGender, setGoogleGender]       = useState("other");
 
   const handleGoogleRegister = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -138,7 +144,15 @@ const RegisterPage = () => {
         setGoogleData({ name: userInfo.name, email: userInfo.email });
         setGooglePhone("");
         setGooglePhoneErr("");
+        setGoogleSpecialty("");
         setGoogleSpecErr("");
+        setGoogleQualifications("");
+        setGoogleQualErr("");
+        setGoogleConsultationFee("");
+        setGoogleDateOfBirth("");
+        setGoogleBloodGroup("");
+        setGoogleGender("other");
+        setGoogleRole("patient");
         setShowGoogleModal(true);
       } catch {
         setServerError("Failed to fetch Google profile. Please try again.");
@@ -151,11 +165,15 @@ const RegisterPage = () => {
     e.preventDefault();
     let hasErr = false;
 
-    if (!isValidPhone(googlePhone)) { setGooglePhoneErr("Enter a valid phone number."); hasErr = true; }
+    if (!isValidPhone(googlePhone)) { setGooglePhoneErr("Enter a valid phone number (e.g. +94 77 123 4567)."); hasErr = true; }
     else setGooglePhoneErr("");
 
-    if (googleRole === "doctor" && !googleSpecialty.trim()) { setGoogleSpecErr("Specialty is required."); hasErr = true; }
-    else setGoogleSpecErr("");
+    if (googleRole === "doctor") {
+      if (!googleSpecialty.trim()) { setGoogleSpecErr("Specialty is required."); hasErr = true; }
+      else setGoogleSpecErr("");
+      if (!googleQualifications.trim()) { setGoogleQualErr("Qualifications is required."); hasErr = true; }
+      else setGoogleQualErr("");
+    }
 
     if (hasErr) return;
 
@@ -170,8 +188,13 @@ const RegisterPage = () => {
           email: googleData.email,
           password: randomPassword,
           role: googleRole,
-          specialty: googleRole === "doctor" ? googleSpecialty : null,
           phone: googlePhone,
+          specialty: googleRole === "doctor" ? googleSpecialty : null,
+          qualifications: googleRole === "doctor" ? googleQualifications : null,
+          consultationFee: googleRole === "doctor" ? googleConsultationFee : null,
+          dateOfBirth: googleRole === "patient" ? googleDateOfBirth : null,
+          bloodGroup: googleRole === "patient" ? googleBloodGroup : null,
+          gender: googleRole === "patient" ? googleGender : null,
         }),
       });
 
@@ -541,7 +564,7 @@ const RegisterPage = () => {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-white rounded-3xl p-8 shadow-2xl border border-slate-100"
+              className="w-full max-w-md bg-white rounded-3xl p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto"
             >
               <h2 className="text-2xl font-bold text-slate-900 mb-1">Complete Your Profile</h2>
               <p className="text-slate-500 mb-6 text-sm">
@@ -562,23 +585,108 @@ const RegisterPage = () => {
                   </select>
                 </div>
 
-                {/* Specialty */}
-                {googleRole === "doctor" && (
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-slate-700 ml-1">Specialty</label>
-                    <div className="relative group">
-                      <Stethoscope className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${googleSpecErr ? "text-red-400" : "text-slate-400 group-focus-within:text-teal-500"}`} />
-                      <input
-                        type="text"
-                        placeholder="e.g. Cardiologist"
-                        value={googleSpecialty}
-                        onChange={(e) => { setGoogleSpecialty(e.target.value); setGoogleSpecErr(""); }}
-                        className={inputCls(!!googleSpecErr)}
-                      />
-                    </div>
-                    <FieldError msg={googleSpecErr} />
-                  </div>
-                )}
+                {/* Doctor-specific fields */}
+                <AnimatePresence>
+                  {googleRole === "doctor" && (
+                    <motion.div
+                      key="google-doctor-fields"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="space-y-4 overflow-hidden"
+                    >
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Specialty</label>
+                          <div className="relative group">
+                            <Stethoscope className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${googleSpecErr ? "text-red-400" : "text-slate-400 group-focus-within:text-teal-500"}`} />
+                            <input
+                              type="text" placeholder="e.g. Cardiologist"
+                              value={googleSpecialty}
+                              onChange={(e) => { setGoogleSpecialty(e.target.value); setGoogleSpecErr(""); }}
+                              className={inputCls(!!googleSpecErr)}
+                            />
+                          </div>
+                          <FieldError msg={googleSpecErr} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Fee (LKR)</label>
+                          <input
+                            type="number" placeholder="e.g. 1500"
+                            value={googleConsultationFee}
+                            onChange={(e) => setGoogleConsultationFee(e.target.value)}
+                            className={inputCls(false)}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Qualifications</label>
+                        <input
+                          type="text" placeholder="e.g. MBBS, MD"
+                          value={googleQualifications}
+                          onChange={(e) => { setGoogleQualifications(e.target.value); setGoogleQualErr(""); }}
+                          className={inputCls(!!googleQualErr)}
+                        />
+                        <FieldError msg={googleQualErr} />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Patient-specific fields */}
+                <AnimatePresence>
+                  {googleRole === "patient" && (
+                    <motion.div
+                      key="google-patient-fields"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="space-y-4 overflow-hidden"
+                    >
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Date of Birth</label>
+                          <input
+                            type="date"
+                            value={googleDateOfBirth}
+                            onChange={(e) => setGoogleDateOfBirth(e.target.value)}
+                            className={inputCls(false)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Blood Group</label>
+                          <select
+                            value={googleBloodGroup}
+                            onChange={(e) => setGoogleBloodGroup(e.target.value)}
+                            className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer"
+                          >
+                            <option value="">Select</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Gender</label>
+                        <select
+                          value={googleGender}
+                          onChange={(e) => setGoogleGender(e.target.value)}
+                          className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer"
+                        >
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Phone */}
                 <div className="space-y-1">
@@ -596,6 +704,19 @@ const RegisterPage = () => {
                   <FieldError msg={googlePhoneErr} />
                 </div>
 
+                {/* Notice */}
+                {googleRole === "doctor" ? (
+                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed">
+                    <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                    <p><strong>Doctor accounts require verification.</strong> Administrators will review your credentials before full access is granted.</p>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-teal-50/50 border border-teal-100 text-teal-800 text-xs leading-relaxed">
+                    <ShieldCheck className="w-5 h-5 text-teal-500 shrink-0 mt-0.5" />
+                    <p>By creating an account, you agree to our Terms of Service and Privacy Policy.</p>
+                  </div>
+                )}
+
                 <div className="pt-2 flex gap-3">
                   <button
                     type="button"
@@ -609,7 +730,7 @@ const RegisterPage = () => {
                     disabled={loading}
                     className={`w-2/3 py-3 rounded-2xl ${loading ? "bg-teal-400" : "bg-teal-500"} text-white font-bold hover:shadow-lg hover:-translate-y-0.5 transition-all shadow-teal-500/25`}
                   >
-                    {loading ? "Saving..." : "Complete Setup"}
+                    {loading ? "Creating Account..." : "Create Account & Verify"}
                   </button>
                 </div>
               </form>
