@@ -1,5 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const { createDoctor, getAllDoctors, updateDoctor, deleteDoctor } = require('../services/doctorService');
+const { createDoctor, getAllDoctors, getAvailableDoctorsByTime, updateDoctor, deleteDoctor } = require('../services/doctorService');
 
 const normalizeDoctorPayload = (req, _res, next) => {
   if (req.body && req.body.consultationFee !== undefined) {
@@ -28,6 +28,17 @@ const getAllProfiles = asyncHandler(async (_req, res) => {
   });
 });
 
+const getAvailableProfilesByTime = asyncHandler(async (req, res) => {
+  const { time, specialization } = req.query;
+  const profiles = await getAvailableDoctorsByTime(time, { specialization });
+
+  res.status(200).json({
+    success: true,
+    message: 'Available doctor profiles fetched successfully',
+    data: profiles,
+  });
+});
+
 const updateProfile = asyncHandler(async (req, res) => {
   const profile = await updateDoctor(req.user, req.params.id, req.body);
 
@@ -51,6 +62,7 @@ module.exports = {
   normalizeDoctorPayload,
   createProfile,
   getAllProfiles,
+  getAvailableProfilesByTime,
   updateProfile,
   deleteProfile,
 };
