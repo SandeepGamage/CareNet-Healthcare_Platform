@@ -44,6 +44,15 @@ const doctorSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
+    availableSlots: {
+      type: [String],
+      default: [],
+    },
+    slotDuration: {
+      type: Number,
+      min: 5,
+      default: 30, // in minutes
+    },
   },
   { timestamps: true },
 );

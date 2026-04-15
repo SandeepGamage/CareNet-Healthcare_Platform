@@ -1045,6 +1045,19 @@ const BookAppointment = () => {
   const [error, setError] = useState(null);
   const [appointmentId, setAppointmentId] = useState(null);
   const [userData, setUserData] = useState(null);
+  const [patientProfile, setPatientProfile] = useState(null);
+
+  const calculateAge = (dob) => {
+    if (!dob) return '';
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
 
   // Form data
   const [formData, setFormData] = useState({
@@ -1052,9 +1065,6 @@ const BookAppointment = () => {
     patientName: '',
     patientEmail: '',
     patientPhone: '',
-    patientAge: '',
-    patientGender: '',
-    patientAddress: '',
 
     // Appointment Details
     doctorId: '',
@@ -1076,6 +1086,8 @@ const BookAppointment = () => {
   const [filteredDoctors, setFilteredDoctors] = useState([]);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [availableSlots, setAvailableSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotError, setSlotError] = useState(null);
   const [specialties, setSpecialties] = useState([]);
   const [minDate, setMinDate] = useState('');
   const [maxDate, setMaxDate] = useState('');
@@ -1118,7 +1130,7 @@ const BookAppointment = () => {
   // Filter doctors based on all criteria
   useEffect(() => {
     let filtered = [...doctors];
-    
+
     if (filters.searchTerm && filters.searchTerm.trim() !== '') {
       const searchLower = filters.searchTerm.toLowerCase().trim();
       filtered = filtered.filter(doc =>
@@ -1127,25 +1139,25 @@ const BookAppointment = () => {
         (doc.hospital && doc.hospital.toLowerCase().includes(searchLower))
       );
     }
-    
+
     if (filters.specialty && filters.specialty !== '') {
       filtered = filtered.filter(doc => doc.specialty === filters.specialty);
     }
-    
+
     if (filters.gender && filters.gender !== '') {
       filtered = filtered.filter(doc => doc.gender === filters.gender);
     }
-    
+
     if (filters.minExperience && filters.minExperience !== '') {
       filtered = filtered.filter(doc => parseInt(doc.experience) >= parseInt(filters.minExperience));
     }
-    
+
     if (filters.maxFee && filters.maxFee !== '') {
       filtered = filtered.filter(doc => doc.fee <= parseInt(filters.maxFee));
     }
-    
+
     // Apply sorting
-    switch(filters.sortBy) {
+    switch (filters.sortBy) {
       case 'rating':
         filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
         break;
@@ -1161,13 +1173,13 @@ const BookAppointment = () => {
       default:
         break;
     }
-    
+
     setFilteredDoctors(filtered);
-    
+
     // Extract unique specialties
     const uniqueSpecialties = [...new Set(doctors.map(d => d.specialty).filter(Boolean))];
     if (uniqueSpecialties.length > 0) setSpecialties(uniqueSpecialties);
-    
+
     // Set top 4 doctors (highest rated)
     const top = [...doctors]
       .sort((a, b) => (b.rating || 0) - (a.rating || 0))
@@ -1175,12 +1187,6 @@ const BookAppointment = () => {
     setTopDoctors(top);
   }, [filters, doctors]);
 
-  // Fetch available slots when doctor or date changes
-  useEffect(() => {
-    if (selectedDoctor && formData.appointmentDate) {
-      fetchAvailableSlots();
-    }
-  }, [selectedDoctor, formData.appointmentDate]);
 
   // Close modal on outside click
   useEffect(() => {
@@ -1189,11 +1195,11 @@ const BookAppointment = () => {
         setShowDoctorModal(false);
       }
     };
-    
+
     if (showDoctorModal) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -1202,22 +1208,34 @@ const BookAppointment = () => {
   const fetchUserProfile = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/auth/profile`, {
+      const response = await axios.get(`${API_BASE_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
-      const user = response.data.data || response.data;
+
+      const user = response.data.user || response.data.data || response.data;
       setUserData(user);
-      
-      // Auto-fill form with user data (default booking for self)
+
+      // Also fetch patient profile from patient-service
+      let profileData = null;
+      try {
+        const profileResponse = await axios.get(`${API_BASE_URL}/patients/me/profile`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        profileData = profileResponse.data.data;
+        setPatientProfile(profileData);
+      } catch (profileErr) {
+        console.error('Failed to fetch patient profile:', profileErr);
+      }
+
+      // Auto-fill form with combined user and profile data (default booking for self)
       setFormData(prev => ({
         ...prev,
         patientName: user.name || '',
         patientEmail: user.email || '',
         patientPhone: user.phone || '',
-        patientAge: user.age || '',
-        patientGender: user.gender || '',
-        patientAddress: user.address || ''
+        patientAge: profileData ? calculateAge(profileData.dateOfBirth) : '',
+        patientGender: profileData ? (profileData.gender?.charAt(0).toUpperCase() + profileData.gender?.slice(1)) : '',
+        patientAddress: profileData ? profileData.address : ''
       }));
     } catch (err) {
       console.error('Failed to fetch user profile:', err);
@@ -1231,7 +1249,7 @@ const BookAppointment = () => {
       const response = await axios.get(`${API_BASE_URL}/auth/doctors/verified`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       const doctorList = (response.data?.data || [])
         .filter(doc => doc)
         .map(doc => ({
@@ -1248,11 +1266,12 @@ const BookAppointment = () => {
           languages: doc.languages || ['English'],
           about: doc.about || 'Experienced healthcare professional',
           availability: doc.availability || {},
+          time: doc.availableHours || '09:00 AM - 05:00 PM', // Fallback
           profileImage: doc.profileImage || null,
           totalPatients: doc.totalPatients || 500,
           reviewCount: doc.reviewCount || 50
         }));
-      
+
       setDoctors(doctorList);
       setFilteredDoctors(doctorList);
       setError(null);
@@ -1266,33 +1285,6 @@ const BookAppointment = () => {
     }
   };
 
-  const fetchAvailableSlots = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `${API_BASE_URL}/appointments/slots?doctorId=${selectedDoctor.id}&date=${formData.appointmentDate}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      // Filter only available slots (where isBooked is false)
-      const available = (response.data.availableSlots || [])
-        .filter(slot => !slot.isBooked)
-        .map(slot => slot.time);
-      
-      setAvailableSlots(available);
-      
-      // Auto-select first available slot
-      if (available.length > 0 && !formData.timeSlot) {
-        setFormData(prev => ({ ...prev, timeSlot: available[0] }));
-      }
-    } catch (err) {
-      console.error('Failed to fetch slots:', err);
-      setAvailableSlots([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -1309,21 +1301,20 @@ const BookAppointment = () => {
       setFormData(prev => ({
         ...prev,
         patientName: userData.name || '',
-        patientPhone: userData.phone || '',
-        patientAge: userData.age || '',
-        patientGender: userData.gender || '',
-        patientAddress: userData.address || ''
+        patientEmail: userData.email || '',
+        patientPhone: userData.phone || ''
       }));
     } else {
       // Clear form for someone else
       setFormData(prev => ({
         ...prev,
         patientName: '',
-        patientPhone: '',
-        patientAge: '',
-        patientGender: '',
-        patientAddress: ''
+        patientPhone: ''
       }));
+    }
+    // If switching to someone else, ensure "VIDEO" type is swapped out if it was selected
+    if (!forSelf && formData.type === 'VIDEO') {
+      setFormData(prev => ({ ...prev, type: 'IN_PERSON' }));
     }
   };
 
@@ -1351,9 +1342,6 @@ const BookAppointment = () => {
     if (!formData.patientPhone.trim()) errors.patientPhone = 'Phone number is required';
     else if (!/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/.test(formData.patientPhone))
       errors.patientPhone = 'Phone number is invalid';
-    if (!formData.patientAge) errors.patientAge = 'Age is required';
-    else if (formData.patientAge < 0 || formData.patientAge > 120) errors.patientAge = 'Age must be between 0 and 120';
-    if (!formData.patientGender) errors.patientGender = 'Gender is required';
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -1363,6 +1351,7 @@ const BookAppointment = () => {
     const errors = {};
     if (!selectedDoctor) errors.doctor = 'Please select a doctor';
     if (!formData.appointmentDate) errors.appointmentDate = 'Please select a date';
+    if (!formData.timeSlot) errors.timeSlot = 'Please select a time slot';
     if (!formData.reason.trim()) errors.reason = 'Please describe your reason for visit';
 
     setValidationErrors(errors);
@@ -1404,9 +1393,6 @@ const BookAppointment = () => {
         patientName: formData.patientName,
         patientEmail: formData.patientEmail,
         patientPhone: formData.patientPhone,
-        patientAge: formData.patientAge,
-        patientGender: formData.patientGender,
-        patientAddress: formData.patientAddress,
         symptoms: formData.symptoms,
         previousHistory: formData.previousHistory,
         allergies: formData.allergies
@@ -1429,11 +1415,44 @@ const BookAppointment = () => {
     }
   };
 
+  // Fetch available slots when doctor or date changes
+  useEffect(() => {
+    const fetchSlots = async () => {
+      if (!selectedDoctor || !formData.appointmentDate) return;
+
+      try {
+        setLoadingSlots(true);
+        setSlotError(null);
+        const token = localStorage.getItem('token');
+        const response = await axios.get(
+          `${API_BASE_URL}/appointments/slots?doctorId=${selectedDoctor.id}&date=${formData.appointmentDate}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setAvailableSlots(response.data.availableSlots || []);
+        
+        // Update selected doctor's time with real available hours if returned
+        if (response.data.availableHours) {
+          setSelectedDoctor(prev => ({
+            ...prev,
+            time: response.data.availableHours
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch slots:', err);
+        setSlotError('Failed to load available time slots');
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+
+    fetchSlots();
+  }, [selectedDoctor, formData.appointmentDate]);
+
   const resetForm = () => {
     setCurrentStep(1);
     setFormData({
-      patientName: '', patientEmail: '', patientPhone: '', patientAge: '',
-      patientGender: '', patientAddress: '', doctorId: '', doctorName: '',
+      patientName: '', patientEmail: '', patientPhone: '',
+      doctorId: '', doctorName: '',
       specialty: '', appointmentDate: '', timeSlot: '', type: 'IN_PERSON',
       reason: '', symptoms: '', previousHistory: '', allergies: ''
     });
@@ -1463,7 +1482,7 @@ const BookAppointment = () => {
   // Doctor Modal Component
   const DoctorModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div 
+      <div
         ref={modalRef}
         className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl"
       >
@@ -1517,7 +1536,7 @@ const BookAppointment = () => {
                     <option key={spec} value={spec}>{spec}</option>
                   ))}
                 </select>
-                
+
                 <select
                   value={filters.gender}
                   onChange={(e) => setFilters(prev => ({ ...prev, gender: e.target.value }))}
@@ -1527,7 +1546,7 @@ const BookAppointment = () => {
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                 </select>
-                
+
                 <input
                   type="number"
                   placeholder="Min Experience (years)"
@@ -1535,7 +1554,7 @@ const BookAppointment = () => {
                   onChange={(e) => setFilters(prev => ({ ...prev, minExperience: e.target.value }))}
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                
+
                 <input
                   type="number"
                   placeholder="Max Fee ($)"
@@ -1558,11 +1577,10 @@ const BookAppointment = () => {
                 <button
                   key={option.value}
                   onClick={() => setFilters(prev => ({ ...prev, sortBy: option.value }))}
-                  className={`px-3 py-1 text-sm rounded-full transition-colors ${
-                    filters.sortBy === option.value
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className={`px-3 py-1 text-sm rounded-full transition-colors ${filters.sortBy === option.value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                 >
                   {option.label}
                 </button>
@@ -1609,7 +1627,7 @@ const BookAppointment = () => {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="flex-1">
                       <div className="flex justify-between items-start">
                         <div>
@@ -1623,7 +1641,7 @@ const BookAppointment = () => {
                           <span className="text-sm font-semibold">{doctor.rating}</span>
                         </div>
                       </div>
-                      
+
                       <div className="mt-3 space-y-2">
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Briefcase className="w-4 h-4" />
@@ -1638,21 +1656,25 @@ const BookAppointment = () => {
                           <span>{doctor.education}</span>
                         </div>
                       </div>
-                      
+
                       <div className="mt-4 flex items-center justify-between">
                         <div>
+                          <p className="text-xs text-gray-500">Consultation Hours</p>
+                          <p className="text-sm font-semibold text-gray-700">{doctor.time}</p>
+                        </div>
+                        <div className="text-right">
                           <p className="text-xs text-gray-500">Consultation Fee</p>
                           <p className="text-lg font-bold text-blue-600">${doctor.fee}</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1">
-                            <Users className="w-4 h-4 text-gray-400" />
-                            <span className="text-xs text-gray-500">{doctor.totalPatients}+ patients</span>
-                          </div>
-                          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                            Select
-                          </button>
+                      </div>
+                      <div className="mt-4 flex items-center justify-end gap-2">
+                        <div className="flex items-center gap-1">
+                          <Users className="w-4 h-4 text-gray-400" />
+                          <span className="text-xs text-gray-500">{doctor.totalPatients}+ patients</span>
                         </div>
+                        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                          Select
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1791,21 +1813,19 @@ const BookAppointment = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleBookingTypeChange(true)}
-                        className={`px-4 py-2 rounded-lg transition-all ${
-                          bookingForSelf
-                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                        className={`px-4 py-2 rounded-lg transition-all ${bookingForSelf
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
                       >
                         Book for Myself
                       </button>
                       <button
                         onClick={() => handleBookingTypeChange(false)}
-                        className={`px-4 py-2 rounded-lg transition-all ${
-                          !bookingForSelf
-                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                        className={`px-4 py-2 rounded-lg transition-all ${!bookingForSelf
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
                       >
                         Book for Someone Else
                       </button>
@@ -1825,9 +1845,8 @@ const BookAppointment = () => {
                           value={formData.patientName}
                           onChange={handleInputChange}
                           disabled={bookingForSelf}
-                          className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                            validationErrors.patientName ? 'border-red-500' : 'border-gray-300'
-                          } ${bookingForSelf ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
+                          className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${validationErrors.patientName ? 'border-red-500' : 'border-gray-300'
+                            } ${bookingForSelf ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
                           placeholder="Enter full name"
                         />
                       </div>
@@ -1848,9 +1867,8 @@ const BookAppointment = () => {
                           value={formData.patientEmail}
                           onChange={handleInputChange}
                           disabled={bookingForSelf}
-                          className={`w-full pl-10 pr-4 py-3 border rounded-lg ${
-                            validationErrors.patientEmail ? 'border-red-500' : 'border-gray-300'
-                          } ${bookingForSelf ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
+                          className={`w-full pl-10 pr-4 py-3 border rounded-lg ${validationErrors.patientEmail ? 'border-red-500' : 'border-gray-300'
+                            } ${bookingForSelf ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
                           placeholder="your@email.com"
                         />
                       </div>
@@ -1871,9 +1889,8 @@ const BookAppointment = () => {
                           value={formData.patientPhone}
                           onChange={handleInputChange}
                           disabled={bookingForSelf}
-                          className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            validationErrors.patientPhone ? 'border-red-500' : 'border-gray-300'
-                          } ${bookingForSelf ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
+                          className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${validationErrors.patientPhone ? 'border-red-500' : 'border-gray-300'
+                            } ${bookingForSelf ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
                           placeholder="+1 234 567 8900"
                         />
                       </div>
@@ -1882,73 +1899,6 @@ const BookAppointment = () => {
                       )}
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Age *
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          name="patientAge"
-                          value={formData.patientAge}
-                          onChange={handleInputChange}
-                          disabled={bookingForSelf}
-                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            validationErrors.patientAge ? 'border-red-500' : 'border-gray-300'
-                          } ${bookingForSelf ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
-                          placeholder="Enter age"
-                        />
-                      </div>
-                      {validationErrors.patientAge && (
-                        <p className="mt-1 text-sm text-red-600">{validationErrors.patientAge}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Gender *
-                      </label>
-                      <div className="relative">
-                        <select
-                          name="patientGender"
-                          value={formData.patientGender}
-                          onChange={handleInputChange}
-                          disabled={bookingForSelf}
-                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            validationErrors.patientGender ? 'border-red-500' : 'border-gray-300'
-                          } ${bookingForSelf ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
-                        >
-                          <option value="">Select Gender</option>
-                          <option value="Male">Male</option>
-                          <option value="Female">Female</option>
-                          <option value="Other">Other</option>
-                          <option value="Prefer not to say">Prefer not to say</option>
-                        </select>
-                      </div>
-                      {validationErrors.patientGender && (
-                        <p className="mt-1 text-sm text-red-600">{validationErrors.patientGender}</p>
-                      )}
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Address
-                      </label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-4 w-5 h-5 text-gray-400" />
-                        <textarea
-                          name="patientAddress"
-                          value={formData.patientAddress}
-                          onChange={handleInputChange}
-                          disabled={bookingForSelf}
-                          rows="2"
-                          className={`w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            bookingForSelf ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
-                          }`}
-                          placeholder="Enter your full address"
-                        />
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}
@@ -1978,7 +1928,7 @@ const BookAppointment = () => {
                               <ChevronRight className="w-4 h-4" />
                             </button>
                           </div>
-                          
+
                           <div className="grid grid-cols-2 gap-4">
                             {topDoctors.map(doctor => (
                               <div
@@ -2003,7 +1953,13 @@ const BookAppointment = () => {
                                       <span className="text-xs text-gray-400">•</span>
                                       <span className="text-sm text-gray-600">{doctor.experience}+ years</span>
                                     </div>
-                                    <p className="text-sm font-semibold text-blue-600 mt-2">${doctor.fee}</p>
+                                    <div className="flex justify-between items-end mt-2">
+                                      <div>
+                                        <p className="text-[10px] text-gray-400 uppercase font-bold">Hours</p>
+                                        <p className="text-xs text-gray-600">{doctor.time}</p>
+                                      </div>
+                                      <p className="text-sm font-semibold text-blue-600">${doctor.fee}</p>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -2017,7 +1973,7 @@ const BookAppointment = () => {
                         >
                           Browse All Doctors
                         </button>
-                        
+
                         {validationErrors.doctor && (
                           <p className="mt-2 text-sm text-red-600">{validationErrors.doctor}</p>
                         )}
@@ -2039,6 +1995,11 @@ const BookAppointment = () => {
                                 </div>
                                 <span className="text-gray-300">|</span>
                                 <span className="text-sm text-gray-600">{selectedDoctor.experience}+ years</span>
+                                <span className="text-gray-300">|</span>
+                                <div className="flex items-center gap-1">
+                                  <Clock className="w-4 h-4 text-gray-400" />
+                                  <span className="text-sm text-gray-600">{selectedDoctor.time}</span>
+                                </div>
                                 <span className="text-gray-300">|</span>
                                 <span className="text-lg font-bold text-blue-600">${selectedDoctor.fee}</span>
                               </div>
@@ -2070,9 +2031,8 @@ const BookAppointment = () => {
                           onChange={handleInputChange}
                           min={minDate}
                           max={maxDate}
-                          className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            validationErrors.appointmentDate ? 'border-red-500' : 'border-gray-300'
-                          }`}
+                          className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${validationErrors.appointmentDate ? 'border-red-500' : 'border-gray-300'
+                            }`}
                         />
                       </div>
                       {validationErrors.appointmentDate && (
@@ -2081,27 +2041,38 @@ const BookAppointment = () => {
                     </div>
                   )}
 
-                  {/* Available Time Slots - Shows only when doctor and date are selected */}
+                  {/* Time Slot Selection */}
                   {selectedDoctor && formData.appointmentDate && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Available Time Slots
-                      </label>
-                      {loading ? (
-                        <div className="flex justify-center py-8">
-                          <Loader className="w-8 h-8 animate-spin text-blue-600" />
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Available Time Slots (30-min per slot) *
+                        </label>
+                        {loadingSlots && <Activity className="w-4 h-4 text-blue-600 animate-spin" />}
+                      </div>
+
+                      {slotError ? (
+                        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                          {slotError}
+                        </div>
+                      ) : loadingSlots ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                          {[1, 2, 3, 4, 5, 6].map(i => (
+                            <div key={i} className="h-10 bg-gray-100 animate-pulse rounded-lg"></div>
+                          ))}
                         </div>
                       ) : availableSlots.length > 0 ? (
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-1">
                           {availableSlots.map(slot => (
                             <button
                               key={slot}
+                              type="button"
                               onClick={() => setFormData(prev => ({ ...prev, timeSlot: slot }))}
                               className={`
-                                px-3 py-2 text-sm rounded-lg border transition-all
+                                py-2 px-3 text-sm font-medium rounded-lg border transition-all
                                 ${formData.timeSlot === slot
-                                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-transparent shadow-md'
-                                  : 'border-gray-300 text-gray-700 hover:border-blue-400'
+                                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                  : 'bg-white text-gray-700 border-gray-200 hover:border-blue-400 hover:text-blue-600'
                                 }
                               `}
                             >
@@ -2110,11 +2081,14 @@ const BookAppointment = () => {
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-6 bg-gray-50 rounded-lg">
-                          <Clock className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-gray-600">No available slots for this date</p>
-                          <p className="text-sm text-gray-500">Please select another date</p>
+                        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4" />
+                          No slots available for this date.
                         </div>
+                      )}
+
+                      {validationErrors.timeSlot && (
+                        <p className="mt-1 text-sm text-red-600">{validationErrors.timeSlot}</p>
                       )}
                     </div>
                   )}
@@ -2129,9 +2103,8 @@ const BookAppointment = () => {
                       value={formData.reason}
                       onChange={handleInputChange}
                       rows="3"
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        validationErrors.reason ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${validationErrors.reason ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       placeholder="Briefly describe your symptoms or reason for consultation"
                     />
                     {validationErrors.reason && (
@@ -2149,22 +2122,29 @@ const BookAppointment = () => {
                         { value: 'IN_PERSON', icon: Building, label: 'In Person' },
                         { value: 'VIDEO', icon: Video, label: 'Video Call' },
                         { value: 'PHONE', icon: PhoneCall, label: 'Phone Call' }
-                      ].map(type => (
-                        <button
-                          key={type.value}
-                          onClick={() => setFormData(prev => ({ ...prev, type: type.value }))}
-                          className={`
-                            flex flex-col items-center gap-2 px-4 py-3 rounded-xl border transition-all
-                            ${formData.type === type.value
-                              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-transparent shadow-md'
-                              : 'border-gray-300 text-gray-700 hover:border-blue-400 hover:shadow-sm'
-                            }
-                          `}
-                        >
-                          <type.icon className="w-5 h-5" />
-                          <span className="text-sm font-medium">{type.label}</span>
-                        </button>
-                      ))}
+                      ].map(type => {
+                        const isDisabled = type.value === 'VIDEO' && !bookingForSelf;
+                        return (
+                          <button
+                            key={type.value}
+                            onClick={() => !isDisabled && setFormData(prev => ({ ...prev, type: type.value }))}
+                            disabled={isDisabled}
+                            className={`
+                              flex flex-col items-center gap-2 px-4 py-3 rounded-xl border transition-all
+                              ${formData.type === type.value
+                                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-transparent shadow-md'
+                                : isDisabled
+                                  ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                                  : 'border-gray-300 text-gray-700 hover:border-blue-400 hover:shadow-sm'
+                              }
+                            `}
+                          >
+                            <type.icon className="w-5 h-5" />
+                            <span className="text-sm font-medium">{type.label}</span>
+                            {isDisabled && <span className="text-[10px] text-red-400 font-bold">SELF ONLY</span>}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

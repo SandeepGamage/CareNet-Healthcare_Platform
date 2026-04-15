@@ -60,4 +60,5 @@ app.listen(PORT, () => {
   console.log(`🚀 API Gateway running on port ${PORT}`);
   console.log(`🔗 Routing /api/auth to ${AUTH_SERVICE_URL}`);
   console.log(`🔗 Routing /api/notifications to ${NOTIFICATION_SERVICE_URL}`);
+  console.log("Routing /api/doctors")
 });

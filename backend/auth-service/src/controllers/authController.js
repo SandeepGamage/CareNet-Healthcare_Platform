@@ -596,7 +596,7 @@ exports.resendOTP = async (req, res) => {
     if (user) await VerificationCode.deleteMany({ userId: user._id, purpose: { $ne: 'password_reset' } });
 
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
+
     // Default to email; only use SMS if user explicitly requested 'phone' and has a number
     const usePhone = type === 'phone' && phone;
     const sendType = usePhone ? 'SMS' : 'EMAIL';
