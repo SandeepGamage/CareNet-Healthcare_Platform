@@ -1,13 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const {
-  createDoctor,
-  getAllDoctors,
-  getDoctorByUser,
-  getAvailableDoctorsByTime,
-  updateMyAvailableHours,
-  updateDoctor,
-  deleteDoctor,
-} = require('../services/doctorService');
+const { createDoctor, getAllDoctors, getDoctorByUserId, getAvailableDoctorsByTime, updateDoctor, deleteDoctor } = require('../services/doctorService');
 
 const normalizeDoctorPayload = (req, _res, next) => {
   if (req.body && req.body.consultationFee !== undefined) {
@@ -22,6 +14,16 @@ const createProfile = asyncHandler(async (req, res) => {
   res.status(201).json({
     success: true,
     message: 'Doctor profile created successfully',
+    data: profile,
+  });
+});
+
+const getProfileMe = asyncHandler(async (req, res) => {
+  const profile = await getDoctorByUserId(req.user.id);
+
+  res.status(200).json({
+    success: true,
+    message: 'Doctor profile fetched successfully',
     data: profile,
   });
 });
@@ -110,6 +112,7 @@ const deleteProfile = asyncHandler(async (req, res) => {
 module.exports = {
   normalizeDoctorPayload,
   createProfile,
+  getProfileMe,
   getAllProfiles,
   getMyProfile,
   getAvailableProfilesByTime,

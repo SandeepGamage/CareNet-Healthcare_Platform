@@ -4,7 +4,11 @@ const verificationCodeSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false, // Optional for registration OTP
+  },
+  registrationData: {
+    type: Object, // Stores name, email, password, role etc. for pending users
+    default: null,
   },
   code: {
     type: String,
@@ -14,6 +18,11 @@ const verificationCodeSchema = new mongoose.Schema({
     type: String,
     enum: ['email', 'phone'],
     required: true,
+  },
+  purpose: {
+    type: String,
+    enum: ['verification', 'password_reset'],
+    default: 'verification',
   },
   expiresAt: {
     type: Date,

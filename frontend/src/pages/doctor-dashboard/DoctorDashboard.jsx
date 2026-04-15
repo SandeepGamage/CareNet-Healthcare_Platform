@@ -22,6 +22,7 @@ import Dashboard from "./Dashboard/Dashboard";
 import Appointments from "./Appointments/Appointments";
 import Prescriptions from "./Prescriptions/Prescriptions";
 import Profile from "./Profile/Profile";
+import TelemedicineTab from "../../components/telemedicine/TelemedicineTab";
 
 // ── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,12 @@ export default function DoctorDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Load user from localStorage
+  const user = JSON.parse(localStorage.getItem("userInfo")) || {
+    name: 'Doctor',
+    role: 'Doctor'
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans">
@@ -46,6 +53,7 @@ export default function DoctorDashboard() {
             { id: "overview", icon: Activity, label: "Dashboard" },
             { id: "profile", icon: Users, label: "Profile" },
             { id: "appointments", icon: Calendar, label: "Appointments" },
+            { id: "telemedicine", icon: Video, label: "Telemedicine" },
             { id: "prescriptions", icon: FileText, label: "Prescriptions" },
           ].map((item) => (
             <button
@@ -80,12 +88,8 @@ export default function DoctorDashboard() {
         {/* Top Navbar */}
         <Navbar
           onMenuClick={() => setSidebarOpen(!sidebarOpen)}
-          title={<span className="text-xl font-bold text-slate-800">Welcome, Dr. Ahamed Shaba</span>}
-          userProfile={{
-            name: 'Dr. Ahamed Shaba',
-            email: 'doctor@carenet.com',
-            role: 'Doctor'
-          }}
+          title={<span className="text-xl font-bold text-slate-800">Welcome, {user.name}</span>}
+          userProfile={user}
         >
           <div className="hidden md:flex flex-1 justify-end pr-4">
             <div className="relative w-64">
@@ -101,6 +105,7 @@ export default function DoctorDashboard() {
         {activeTab === "overview" && <Dashboard />}
         {activeTab === "profile" && <Profile />}
         {activeTab === "appointments" && <Appointments />}
+        {activeTab === "telemedicine" && <TelemedicineTab role="doctor" />}
         {activeTab === "prescriptions" && <Prescriptions />}
       </main>
     </div>

@@ -15,15 +15,16 @@ const OtpVerification = () => {
   const inputRefs = useRef([]);
   const navigate = useNavigate();
   const location = useLocation();
-  const { userId, type, hasPhone } = location.state || {};
+  const { userId: initialUserId, type, hasPhone } = location.state || {};
+  const [currentUserId, setCurrentUserId] = useState(initialUserId);
   // verifyType tracks where the most recent OTP was sent
   const [verifyType, setVerifyType] = useState(type || 'email');
 
   useEffect(() => {
-    if (!userId) {
+    if (!currentUserId) {
       navigate('/login');
     }
-  }, [userId, navigate]);
+  }, [currentUserId, navigate]);
 
   // Email resend countdown
   useEffect(() => {
@@ -71,7 +72,7 @@ const OtpVerification = () => {
 
       // Both email and phone OTPs use the same verify endpoint
       const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/verify-email`, {
-        userId,
+        userId: currentUserId,
         code,
       });
 
@@ -109,9 +110,14 @@ const OtpVerification = () => {
 
     try {
       const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/resend-otp`, {
-        userId,
+        userId: currentUserId,
         type: sendType, // 'email' or 'phone'
       });
+
+      // IMPORTANT: Update the userId as the backend creates a new verification record
+      if (res.data.userId) {
+        setCurrentUserId(res.data.userId);
+      }
 
       const actualSentVia = res.data.sentVia || sendType;
       setVerifyType(actualSentVia);

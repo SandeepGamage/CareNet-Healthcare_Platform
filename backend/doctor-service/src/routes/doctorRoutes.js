@@ -7,6 +7,7 @@ const {
 const {
   normalizeDoctorPayload,
   createProfile,
+  getProfileMe,
   getAllProfiles,
   getMyProfile,
   getAvailableProfilesByTime,
@@ -19,7 +20,7 @@ const router = express.Router();
 
 router.get("/", protect, authorizeDoctorAdminPatient, getAllProfiles);
 // Returns formatted doctor profile for frontend
-router.get("/me", protect, authorizeDoctor, getMyProfile);
+router.get("/me", protect, authorizeDoctor, getProfileMe);
 router.get("/available", protect, authorizeDoctorAdminPatient, getAvailableProfilesByTime);
 router.patch("/me/available-hours", protect, authorizeDoctor, updateMyProfileAvailableHours);
 router.post("/", protect, authorizeDoctor, normalizeDoctorPayload, createProfile);

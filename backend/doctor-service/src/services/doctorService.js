@@ -144,6 +144,19 @@ const getAllDoctors = async () => {
   return Doctor.find().sort({ createdAt: -1 });
 };
 
+const getDoctorByUserId = async (userId) => {
+  if (!userId) {
+    throw new ApiError(400, 'User ID is required');
+  }
+  ensureObjectId(userId, 'user id');
+
+  const doctor = await Doctor.findOne({ userId });
+  if (!doctor) {
+    throw new ApiError(404, 'Doctor profile not found');
+  }
+  return doctor;
+};
+
 
 // Returns doctor profile with populated user (name/email) and formatted for frontend
 const getDoctorProfileForFrontend = async (user) => {
@@ -272,6 +285,7 @@ module.exports = {
   createDoctor,
   getAllDoctors,
   getDoctorByUser,
+  getDoctorByUserId,
   getAvailableDoctorsByTime,
   updateMyAvailableHours,
   updateDoctor,

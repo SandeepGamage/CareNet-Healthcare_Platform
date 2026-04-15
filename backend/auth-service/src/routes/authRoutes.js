@@ -1,15 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe, getPendingDoctors, getAllDoctors, getVerifiedDoctors, approveDoctor, rejectDoctor, verifyOTP, resendOTP, deactivateAccount, getAllPatients } = require('../controllers/authController');
+const { register, login, getMe, getPendingDoctors, getAllDoctors, getVerifiedDoctors, approveDoctor, rejectDoctor, verifyOTP, resendOTP, deactivateAccount, getAllPatients, forgotPassword, resetPassword } = require('../controllers/authController');
 const protect = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/authMiddleware');
+const upload = require('../middleware/uploadMiddleware');
 
 // Public routes
-router.post('/register', register);
+router.post('/register', upload.single('profileImage'), register);
 router.post('/login', login);
 router.post('/verify-email', verifyOTP);
 router.post('/verify-phone', verifyOTP);
 router.post('/resend-otp', resendOTP);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 // Protected routes – require valid JWT
 router.get('/me', protect, getMe);

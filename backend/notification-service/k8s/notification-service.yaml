@@ -18,7 +18,7 @@ spec:
       - name: notification-service
         image: healthcare-platform/notification-service:latest
         ports:
-        - containerPort: 5004
+        - containerPort: 3006
         env:
         - name: PORT
           value: "5004"
@@ -62,6 +62,6 @@ spec:
     app: notification-service
   ports:
     - protocol: TCP
-      port: 5004
-      targetPort: 5004
+      port: 3006
+      targetPort: 3006
   type: ClusterIP
