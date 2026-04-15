@@ -19,7 +19,9 @@ import {
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar";
 import Dashboard from "./Dashboard/Dashboard";
+import Appointments from "./Appointments/Appointments";
 import Prescriptions from "./Prescriptions/Prescriptions";
+import Profile from "./Profile/Profile";
 
 // ── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -97,6 +99,8 @@ export default function DoctorDashboard() {
         </Navbar>
 
         {activeTab === "overview" && <Dashboard />}
+        {activeTab === "profile" && <Profile />}
+        {activeTab === "appointments" && <Appointments />}
         {activeTab === "prescriptions" && <Prescriptions />}
       </main>
     </div>
