@@ -4,7 +4,7 @@ const { initSocket } = require('./socket');
 // const { initRabbitMQ } = require('./rabbitmq');
 
 // Entry point for the Notification Service
-const PORT = process.env.PORT || 5004;
+const PORT = process.env.PORT || 3006;
 
 const server = app.listen(PORT, () => {
   logger.info(`Notification Service is up and running on port ${PORT}`);

@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import PayHereCheckout from "../components/payment/PayHereCheckout";
-import Navbar from "../components/common/Navbar";
+import Navbar from "../../components/common/Navbar";
+import PatientProfile from "./PatientProfile/PatientProfile";
+import MedicalRecordsTab from "./MedicalRecords/MedicalRecordsTab";
+import PrescriptionsTab from "./Prescriptions/PrescriptionsTab";
+import TelemedicineTab from "../../components/telemedicine/TelemedicineTab";
 
 // ── Mini Sparkline Chart ───────────────────────────────────────────────────────
 function MiniChart({ data, color = "#3b82f6" }) {
@@ -100,18 +103,24 @@ export default function ModernPatientDashboard() {
     const [payingAppt, setPayingAppt] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [appointmentsData, setAppointmentsData] = useState([]);
+    const [paymentsData, setPaymentsData] = useState([]);
 
     const [userProfile, setUserProfile] = useState(() => {
         const stored = localStorage.getItem("user");
         if (stored) {
-            const u = JSON.parse(stored);
-            return {
-                name: u.name || "User",
-                patientId: u.id ? `#${u.id.slice(-4).toUpperCase()}` : "#0000",
-                email: u.email || "",
-                phone: u.phone || "Not set",
-                avatar: u.profilePicture || `https://ui-avatars.com/api/?name=${u.name || 'User'}&background=random`
-            };
+            try {
+                const u = JSON.parse(stored);
+                return {
+                    name: u.name || "User",
+                    patientId: u.id ? `#${u.id.slice(-4).toUpperCase()}` : "#0000",
+                    email: u.email || "",
+                    phone: u.phone || "Not set",
+                    avatar: u.profilePicture || `https://ui-avatars.com/api/?name=${u.name || 'User'}&background=random`
+                };
+            } catch (error) {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+            }
         }
         return {
             name: "Alex Johnson",
@@ -127,7 +136,7 @@ export default function ModernPatientDashboard() {
             try {
                 const token = localStorage.getItem("token");
                 // Using auth-service at port 3001
-                const response = await fetch("http://localhost:3001/api/auth/me", {
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/me`, {
                     headers: {
                         "Authorization": `Bearer ${token}`
                     }
@@ -179,8 +188,28 @@ export default function ModernPatientDashboard() {
             }
         };
 
+        const fetchPayments = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const response = await fetch("http://localhost:3005/api/payments/history", {
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.data) {
+                        setPaymentsData(data.data);
+                    }
+                }
+            } catch (err) {
+                console.log("Payment service unreachable");
+            }
+        };
+
         fetchProfile();
         fetchAppointments();
+        fetchPayments();
     }, []);
 
     return (
@@ -220,7 +249,7 @@ export default function ModernPatientDashboard() {
                 }}
             >
                 <div style={{ display: "flex", gap: "8px" }}>
-                    {["overview", "appointments", "vitals"].map((tab) => (
+                    {["overview", "appointments", "telemedicine", "vitals", "prescriptions", "payments", "profile"].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -275,8 +304,11 @@ export default function ModernPatientDashboard() {
                                 {[
                                     { icon: "📊", label: "Dashboard", tab: "overview" },
                                     { icon: "📅", label: "Appointments", tab: "appointments" },
+                                    { icon: "🎥", label: "Telemedicine", tab: "telemedicine" },
                                     { icon: "📋", label: "Medical Records", tab: "vitals" },
                                     { icon: "💊", label: "Prescriptions", tab: "prescriptions" },
+                                    { icon: "💳", label: "Payment History", tab: "payments" },
+                                    { icon: "👤", label: "Profile", tab: "profile" },
                                     { icon: "⚙️", label: "Settings", tab: "settings" },
                                 ].map((item, i) => (
                                     <button
@@ -468,12 +500,12 @@ export default function ModernPatientDashboard() {
                                 gap: "24px",
                                 marginBottom: "40px",
                             }}>
-                                <StatCard 
-                                    label="Next Appointment" 
-                                    value={appointmentsData.length > 0 ? appointmentsData[0].date : "None"} 
-                                    change={appointmentsData.length > 0 ? "Confirmed" : "No upcoming"} 
-                                    changeType="up" 
-                                    icon="📅" 
+                                <StatCard
+                                    label="Next Appointment"
+                                    value={appointmentsData.length > 0 ? appointmentsData[0].date : "None"}
+                                    change={appointmentsData.length > 0 ? "Confirmed" : "No upcoming"}
+                                    changeType="up"
+                                    icon="📅"
                                 />
                                 <StatCard label="Health Score" value="--" change="Not enough data" changeType="up" icon="⭐" />
                                 <StatCard label="Total Visits" value="0" change="New Patient" changeType="up" icon="🏥" />
@@ -591,18 +623,18 @@ export default function ModernPatientDashboard() {
                     {activeTab === "appointments" && (
                         <div style={{ animation: "fadeIn 0.3s ease-in" }}>
                             <div style={{ marginBottom: "24px" }}>
-                                <button 
+                                <button
                                     onClick={() => navigate("/book-appointment")}
                                     style={{
-                                    background: "#3b82f6",
-                                    color: "white",
-                                    border: "none",
-                                    padding: "12px 24px",
-                                    borderRadius: "8px",
-                                    fontSize: "16px",
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                }}>
+                                        background: "#3b82f6",
+                                        color: "white",
+                                        border: "none",
+                                        padding: "12px 24px",
+                                        borderRadius: "8px",
+                                        fontSize: "16px",
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                    }}>
                                     + Book New Appointment
                                 </button>
                             </div>
@@ -704,17 +736,17 @@ export default function ModernPatientDashboard() {
                                             </div>
 
                                             {expandedAppt === appt.id && (
-                                                <div 
+                                                <div
                                                     onClick={(e) => e.stopPropagation()}
                                                     style={{
-                                                    marginTop: "16px",
-                                                    paddingTop: "16px",
-                                                    borderTop: "1px solid #f3f4f6",
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    gap: "12px",
-                                                }}>
-                                                     <div style={{ display: "flex", gap: "12px" }}>
+                                                        marginTop: "16px",
+                                                        paddingTop: "16px",
+                                                        borderTop: "1px solid #f3f4f6",
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        gap: "12px",
+                                                    }}>
+                                                    <div style={{ display: "flex", gap: "12px" }}>
                                                         <button style={{
                                                             flex: 1,
                                                             padding: "10px",
@@ -738,36 +770,134 @@ export default function ModernPatientDashboard() {
                         </div>
                     )}
 
+                    {/* ── TELEMEDICINE TAB ─────────────────────────────────────────── */}
+                    {activeTab === "telemedicine" && (
+                        <div style={{ animation: "fadeIn 0.3s ease-in" }}>
+                            <TelemedicineTab role="patient" />
+                        </div>
+                    )}
+
                     {/* ── VITALS TAB ─────────────────────────────────────────────────── */}
                     {activeTab === "vitals" && (
+                        <div style={{ animation: "fadeIn 0.3s ease-in" }}>
+                            <MedicalRecordsTab />
+                        </div>
+                    )}
+
+                    {/* ── PRESCRIPTIONS TAB ─────────────────────────────────────────── */}
+                    {activeTab === "prescriptions" && (
+                        <div style={{ animation: "fadeIn 0.3s ease-in" }}>
+                            <PrescriptionsTab />
+                        </div>
+                    )}
+
+                    {/* ── PAYMENTS TAB ─────────────────────────────────────────────────── */}
+                    {activeTab === "payments" && (
                         <div style={{ animation: "fadeIn 0.3s ease-in" }}>
                             <div style={{
                                 background: "white",
                                 border: "1px solid #e5e7eb",
                                 borderRadius: "16px",
-                                padding: "40px",
-                                textAlign: "center",
+                                padding: "28px",
                             }}>
-                                <p style={{ fontSize: "48px", margin: "0 0 16px 0" }}>📈</p>
-                                <h3 style={{ fontSize: "24px", fontWeight: 600, color: "#111827", margin: "0 0 8px 0" }}>
-                                    Vitals Dashboard Coming Soon
+                                <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", margin: "0 0 24px 0" }}>
+                                    Payment History
                                 </h3>
-                                <p style={{ fontSize: "16px", color: "#6b7280", margin: 0 }}>
-                                    Connect your health devices to track vitals in real-time
-                                </p>
-                                <button style={{
-                                    marginTop: "24px",
-                                    padding: "12px 24px",
-                                    background: "#3b82f6",
-                                    color: "white",
-                                    border: "none",
-                                    borderRadius: "8px",
-                                    fontSize: "16px",
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                }}>
-                                    Connect Device
-                                </button>
+                                <div style={{ overflowX: "auto" }}>
+                                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                                        <thead>
+                                            <tr style={{ background: "#f9fafb", color: "#6b7280", fontSize: "12px", textTransform: "uppercase" }}>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Date</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Doctor</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Amount</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Status</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Invoice</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {paymentsData.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan="5" style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
+                                                        No payment history available.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                paymentsData.map((payment) => (
+                                                    <tr key={payment._id} style={{ borderBottom: "1px solid #f3f4f6", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                                                        <td style={{ padding: "16px", fontSize: "14px", color: "#111827" }}>
+                                                            {new Date(payment.createdAt).toLocaleDateString()}
+                                                        </td>
+                                                        <td style={{ padding: "16px", fontSize: "14px", color: "#6b7280" }}>
+                                                            {payment.metadata?.doctorName || 'Consultation'}
+                                                        </td>
+                                                        <td style={{ padding: "16px", fontSize: "14px", color: "#111827", fontWeight: 500 }}>
+                                                            {payment.currency} {payment.amount.toFixed(2)}
+                                                        </td>
+                                                        <td style={{ padding: "16px" }}>
+                                                            <span style={{
+                                                                background: payment.status === 'success' ? '#d1fae5' : payment.status === 'pending' ? '#fef3c7' : '#fee2e2',
+                                                                color: payment.status === 'success' ? '#065f46' : payment.status === 'pending' ? '#92400e' : '#991b1b',
+                                                                padding: "4px 8px",
+                                                                borderRadius: "4px",
+                                                                fontSize: "12px",
+                                                                fontWeight: 600,
+                                                                textTransform: "capitalize"
+                                                            }}>
+                                                                {payment.status}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: "16px" }}>
+                                                            {payment.status === 'success' && payment.invoiceId ? (
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            const res = await fetch(`http://localhost:3005/api/payments/invoices/${payment._id}`, {
+                                                                                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                                                                            });
+                                                                            if (!res.ok) throw new Error();
+                                                                            const blob = await res.blob();
+                                                                            const url = window.URL.createObjectURL(blob);
+                                                                            const a = document.createElement('a');
+                                                                            a.href = url;
+                                                                            a.download = `Invoice_${payment._id}.pdf`;
+                                                                            document.body.appendChild(a);
+                                                                            a.click();
+                                                                            a.remove();
+                                                                            window.URL.revokeObjectURL(url);
+                                                                        } catch (err) {
+                                                                            alert('Failed to download invoice. It might not be generated yet.');
+                                                                        }
+                                                                    }}
+                                                                    style={{
+                                                                        background: "transparent",
+                                                                        border: "1px solid #3b82f6",
+                                                                        color: "#3b82f6",
+                                                                        padding: "6px 12px",
+                                                                        borderRadius: "6px",
+                                                                        fontSize: "12px",
+                                                                        fontWeight: 600,
+                                                                        cursor: "pointer",
+                                                                        transition: "all 0.2s"
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.background = "#eff6ff";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.background = "transparent";
+                                                                    }}
+                                                                >
+                                                                    ⬇ Download
+                                                                </button>
+                                                            ) : (
+                                                                <span style={{ fontSize: "12px", color: "#9ca3af" }}>-</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -775,10 +905,10 @@ export default function ModernPatientDashboard() {
                     {/* ── SETTINGS TAB ──────────────────────────────────────────────── */}
                     {activeTab === "settings" && (
                         <div style={{ animation: "fadeIn 0.3s ease-in" }}>
-                             <div style={{ 
-                                background: "white", 
-                                border: "1px solid #e5e7eb", 
-                                borderRadius: "16px", 
+                            <div style={{
+                                background: "white",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: "16px",
                                 padding: "40px",
                                 maxWidth: "800px"
                             }}>
@@ -790,8 +920,8 @@ export default function ModernPatientDashboard() {
                                     <p style={{ color: "#6b7280", fontSize: "14px", margin: "0 0 24px 0" }}>
                                         Once you deactivate your account, you will be logged out. You can reactive it at any time by simply logging in again with your email and password.
                                     </p>
-                                    
-                                    <button 
+
+                                    <button
                                         onClick={async () => {
                                             if (window.confirm("Are you sure you want to deactivate your account?")) {
                                                 try {
@@ -830,9 +960,12 @@ export default function ModernPatientDashboard() {
                                         Deactivate Account
                                     </button>
                                 </div>
-                             </div>
+                            </div>
                         </div>
                     )}
+
+                    {/* ── PROFILE TAB ──────────────────────────────────────────────── */}
+                    {activeTab === "profile" && <PatientProfile />}
                 </main>
             </div>
         </div>

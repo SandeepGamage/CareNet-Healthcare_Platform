@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: api-gateway:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:3001"
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-service:3006"
+            - name: APPOINTMENT_SERVICE_URL
+              value: "http://appointment-service:3004"
+            - name: PATIENT_SERVICE_URL
+              value: "http://patient-service:3002"
+            - name: DOCTOR_SERVICE_URL
+              value: "http://doctor-service:3003"
+            - name: SYMPTOM_SERVICE_URL
+              value: "http://symptom-service:3008"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+spec:
+  selector:
+    app: api-gateway
+  ports:
+    - port: 8080
+      targetPort: 8080

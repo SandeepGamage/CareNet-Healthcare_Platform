@@ -5,18 +5,21 @@ const cors = require('cors');
 const morgan = require('morgan');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(cors());
 app.use(morgan('dev'));
 
 // Define service URLs
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3006';
-const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:5004';
-const APPOINTMENT_SERVICE_URL = process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:5002';
-const PATIENT_SERVICE_URL = process.env.PATIENT_SERVICE_URL || 'http://localhost:5005';
-const DOCTOR_SERVICE_URL = process.env.DOCTOR_SERVICE_URL || 'http://localhost:5001';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
+const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3006';
+const APPOINTMENT_SERVICE_URL = process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:3004';
+const PATIENT_SERVICE_URL = process.env.PATIENT_SERVICE_URL || 'http://localhost:3002';
+const DOCTOR_SERVICE_URL = process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003';
+const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://localhost:3005';
+const TELEMEDICINE_SERVICE_URL = process.env.TELEMEDICINE_SERVICE_URL || 'http://localhost:3007';
+const SYMPTOM_SERVICE_URL = process.env.SYMPTOM_SERVICE_URL || 'http://localhost:3008';
 
 // Service routes mapping
 const services = [
@@ -25,6 +28,9 @@ const services = [
   { prefix: '/api/appointments', target: APPOINTMENT_SERVICE_URL },
   { prefix: '/api/patients', target: PATIENT_SERVICE_URL },
   { prefix: '/api/doctors', target: DOCTOR_SERVICE_URL },
+  { prefix: '/api/payments', target: PAYMENT_SERVICE_URL },
+  { prefix: '/api/telemedicine', target: TELEMEDICINE_SERVICE_URL },
+  { prefix: '/api/symptoms', target: SYMPTOM_SERVICE_URL },
   { prefix: '/socket.io', target: NOTIFICATION_SERVICE_URL, ws: true },
 ];
 
@@ -41,10 +47,11 @@ services.forEach(({ prefix, target, ws }) => {
       target,
       changeOrigin: true,
       ws: ws || false,
-      pathRewrite: (path, req) => path,
+      pathRewrite: (path, req) => req.originalUrl,
       onError: (err, req, res) => {
         console.error(`Proxy Error for ${prefix}:`, err.message);
-        res.status(502).json({ success: false, message: `Service at ${prefix} is currently unreachable.` });
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.status(502).json({ success: false, message: `Service at ${prefix} is currently unreachable. Error: ${err.message}` });
       },
     })
   );

@@ -68,9 +68,16 @@ const Navbar = () => {
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      console.log("Navbar: User found in localStorage:", parsedUser);
-      setUser(parsedUser);
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        console.log("Navbar: User found in localStorage:", parsedUser);
+        setUser(parsedUser);
+      } catch (error) {
+        console.warn("Navbar: Invalid user data in localStorage, clearing it", error);
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setUser(null);
+      }
     } else {
       console.log("Navbar: No user found in localStorage");
     }
@@ -131,11 +138,11 @@ const Navbar = () => {
             <>
               <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-slate-50 border border-slate-100">
                 <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold text-xs">
-                  {user.name.charAt(0)}
+                  {(user?.name || "U").charAt(0)}
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold text-slate-900">{user.name}</span>
-                  <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">{user.role}</span>
+                  <span className="text-xs font-bold text-slate-900">{user?.name || "User"}</span>
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">{user?.role || ""}</span>
                 </div>
               </div>
               <Link
@@ -200,11 +207,11 @@ const Navbar = () => {
               <>
                 <div className="p-2 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold text-sm">
-                    {user.name.charAt(0)}
+                    {(user?.name || "U").charAt(0)}
                   </div>
                   <div>
-                    <p className="font-bold text-slate-900">{user.name}</p>
-                    <p className="text-xs text-slate-500 uppercase tracking-wider">{user.role}</p>
+                    <p className="font-bold text-slate-900">{user?.name || "User"}</p>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider">{user?.role || ""}</p>
                   </div>
                 </div>
                 <button

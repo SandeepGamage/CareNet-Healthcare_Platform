@@ -32,6 +32,47 @@ services:
     networks:
       - healthcare-net
 
+  patient-service:
+    build: ./patient-service
+    container_name: patient-service
+    restart: unless-stopped
+    ports:
+      - '3002:3002'
+    environment:
+      PORT: 3002
+      NODE_ENV: development
+      MONGO_URI: mongodb://mongodb:27017/carenet_patients
+      JWT_SECRET: ${JWT_SECRET}
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      DOCTOR_PRESCRIPTION_ENDPOINT_TEMPLATE: /api/doctors/prescriptions/patient/:patientUserId
+    depends_on:
+      - mongodb
+    networks:
+      - healthcare-net
+
+  doctor-service:
+    build: ./doctor-service
+    restart: unless-stopped
+    ports:
+      - '3003:3003'
+    environment:
+      PORT: 3003
+      NODE_ENV: development
+      MONGO_URI: mongodb://mongodb:27017/carenet_doctors
+      JWT_SECRET: ${JWT_SECRET}
+      PATIENT_SERVICE_URL: http://patient-service:3002
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+      AUTH_SERVICE_URL: http://auth-service:3001
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      NOTIFICATION_SERVICE_URL: http://notification-service:5004
+      PAYMENT_SERVICE_URL: http://payment-service:5003
+      SYMPTOM_SERVICE_URL: http://symptom-service:3008
+      TELEMEDICINE_SERVICE_URL: http://telemedicine-service:3007
+    depends_on:
+      - mongodb
+    networks:
+      - healthcare-net
+
   notification-service:
     build: ./notification-service
     container_name: notification-service
