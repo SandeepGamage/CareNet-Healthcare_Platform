@@ -17,9 +17,6 @@ import {
 import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-import { useEffect, useState } from "react";
-import axios from "axios";
-import { Calendar, CheckCircle, XCircle, Clock3, User, MessageSquare, ArrowUpDown, Search, X } from "lucide-react";
 
 const statusStyles = {
 	PENDING: "bg-amber-100 text-amber-700",
@@ -33,44 +30,12 @@ const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
 	const minutes = (i % 2 === 0 ? "00" : "30");
 	return `${hours}:${minutes}`;
 });
-	PENDING: "bg-amber-100 text-amber-700",
-	CONFIRMED: "bg-emerald-100 text-emerald-700",
-	CANCELLED: "bg-rose-100 text-rose-700",
-	COMPLETED: "bg-blue-100 text-blue-700",
-};
-
-const normalizeStatus = (status) => String(status || "PENDING").toUpperCase();
-
-const formatStatusLabel = (status) => {
-	const normalized = normalizeStatus(status);
-	if (normalized === "CANCELLED") return "Rejected";
-	return normalized.charAt(0) + normalized.slice(1).toLowerCase();
-};
-
-const formatDateForTable = (dateValue) => {
-	if (!dateValue) return "N/A";
-	const date = new Date(dateValue);
-	if (Number.isNaN(date.getTime())) return "N/A";
-	return date.toISOString().slice(0, 10);
-};
-
-const normalizeAppointment = (appointment) => ({
-	id: appointment._id || appointment.id || "",
-	patientName: appointment.patientName || "Unknown Patient",
-	patientId: appointment.patientId || "N/A",
-	requestedDate: formatDateForTable(appointment.appointmentDate || appointment.requestedDate),
-	requestedTime: appointment.timeSlot || appointment.requestedTime || "N/A",
-	appointmentType: appointment.type || appointment.appointmentType || "General Consultation",
-	reason: appointment.reason || "No reason provided",
-	status: normalizeStatus(appointment.status),
-});
 
 export default function Appointments() {
-	// --- State management ---
+	// --- State ---
 	const [appointments, setAppointments] = useState([]);
 	const [doctor, setDoctor] = useState(null);
 	const [loading, setLoading] = useState(true);
-	const [errorMessage, setErrorMessage] = useState("");
 	const [startTime, setStartTime] = useState("09:00");
 	const [endTime, setEndTime] = useState("17:00");
 	const [hoursMessage, setHoursMessage] = useState("");
@@ -80,67 +45,21 @@ export default function Appointments() {
 	const [sortDirection, setSortDirection] = useState("asc");
 	const [searchQuery, setSearchQuery] = useState("");
 
-	const getAuthToken = () => localStorage.getItem("token");
+	// --- Initialization ---
+	useEffect(() => {
+		fetchData();
+	}, []);
 
-	const getRequestConfig = () => {
-		const token = getAuthToken();
-		return {
-			headers: {
-				Authorization: `Bearer ${token}`,
-			},
-		};
-	};
-
-	const fetchDoctorAppointments = async () => {
-		const token = getAuthToken();
-		if (!token) {
-			setAppointments([]);
-			setErrorMessage("Login token not found. Please login again.");
-			setLoading(false);
-			return;
-		}
-
+	const fetchData = async () => {
+		setLoading(true);
 		try {
-			setLoading(true);
-			const response = await axios.get(`${API_BASE_URL}/appointments/doctor`, getRequestConfig());
-			const rawAppointments = Array.isArray(response.data)
-				? response.data
-				: Array.isArray(response.data?.data)
-					? response.data.data
-					: [];
-
-			setAppointments(rawAppointments.map(normalizeAppointment));
-			setErrorMessage("");
+			await Promise.all([fetchDoctorProfile(), fetchAppointments()]);
 		} catch (error) {
-			setAppointments([]);
-			setErrorMessage(error.response?.data?.message || "Could not load appointment requests from backend.");
+			console.error("Initialization error:", error);
 		} finally {
 			setLoading(false);
 		}
 	};
-
-	const updateAppointmentStatus = async (appointmentId, status) => {
-		try {
-			await axios.patch(`${API_BASE_URL}/appointments/${appointmentId}/status`, { status }, getRequestConfig());
-			await fetchDoctorAppointments();
-		} catch (error) {
-			setErrorMessage(error.response?.data?.message || "Failed to update appointment status.");
-		}
-	};
-
-	useEffect(() => {
-		fetchDoctorAppointments();
-	}, []);
-
-	// --- initialization ---
-	useEffect(() => {
-		const fetchData = async () => {
-			setLoading(true);
-			await Promise.all([fetchDoctorProfile(), fetchAppointments()]);
-			setLoading(false);
-		};
-		fetchData();
-	}, []);
 
 	const fetchDoctorProfile = async () => {
 		try {
@@ -173,7 +92,9 @@ export default function Appointments() {
 			const response = await axios.get(`${API_BASE_URL}/appointments/doctor`, {
 				headers: { Authorization: `Bearer ${token}` }
 			});
-			setAppointments(response.data || []);
+			// Backend usually returns the array directly or in response.data.data
+			const data = response.data?.success ? response.data.data : response.data;
+			setAppointments(Array.isArray(data) ? data : []);
 		} catch (error) {
 			console.error("Error fetching appointments:", error);
 		}
@@ -189,7 +110,7 @@ export default function Appointments() {
 		
 		try {
 			setSavingHours(true);
-			setHoursMessage(""); // Clear previous messages
+			setHoursMessage("");
 			const token = localStorage.getItem("token");
 			const response = await axios.put(`${API_BASE_URL}/doctors/profile/${doctor._id}`, 
 				{ availableHours: hoursString },
@@ -218,8 +139,7 @@ export default function Appointments() {
 				{ headers: { Authorization: `Bearer ${token}` } }
 			);
 			
-			if (response.status === 200) {
-				// Refresh appointments
+			if (response.status === 200 || response.data?.success) {
 				fetchAppointments();
 			}
 		} catch (error) {
@@ -228,7 +148,7 @@ export default function Appointments() {
 		}
 	};
 
-	// --- Table Logic ---
+	// --- Filtering & Sorting ---
 	const handleSort = (field) => {
 		if (sortField === field) {
 			setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -238,66 +158,50 @@ export default function Appointments() {
 		}
 	};
 
-	const sortAppointments = (data) => {
-		const sorted = [...data].sort((a, b) => {
-			let compareA, compareB;
-
+	const getSortedData = (data) => {
+		return [...data].sort((a, b) => {
+			let valA, valB;
 			switch (sortField) {
 				case "patientName":
-					compareA = a.patientName?.toLowerCase() || "";
-					compareB = b.patientName?.toLowerCase() || "";
+					valA = a.patientName?.toLowerCase() || "";
+					valB = b.patientName?.toLowerCase() || "";
 					break;
 				case "status":
-					compareA = a.status?.toLowerCase() || "";
-					compareB = b.status?.toLowerCase() || "";
+					valA = a.status?.toLowerCase() || "";
+					valB = b.status?.toLowerCase() || "";
 					break;
 				case "appointmentDate":
-					compareA = new Date(a.appointmentDate);
-					compareB = new Date(b.appointmentDate);
+					valA = new Date(a.appointmentDate).getTime();
+					valB = new Date(b.appointmentDate).getTime();
 					break;
 				case "timeSlot":
 				default:
-					compareA = a.timeSlot || "";
-					compareB = b.timeSlot || "";
+					valA = a.timeSlot || "";
+					valB = b.timeSlot || "";
 					break;
 			}
-
-			if (compareA < compareB) return sortDirection === "asc" ? -1 : 1;
-			if (compareA > compareB) return sortDirection === "asc" ? 1 : -1;
+			if (valA < valB) return sortDirection === "asc" ? -1 : 1;
+			if (valA > valB) return sortDirection === "asc" ? 1 : -1;
 			return 0;
 		});
-
-		return sorted;
 	};
 
-	const filterAppointments = (data) => {
-	const sortedAppointments = sortAppointments(appointments);
-	const SortIcon = ({ columnKey }) => {
-		if (sortField !== columnKey) {
-			return <ArrowUpDown size={14} className="opacity-30" />;
-		}
-		return <ArrowUpDown size={14} className={sortDirection === "asc" ? "opacity-100" : "opacity-50 rotate-180"} />;
-	};
+	const filteredAppointments = appointments.filter((item) => {
+		const query = searchQuery.toLowerCase().trim();
+		if (!query) return true;
+		return (
+			item.patientName?.toLowerCase().includes(query) ||
+			item.appointmentId?.toLowerCase().includes(query) ||
+			item.reason?.toLowerCase().includes(query) ||
+			item.status?.toLowerCase().includes(query)
+		);
+	});
 
-	const filterAppointments = (appointments) => {
-		const normalizedQuery = searchQuery.trim().toLowerCase();
-		if (!normalizedQuery) return data;
-
-		return data.filter((item) => {
-			return (
-				item.patientName?.toLowerCase().includes(normalizedQuery) ||
-				item.appointmentId?.toLowerCase().includes(normalizedQuery) ||
-				item.reason?.toLowerCase().includes(normalizedQuery) ||
-				item.status?.toLowerCase().includes(normalizedQuery)
-			);
-		});
-	};
-
-	const processedAppointments = sortAppointments(filterAppointments(appointments));
+	const processedAppointments = getSortedData(filteredAppointments);
 
 	const totalRequests = appointments.length;
-	const pendingRequests = appointments.filter((a) => a.status === "PENDING").length;
-	const confirmedRequests = appointments.filter((a) => a.status === "CONFIRMED").length;
+	const pendingRequests = appointments.filter(a => a.status === "PENDING").length;
+	const confirmedRequests = appointments.filter(a => a.status === "CONFIRMED").length;
 
 	const SortIcon = ({ columnKey }) => {
 		if (sortField !== columnKey) return <ArrowUpDown size={14} className="opacity-30" />;
@@ -309,14 +213,11 @@ export default function Appointments() {
 			<div className="flex h-screen items-center justify-center bg-slate-50">
 				<div className="flex flex-col items-center gap-4">
 					<Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-					<p className="text-slate-500 font-medium">Loading appointments...</p>
+					<p className="text-slate-500 font-medium">Loading appointments dashboard...</p>
 				</div>
 			</div>
 		);
 	}
-	const totalRequests = appointments.length;
-	const pendingRequests = appointments.filter((appointment) => appointment.status === "PENDING").length;
-	const confirmedRequests = appointments.filter((appointment) => appointment.status === "CONFIRMED").length;
 
 	return (
 		<div className="p-8 bg-slate-50 min-h-screen">
@@ -337,7 +238,6 @@ export default function Appointments() {
 						</span>
 					</div>
 				</div>
-				{errorMessage && <p className="mt-2 text-sm text-red-600">{errorMessage}</p>}
 			</div>
 
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -387,14 +287,14 @@ export default function Appointments() {
 							<button
 								onClick={handleSaveAvailableHours}
 								disabled={savingHours}
-								className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white transition-all hover:bg-blue-700 disabled:bg-blue-300 shadow-md shadow-blue-100 flex items-center justify-center gap-2 active:scale-95"
+								className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white transition-all hover:bg-blue-700 disabled:bg-blue-300 shadow-md shadow-blue-100 flex items-center justify-center gap-2 active:scale-95 whitespace-nowrap"
 							>
 								{savingHours ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
 								Apply Hours
 							</button>
 						</div>
 						{hoursMessage && (
-							<p className={`mt-3 text-xs font-semibold flex items-center gap-1 ${hoursMessage.includes("Failed") ? "text-rose-500" : "text-emerald-600"}`}>
+							<p className={`mt-3 text-xs font-semibold flex items-center gap-1 ${hoursMessage.includes("Error") ? "text-rose-500" : "text-emerald-600"}`}>
 								<AlertCircle size={14} />
 								{hoursMessage}
 							</p>
@@ -406,7 +306,7 @@ export default function Appointments() {
 							<h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Active Time Slots</h3>
 							<span className="text-[10px] text-slate-400 font-medium italic underline underline-offset-4 decoration-blue-200">Refreshed Daily at 00:00 AM</span>
 						</div>
-						<div className="flex flex-wrap gap-2 max-h-[80px] overflow-y-auto pr-2 custom-scrollbar">
+						<div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto pr-2 custom-scrollbar">
 							{doctor?.availableSlots?.length > 0 ? (
 								doctor.availableSlots.map((slot, idx) => (
 									<span key={idx} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold border border-blue-100/50 hover:bg-blue-100 transition-colors">
@@ -460,8 +360,8 @@ export default function Appointments() {
 				</div>
 			</div>
 
+			{/* Queue Table */}
 			<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-				{/* Table Header / Filters */}
 				<div className="px-6 py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/50 backdrop-blur-sm">
 					<div className="flex items-center gap-4">
 						<div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
@@ -477,7 +377,7 @@ export default function Appointments() {
 						<Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
 						<input
 							type="text"
-							placeholder="Search patient, ID, or status..."
+							placeholder="Search patient, ID, or reason..."
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
 							className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-700 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
@@ -496,7 +396,7 @@ export default function Appointments() {
 									<div className="flex items-center gap-2">Patient <SortIcon columnKey="patientName" /></div>
 								</th>
 								<th className="px-6 py-4 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("appointmentDate")}>
-								<div className="flex items-center gap-2">Schedule <SortIcon columnKey="appointmentDate" /></div>
+									<div className="flex items-center gap-2">Schedule <SortIcon columnKey="appointmentDate" /></div>
 								</th>
 								<th className="px-6 py-4">Status</th>
 								<th className="px-6 py-4">Reason & Details</th>
@@ -509,12 +409,12 @@ export default function Appointments() {
 									<tr key={appointment._id} className="hover:bg-slate-50/50 transition-all group">
 										<td className="px-6 py-5">
 											<div className="flex items-center gap-3">
-												<div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm shadow-sm">
+												<div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
 													{appointment.patientName?.charAt(0)}
 												</div>
 												<div>
 													<p className="text-sm font-bold text-slate-800">{appointment.patientName}</p>
-													<p className="text-[10px] text-slate-500 font-mono tracking-tighter">ID: {appointment.appointmentId || appointment._id.slice(-8).toUpperCase()}</p>
+													<p className="text-[10px] text-slate-500 font-mono">ID: {appointment.appointmentId || appointment._id?.slice(-8).toUpperCase()}</p>
 												</div>
 											</div>
 										</td>
@@ -544,14 +444,14 @@ export default function Appointments() {
 													<>
 														<button 
 															onClick={() => handleStatusUpdate(appointment._id, 'CONFIRMED')}
-															className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all border border-emerald-100 shadow-sm"
-															title="Confirm"
+															className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100 shadow-sm"
+															title="Accept"
 														>
 															<CheckCircle size={18} />
 														</button>
 														<button 
 															onClick={() => handleStatusUpdate(appointment._id, 'CANCELLED')}
-															className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all border border-rose-100 shadow-sm"
+															className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100 shadow-sm"
 															title="Reject"
 														>
 															<XCircle size={18} />
@@ -561,7 +461,7 @@ export default function Appointments() {
 												{appointment.status === 'CONFIRMED' && (
 													<button 
 														onClick={() => handleStatusUpdate(appointment._id, 'COMPLETED')}
-														className="px-4 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all border border-blue-100 text-xs font-bold uppercase tracking-widest"
+														className="px-4 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 text-xs font-bold uppercase tracking-widest"
 													>
 														Mark Complete
 													</button>
@@ -573,7 +473,7 @@ export default function Appointments() {
 							) : (
 								<tr>
 									<td colSpan="5" className="px-6 py-12 text-center">
-										<div className="flex flex-col items-center gap-2 py-8">
+										<div className="flex flex-col items-center gap-2">
 											<Search size={40} className="text-slate-200" />
 											<p className="text-slate-400 font-medium italic">No appointments found matching your criteria</p>
 										</div>
@@ -583,80 +483,6 @@ export default function Appointments() {
 						</tbody>
 					</table>
 				</div>
-			<div className="overflow-x-auto">
-				<table className="w-full min-w-[1000px]">
-					<thead className="bg-slate-50">
-						<tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-							<th className="px-6 py-3">Patient</th>
-							<th className="px-6 py-3">Requested Date</th>
-							<th className="px-6 py-3">Requested Time</th>
-							<th className="px-6 py-3">Type</th>
-							<th className="px-6 py-3">Reason</th>
-							<th className="px-6 py-3">Status</th>
-							<th className="px-6 py-3 text-center">Action</th>
-						</tr>
-					</thead>
-					<tbody className="divide-y divide-slate-100">
-						{loading ? (
-							<tr>
-								<td colSpan="7" className="px-6 py-10 text-center text-sm text-slate-500">
-									Loading appointment requests...
-								</td>
-							</tr>
-						) : (
-							filteredAppointments.map((appointment) => (
-							<tr key={appointment.id} className="hover:bg-slate-50/60 transition-colors">
-								<td className="px-6 py-4">
-									<div>
-										<p className="font-semibold text-slate-800">{appointment.patientName}</p>
-										<p className="text-xs text-slate-500">Requested by patient</p>
-									</div>
-								</td>
-								<td className="px-6 py-4 text-sm text-slate-600">{appointment.requestedDate}</td>
-								<td className="px-6 py-4 text-sm text-slate-600">{appointment.requestedTime}</td>
-								<td className="px-6 py-4 text-sm text-slate-600">{appointment.appointmentType}</td>
-								<td className="px-6 py-4 text-sm text-slate-600 max-w-[280px]">
-									<div className="flex items-start gap-2">
-										<MessageSquare size={16} className="mt-0.5 text-slate-400 shrink-0" />
-										<span>{appointment.reason}</span>
-									</div>
-								</td>
-								<td className="px-6 py-4">
-									<span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[appointment.status] || "bg-slate-100 text-slate-700"}`}>
-										{formatStatusLabel(appointment.status)}
-									</span>
-								</td>
-								<td className="px-6 py-4">
-									<div className="flex justify-center gap-2">
-										<button
-											onClick={() => updateAppointmentStatus(appointment.id, "CONFIRMED")}
-											disabled={appointment.status !== "PENDING"}
-											className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-										>
-											Accept
-										</button>
-										<button
-											onClick={() => updateAppointmentStatus(appointment.id, "CANCELLED")}
-											disabled={appointment.status !== "PENDING"}
-											className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
-										>
-											Reject
-										</button>
-									</div>
-								</td>
-							</tr>
-							))
-						)}
-						{!loading && filteredAppointments.length === 0 && (
-							<tr>
-								<td colSpan="7" className="px-6 py-10 text-center text-sm text-slate-500">
-									No appointment requests found.
-								</td>
-							</tr>
-						)}
-					</tbody>
-				</table>
-			</div>
 			</div>
 		</div>
 	);

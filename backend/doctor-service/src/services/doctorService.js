@@ -291,11 +291,6 @@ const getAvailableDoctorsByTime = async (timeValue, filters = {}) => {
   });
 };
 
-const getDoctorByUserId = async (userId) => {
-  ensureObjectId(userId, 'user id');
-  return Doctor.findOne({ userId });
-};
-
 const getDoctorById = async (id) => {
   ensureObjectId(id, 'doctor profile id');
   return Doctor.findById(id);
@@ -371,7 +366,7 @@ const bookDoctorSlot = async (doctorId, slot) => {
     throw new ApiError(400, 'Slot is not available');
   }
 
-  return Doctor.findByIdAndUpdate(doctorId, 
+  return Doctor.findByIdAndUpdate(doctorId,
     { $pull: { availableSlots: slot } },
     { new: true }
   );

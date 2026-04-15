@@ -1,11 +1,10 @@
 
-import { useEffect, useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { Mail, MapPin, Phone, Clock3, Loader2 } from "lucide-react";
 
 const API_BASE_URL = (import.meta.env.VITE_DOCTOR_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api").replace(/\/$/, "");
 const DOCTOR_PROFILE_ENDPOINT = `${API_BASE_URL}/doctors/profile`;
-import axios from "axios";
 
 export default function Profile() {
 	const [loading, setLoading] = useState(true);
@@ -51,7 +50,7 @@ export default function Profile() {
 			}
 
 			const token = localStorage.getItem("token");
-			await axios.put(`http://localhost:3003/api/doctors/profile/${profile._id}`, 
+			await axios.put(`http://localhost:3003/api/doctors/profile/${profile._id}`,
 				{ availableHours: trimmedHours },
 				{ headers: { Authorization: `Bearer ${token}` } }
 			);
@@ -90,8 +89,8 @@ export default function Profile() {
 				<div className="h-48 rounded-b-2xl shadow-lg" style={{ backgroundColor: "#87CEFA" }}></div>
 				<div className="absolute -bottom-16 left-8 z-10">
 					{user?.profileImage ? (
-						<img 
-							src={user.profileImage} 
+						<img
+							src={user.profileImage}
 							alt={user.name}
 							className="w-40 h-40 rounded-full border-4 border-white shadow-lg object-cover"
 						/>
@@ -162,7 +161,7 @@ export default function Profile() {
 						<p className={`mt-3 text-sm font-medium ${hoursMessage.includes("success") ? "text-emerald-600" : "text-rose-600"}`}>
 							{hoursMessage}
 						</p>
-					) }
+					)}
 					<p className="mt-3 text-sm text-slate-600">
 						Current available hours: <span className="font-semibold text-slate-800">{profile?.availableHours || "Not set"}</span>
 					</p>
