@@ -114,6 +114,10 @@ const dispatchNotification = async ({
   // ── Persist log ───────────────────────────────────────────────────────────
   let log = null;
   try {
+    const renderedMsg = eventType === 'MANUAL_MESSAGE' ? (data?.message || 'New update') : getMessage(eventType, data);
+    const renderedSubject = (data?.subject || getTitle(eventType));
+    const name = data?.patientName || data?.doctorName || data?.name || data?.recipientName || null;
+
     log = await NotificationLog.create({
       eventType,
       recipientEmail  : email  || null,
@@ -124,6 +128,9 @@ const dispatchNotification = async ({
       referenceId     : referenceId   || null,
       referenceType   : referenceType || null,
       payload         : data,
+      message         : renderedMsg,
+      subject         : renderedSubject,
+      recipientName   : name,
       status,
     });
   } catch (error) {

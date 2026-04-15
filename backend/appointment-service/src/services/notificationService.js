@@ -67,3 +67,22 @@ exports.notifyAppointmentCancelled = async (appointment, patientPhone = null, ca
     reason
   });
 };
+
+/**
+ * Notify when a consultation is completed
+ */
+exports.notifyConsultationCompleted = async (appointment, patientPhone = null, doctorPhone = null) => {
+  return sendNotification('/consultation-completed', {
+    patientEmail: appointment.patientEmail,
+    patientPhone: patientPhone,
+    patientId:    appointment.patientId,
+    patientName:  appointment.patientName,
+    doctorEmail:  appointment.doctorEmail || null, // Ensure these are available if possible
+    doctorPhone:  doctorPhone,
+    doctorId:     appointment.doctorId,
+    doctorName:   appointment.doctorName,
+    appointmentDate: appointment.appointmentDate.toDateString(),
+    appointmentId:   appointment.appointmentId,
+    duration:        appointment.duration || '30 mins'
+  });
+};

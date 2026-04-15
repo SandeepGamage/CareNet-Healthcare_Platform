@@ -41,17 +41,28 @@ exports.createAppointment = async (req, res) => {
       consultationFee
     });
 
-    // Fetch patient phone from profile (users collection)
-    const patientUser = await mongoose.connection.db.collection('users').findOne({ 
-      $or: [
-        { _id: new mongoose.Types.ObjectId(req.user.id) },
-        { email: patientEmail }
-      ]
-    });
+    // Fetch patient & doctor details from profiles (users collection)
+    const [patientUser, doctorUser] = await Promise.all([
+      mongoose.connection.db.collection('users').findOne({ 
+        $or: [
+          { _id: new mongoose.Types.ObjectId(req.user.id) },
+          { email: patientEmail }
+        ]
+      }),
+      mongoose.connection.db.collection('users').findOne({ 
+        _id: new mongoose.Types.ObjectId(doctorId) 
+      })
+    ]);
+
     const patientPhone = patientUser?.phone || null;
+    const doctorPhone  = doctorUser?.phone || null;
+    const doctorEmail  = doctorUser?.email || null;
 
     // Notify patient + doctor via REST
-    await notificationService.notifyAppointmentBooked(appointment, patientPhone);
+    await notificationService.notifyAppointmentBooked({
+      ...appointment.toObject(),
+      doctorEmail
+    }, patientPhone);
 
     res.status(201).json({
       message: 'Appointment booked successfully',
@@ -145,15 +156,28 @@ exports.updateStatus = async (req, res) => {
 
     await appointment.save();
 
-    // Fetch patient phone from profile for acceptance notification
-    const patientUser = await mongoose.connection.db.collection('users').findOne({ 
-      _id: new mongoose.Types.ObjectId(appointment.patientId) 
-    });
+    // Fetch patient & doctor phone from profiles for notifications
+    const [patientUser, doctorUser] = await Promise.all([
+      mongoose.connection.db.collection('users').findOne({ 
+        _id: new mongoose.Types.ObjectId(appointment.patientId) 
+      }),
+      mongoose.connection.db.collection('users').findOne({ 
+        _id: new mongoose.Types.ObjectId(appointment.doctorId) 
+      })
+    ]);
+
     const patientPhone = patientUser?.phone || null;
+    const doctorPhone  = doctorUser?.phone || null;
+    const doctorEmail  = doctorUser?.email || null;
 
     // Trigger specific notifications based on status
     if (status === 'CONFIRMED') {
       await notificationService.notifyAppointmentConfirmed(appointment, patientPhone);
+    } else if (status === 'COMPLETED') {
+      await notificationService.notifyConsultationCompleted({
+        ...appointment.toObject(),
+        doctorEmail
+      }, patientPhone, doctorPhone);
     } else if (status === 'CANCELLED') {
       await notificationService.notifyAppointmentCancelled(appointment, patientPhone, req.user.role, cancelReason);
     }

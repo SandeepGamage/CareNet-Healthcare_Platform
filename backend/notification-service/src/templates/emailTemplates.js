@@ -255,6 +255,14 @@ const templates = {
       <p>Thank you for using CareNet.</p>
     `),
   }),
+  MANUAL_MESSAGE: (d) => ({
+    subject: d.subject || 'Notification from CareNet',
+    html: wrap(d.subject || 'Notification', `
+      <h2>${d.subject || 'Message from Admin'}</h2>
+      <p>${d.message}</p>
+      <p>This message was sent to you by the CareNet Administrative team.</p>
+    `),
+  }),
 };
 
 /**

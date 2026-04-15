@@ -61,6 +61,28 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
+  // Notification Management states
+  const [notificationLogs, setNotificationLogs] = useState([]);
+  const [recipientSource, setRecipientSource] = useState('manual'); // 'manual' or 'list'
+  const [selectedRole, setSelectedRole] = useState('patient');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRecipients, setSelectedRecipients] = useState([]); // Array of user objects
+  const [notifForm, setNotifForm] = useState({
+    recipient: '',
+    email: '',
+    phone: '',
+    type: 'EMAIL',
+    subject: '',
+    message: '',
+    isOtp: false,
+    role: 'user'
+  });
+  const [selectedLog, setSelectedLog] = useState(null); // For modal viewer
+
+
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifSuccess, setNotifSuccess] = useState(null);
+
   // Modal states
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -276,6 +298,99 @@ const AdminDashboard = () => {
     }
   };
 
+  // Notification Management logic
+  const fetchNotificationLogs = async () => {
+    try {
+      setLoading(true);
+      const token = getAuthToken();
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/notifications/logs`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotificationLogs(response.data.data || []);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch notification logs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendNotification = async (e) => {
+    if (e) e.preventDefault();
+    try {
+      setNotifLoading(true);
+      setNotifSuccess(null);
+      const token = getAuthToken();
+      
+      const payload = {
+        ...notifForm,
+        recipients: recipientSource === 'list' ? selectedRecipients : [],
+        role: recipientSource === 'list' ? selectedRole : notifForm.role
+      };
+
+      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/notifications/manual`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifSuccess(response.data.message || 'Notifications sent successfully!');
+      
+      // Reset form
+      setNotifForm({
+        recipient: '',
+        email: '',
+        phone: '',
+        type: 'EMAIL',
+        subject: '',
+        message: '',
+        isOtp: false,
+        role: 'user'
+      });
+      setSelectedRecipients([]);
+      setSearchQuery('');
+      fetchNotificationLogs();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to send notification');
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  const handleDeleteLog = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this log entry? This action cannot be undone.')) return;
+    try {
+      const token = getAuthToken();
+      await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/notifications/logs/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchNotificationLogs();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete log entry');
+    }
+  };
+
+  const selectRecipient = (person) => {
+    // Check if already in list
+    if (selectedRecipients.find(r => r._id === person._id)) return;
+    
+    setSelectedRecipients([...selectedRecipients, {
+      ...person,
+      role: selectedRole
+    }]);
+    setSearchQuery('');
+  };
+
+  const removeRecipient = (id) => {
+    setSelectedRecipients(selectedRecipients.filter(r => r._id !== id));
+  };
+
+  const handleSelectAll = () => {
+    const list = selectedRole === 'patient' ? patients : allDoctors;
+    const filtered = list.filter(p => p.name?.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const newItems = filtered.filter(f => !selectedRecipients.find(r => r._id === f._id));
+    setSelectedRecipients([...selectedRecipients, ...newItems.map(i => ({...i, role: selectedRole}))]);
+    setSearchQuery('');
+  };
+
   // Load data on component mount and when filters change
   useEffect(() => {
     fetchAppointments();
@@ -295,6 +410,9 @@ const AdminDashboard = () => {
     }
     if (activeTab === 'alldoctors') {
       fetchAllDoctors();
+    }
+    if (activeTab === 'notifications') {
+      fetchNotificationLogs();
     }
   }, [activeTab]);
 
@@ -338,6 +456,7 @@ const AdminDashboard = () => {
             { id: 'patients', label: 'Patients', icon: Users },
             { id: 'alldoctors', label: 'All Doctors', icon: User },
             { id: 'doctors', label: 'Doctor Approvals', icon: CheckCircle },
+            { id: 'notifications', label: 'Notifications', icon: Bell },
             { id: 'analytics', label: 'Analytics', icon: Activity },
             { id: 'revenue', label: 'Revenue', icon: DollarSign },
           ].map((item) => (
@@ -1115,7 +1234,6 @@ const AdminDashboard = () => {
               </div>
             </div>
           )}
-
           {/* Revenue Tab Content */}
           {activeTab === 'revenue' && (
             <div className="space-y-6">
@@ -1187,6 +1305,310 @@ const AdminDashboard = () => {
               </div>
             </div>
           )}
+
+          {/* Notification Management Content */}
+          {activeTab === 'notifications' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Send Notification Form */}
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="p-8 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">Send Notification</h2>
+                    <p className="text-sm text-gray-500 mt-1">Directly target users via Email, SMS, or Both.</p>
+                  </div>
+                  
+                  <form onSubmit={handleSendNotification} className="p-8 space-y-6">
+                    {notifSuccess && (
+                      <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-700 text-sm font-bold flex items-center mb-4">
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        {notifSuccess}
+                      </div>
+                    )}
+
+                    <div className="flex bg-gray-100 p-1 rounded-2xl">
+                      <button
+                        type="button"
+                        onClick={() => setRecipientSource('manual')}
+                        className={`flex-1 py-2 text-xs font-black rounded-xl transition-all ${recipientSource === 'manual' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
+                      >
+                        MANUAL ENTRY
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRecipientSource('list')}
+                        className={`flex-1 py-2 text-xs font-black rounded-xl transition-all ${recipientSource === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
+                      >
+                        SELECT FROM SYSTEM
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Channel</label>
+                        <select 
+                          value={notifForm.type}
+                          onChange={(e) => setNotifForm({...notifForm, type: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
+                        >
+                          <option value="EMAIL">📧 Email Only</option>
+                          <option value="SMS">📱 SMS Only</option>
+                          <option value="BOTH">🚀 Both (Email & SMS)</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Mode</label>
+                        <select 
+                          value={notifForm.isOtp ? 'OTP' : 'MESSAGE'}
+                          onChange={(e) => setNotifForm({...notifForm, isOtp: e.target.value === 'OTP'})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
+                        >
+                          <option value="MESSAGE">General Message</option>
+                          <option value="OTP">Security OTP Code</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {recipientSource === 'list' ? (
+                      <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRole('patient')}
+                            className={`px-4 py-2 text-[10px] font-bold rounded-full border transition-all ${selectedRole === 'patient' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'}`}
+                          >
+                            PATIENTS
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRole('doctor')}
+                            className={`px-4 py-2 text-[10px] font-bold rounded-full border transition-all ${selectedRole === 'doctor' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'}`}
+                          >
+                            DOCTORS
+                          </button>
+                        </div>
+                        
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 bg-blue-50 rounded-lg">
+                            <Search className="w-3.3 h-3.5 text-blue-600" />
+                          </div>
+                          <input 
+                            type="text"
+                            placeholder={`Search ${selectedRole}s by name...`}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-12 pr-28 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSelectAll}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-blue-100 text-blue-700 text-[10px] font-black rounded-xl hover:bg-blue-200 transition-colors"
+                          >
+                            SELECT ALL
+                          </button>
+                          
+                          {searchQuery && (
+                            <div className="absolute z-10 w-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl max-h-48 overflow-y-auto p-2 space-y-1">
+                              {(selectedRole === 'patient' ? patients : allDoctors)
+                                .filter(p => p.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+                                .map((person) => (
+                                  <button
+                                    key={person._id}
+                                    type="button"
+                                    onClick={() => selectRecipient(person)}
+                                    className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-blue-50 transition-colors flex items-center justify-between group"
+                                  >
+                                    <div>
+                                      <p className="text-sm font-black text-gray-900">{person.name}</p>
+                                      <p className="text-[10px] text-gray-400 font-bold">{person.email || person.phone}</p>
+                                    </div>
+                                    <PlusCircle className={`w-4 h-4 transition-colors ${selectedRecipients.find(r => r._id === person._id) ? 'text-emerald-500' : 'text-blue-300 group-hover:text-blue-600'}`} />
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {selectedRecipients.length > 0 && (
+                          <div className="space-y-2">
+                             <div className="flex items-center justify-between px-1">
+                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                Targets ({selectedRecipients.length})
+                              </label>
+                              <button 
+                                type="button" 
+                                onClick={() => setSelectedRecipients([])}
+                                className="text-[10px] font-bold text-rose-500 hover:underline"
+                              >
+                                Clear All
+                              </button>
+                            </div>
+                            <div className="flex flex-wrap gap-2 p-3 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200 min-h-[60px] max-h-40 overflow-y-auto">
+                              {selectedRecipients.map((person) => (
+                                <div 
+                                  key={person._id} 
+                                  className="flex items-center space-x-2 px-3 py-1.5 bg-white border border-gray-100 rounded-xl shadow-sm animate-in fade-in zoom-in-95 duration-200"
+                                >
+                                  <div className={`w-2 h-2 rounded-full ${person.role === 'doctor' ? 'bg-indigo-500' : 'bg-blue-500'}`}></div>
+                                  <span className="text-xs font-bold text-gray-700">{person.name}</span>
+                                  <button 
+                                    type="button"
+                                    onClick={() => removeRecipient(person._id)}
+                                    className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-rose-600 transition-colors"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Recipient Detail</label>
+                        <input 
+                          type="text"
+                          placeholder={notifForm.type === 'EMAIL' ? "user@example.com" : notifForm.type === 'SMS' ? "+947xxxxxxx" : "Recipient contact info"}
+                          value={notifForm.recipient}
+                          onChange={(e) => setNotifForm({...notifForm, recipient: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
+                          required
+                        />
+                      </div>
+                    )}
+
+                    {!notifForm.isOtp && (notifForm.type === 'EMAIL' || notifForm.type === 'BOTH') && (
+                      <div className="space-y-2 animate-in fade-in duration-300">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Subject Line</label>
+                        <input 
+                          type="text"
+                          placeholder="Important Update Regarding..."
+                          value={notifForm.subject}
+                          onChange={(e) => setNotifForm({...notifForm, subject: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Message Body</label>
+                      <textarea 
+                        rows="4"
+                        placeholder={notifForm.isOtp ? "The verification code is 123456" : "Type your message here..."}
+                        value={notifForm.message}
+                        onChange={(e) => setNotifForm({...notifForm, message: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+                        required
+                      />
+                      {notifForm.isOtp && <p className="text-[10px] text-blue-500 font-bold ml-1">Tip: Include a 6-digit number to use the OTP template.</p>}
+                    </div>
+
+                    <button 
+                      type="submit"
+                      disabled={notifLoading}
+                      className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-blue-200 hover:shadow-2xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
+                    >
+                      {notifLoading ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <>
+                          <Bell className="w-5 h-5" />
+                          <span>Dispatch {notifForm.isOtp ? 'OTP Code' : 'Notification'}</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Recent Logs Summary */}
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                  <div className="p-8 border-b border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-2xl font-black text-gray-900 tracking-tight">Recent Dispatches</h2>
+                      <button onClick={fetchNotificationLogs} className="p-2 hover:bg-gray-50 rounded-xl transition-colors">
+                        <Activity className="w-5 h-5 text-blue-600" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto max-h-[600px] p-6 space-y-4">
+                    {notificationLogs.map((log, idx) => (
+                      <div key={idx} className="p-4 rounded-3xl bg-gray-50 hover:bg-white hover:shadow-md border border-transparent hover:border-blue-100 transition-all group relative overflow-hidden">
+                        <div className={`absolute top-0 right-0 w-24 h-24 -mt-12 -mr-12 rounded-full opacity-[0.03] ${log.status === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                        
+                        <div className="flex items-start justify-between relative z-10">
+                          <div className="flex items-center space-x-4">
+                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold ${
+                              log.status === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                            }`}>
+                              {log.channels?.email?.sent ? <Mail className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
+                            </div>
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <p className="text-sm font-black text-gray-900">{log.recipientName || log.recipientEmail || log.recipientPhone}</p>
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
+                                  log.recipientRole === 'doctor' ? 'bg-indigo-100 text-indigo-600' : 'bg-blue-100 text-blue-600'
+                                }`}>
+                                  {log.recipientRole}
+                                </span>
+                              </div>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{log.eventType.replace(/_/g, ' ')}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col items-end space-y-1">
+                            <div className="flex items-center space-x-2 mb-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => setSelectedLog(log)}
+                                className="p-1 px-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all text-[10px] font-black flex items-center"
+                              >
+                                <Search className="w-3 h-3 mr-1" /> VIEW
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteLog(log._id)}
+                                className="p-1 px-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all text-[10px] font-black flex items-center"
+                              >
+                                <Trash2 className="w-3 h-3 mr-1" /> DELETE
+                              </button>
+                            </div>
+                            <span className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-lg border ${
+                              log.status === 'success' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-rose-600 bg-rose-50 border-rose-100'
+                            }`}>
+                              {log.status}
+                            </span>
+                            <div className="flex space-x-1">
+                              {log.channels?.email?.sent && <div className="p-0.5 bg-emerald-100 rounded text-emerald-600" title="Email Sent"><Mail className="w-2.5 h-2.5" /></div>}
+                              {log.channels?.sms?.sent && <div className="p-0.5 bg-emerald-100 rounded text-emerald-600" title="SMS Sent"><Phone className="w-2.5 h-2.5" /></div>}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 bg-white p-3 rounded-2xl border border-gray-100/50">
+                          {log.subject && <p className="text-[11px] font-black text-gray-800 mb-1">{log.subject}</p>}
+                          <p className="text-[11px] text-gray-500 font-medium leading-relaxed">
+                            {log.message || log.payload?.message || "No preview available for this log type."}
+                          </p>
+                        </div>
+
+                        <div className="mt-2 text-[9px] text-gray-400 font-bold flex items-center justify-between">
+                          <div className="flex items-center">
+                            <Clock className="w-3 h-3 mr-1" /> {new Date(log.createdAt).toLocaleString()}
+                          </div>
+                          {log.recipientId && <span className="text-blue-500/40 font-mono">ID: {log.recipientId.substring(0,8)}...</span>}
+                        </div>
+                      </div>
+                    ))}
+                    {notificationLogs.length === 0 && !notifLoading && (
+                      <div className="h-full flex flex-col items-center justify-center p-20 text-center opacity-40">
+                        <Bell className="w-12 h-12 mb-4" />
+                        <p className="font-bold">No recent notifications dispatched.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
@@ -1240,6 +1662,105 @@ const AdminDashboard = () => {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Update Status
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification Log Detail Modal */}
+      {selectedLog && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-black text-gray-900 tracking-tight">Notification Details</h3>
+                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">
+                  ID: {selectedLog._id}
+                </p>
+              </div>
+              <button 
+                onClick={() => setSelectedLog(null)}
+                className="p-3 bg-white shadow-sm rounded-2xl text-gray-400 hover:text-rose-600 transition-all hover:scale-110"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-8 overflow-y-auto space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Recipient</label>
+                  <p className="text-sm font-black text-gray-900">{selectedLog.recipientName || 'Unknown Name'}</p>
+                  <p className="text-[11px] font-bold text-gray-500">{selectedLog.recipientEmail || selectedLog.recipientPhone}</p>
+                </div>
+                <div className="space-y-1 text-right">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Event Type</label>
+                  <p className="text-sm font-black text-indigo-600">{selectedLog.eventType.replace(/_/g, ' ')}</p>
+                  <p className="text-[11px] font-bold text-gray-400">{new Date(selectedLog.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Subject Line</label>
+                  <p className="text-sm font-black text-gray-900 leading-tight">
+                    {selectedLog.subject || '(No Subject)'}
+                  </p>
+                </div>
+                <div className="h-px bg-gray-200/50 w-full"></div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Message Content</label>
+                  <p className="text-sm font-medium text-gray-700 leading-relaxed font-mono bg-white p-4 rounded-xl border border-gray-100">
+                    {selectedLog.message || selectedLog.payload?.message || "No content available."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl space-y-2">
+                  <div className="flex items-center space-x-2 text-emerald-600">
+                    <Mail className="w-4 h-4" />
+                    <span className="text-[10px] font-black uppercase">Email Channel</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-emerald-700">Status</span>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${selectedLog.channels?.email?.sent ? 'bg-emerald-200 text-emerald-800' : 'bg-gray-200 text-gray-600'}`}>
+                      {selectedLog.channels?.email?.sent ? 'SENT' : 'NOT ATTEMPTED'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl space-y-2">
+                  <div className="flex items-center space-x-2 text-indigo-600">
+                    <Phone className="w-4 h-4" />
+                    <span className="text-[10px] font-black uppercase">SMS Channel</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-indigo-700">Status</span>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${selectedLog.channels?.sms?.sent ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-200 text-gray-600'}`}>
+                      {selectedLog.channels?.sms?.sent ? 'SENT' : 'NOT ATTEMPTED'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {selectedLog.payload && Object.keys(selectedLog.payload).length > 2 && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Technical Payload</label>
+                  <pre className="p-4 bg-gray-900 text-emerald-400 text-[10px] rounded-2xl overflow-x-auto font-mono scrollbar-hide">
+                    {JSON.stringify(selectedLog.payload, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end px-8">
+              <button 
+                onClick={() => setSelectedLog(null)}
+                className="px-8 py-3 bg-white border border-gray-200 text-gray-600 rounded-2xl font-black text-xs hover:bg-gray-100 transition-all"
+              >
+                CLOSE
               </button>
             </div>
           </div>
