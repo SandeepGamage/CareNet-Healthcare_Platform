@@ -4,6 +4,7 @@ import Navbar from "../../components/common/Navbar";
 import PatientProfile from "./PatientProfile/PatientProfile";
 import MedicalRecordsTab from "./MedicalRecords/MedicalRecordsTab";
 import PrescriptionsTab from "./Prescriptions/PrescriptionsTab";
+import TelemedicineTab from "../../components/telemedicine/TelemedicineTab";
 
 // ── Mini Sparkline Chart ───────────────────────────────────────────────────────
 function MiniChart({ data, color = "#3b82f6" }) {
@@ -248,7 +249,7 @@ export default function ModernPatientDashboard() {
                 }}
             >
                 <div style={{ display: "flex", gap: "8px" }}>
-                    {["overview", "appointments", "vitals", "prescriptions", "payments", "profile"].map((tab) => (
+                    {["overview", "appointments", "telemedicine", "vitals", "prescriptions", "payments", "profile"].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -303,6 +304,7 @@ export default function ModernPatientDashboard() {
                                 {[
                                     { icon: "📊", label: "Dashboard", tab: "overview" },
                                     { icon: "📅", label: "Appointments", tab: "appointments" },
+                                    { icon: "🎥", label: "Telemedicine", tab: "telemedicine" },
                                     { icon: "📋", label: "Medical Records", tab: "vitals" },
                                     { icon: "💊", label: "Prescriptions", tab: "prescriptions" },
                                     { icon: "💳", label: "Payment History", tab: "payments" },
@@ -765,6 +767,13 @@ export default function ModernPatientDashboard() {
                                     ))
                                 )}
                             </div>
+                        </div>
+                    )}
+
+                    {/* ── TELEMEDICINE TAB ─────────────────────────────────────────── */}
+                    {activeTab === "telemedicine" && (
+                        <div style={{ animation: "fadeIn 0.3s ease-in" }}>
+                            <TelemedicineTab role="patient" />
                         </div>
                     )}
 

@@ -29,7 +29,7 @@ const services = [
   { prefix: '/api/patients', target: PATIENT_SERVICE_URL },
   { prefix: '/api/doctors', target: DOCTOR_SERVICE_URL },
   { prefix: '/api/payments', target: PAYMENT_SERVICE_URL },
-  // { prefix: '/api/telemedicine', target: TELEMEDICINE_SERVICE_URL },
+  { prefix: '/api/telemedicine', target: TELEMEDICINE_SERVICE_URL },
   { prefix: '/api/symptoms', target: SYMPTOM_SERVICE_URL },
   { prefix: '/socket.io', target: NOTIFICATION_SERVICE_URL, ws: true },
 ];
