@@ -22,6 +22,7 @@ import Dashboard from "./Dashboard/Dashboard";
 import Appointments from "./Appointments/Appointments";
 import Prescriptions from "./Prescriptions/Prescriptions";
 import Profile from "./Profile/Profile";
+import TelemedicineTab from "../../components/telemedicine/TelemedicineTab";
 
 // ── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ export default function DoctorDashboard() {
             { id: "overview", icon: Activity, label: "Dashboard" },
             { id: "profile", icon: Users, label: "Profile" },
             { id: "appointments", icon: Calendar, label: "Appointments" },
+            { id: "telemedicine", icon: Video, label: "Telemedicine" },
             { id: "prescriptions", icon: FileText, label: "Prescriptions" },
           ].map((item) => (
             <button
@@ -101,6 +103,7 @@ export default function DoctorDashboard() {
         {activeTab === "overview" && <Dashboard />}
         {activeTab === "profile" && <Profile />}
         {activeTab === "appointments" && <Appointments />}
+        {activeTab === "telemedicine" && <TelemedicineTab role="doctor" />}
         {activeTab === "prescriptions" && <Prescriptions />}
       </main>
     </div>
