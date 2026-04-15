@@ -36,6 +36,15 @@ router.get(
   medicalReportController.getMyReportById
 );
 
+// Update one of my reports
+router.put(
+  "/me/reports/:reportId",
+  protect,
+  authorize("patient"),
+  upload.single("report"),
+  medicalReportController.updateMyReport
+);
+
 // Delete one of my reports
 router.delete(
   "/me/reports/:reportId",

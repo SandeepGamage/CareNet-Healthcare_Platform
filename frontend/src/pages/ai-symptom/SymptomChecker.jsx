@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const SYMPTOM_SERVICE_URL ='http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const urgencyConfig = {
   emergency: {
@@ -82,8 +82,8 @@ export default function SymptomChecker({ onBookAppointment }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const commonSymptomsList = [
-    "Headache", "Fever", "Cough", "Fatigue", "Nausea", 
-    "Dizziness", "Chest pain", "Shortness of breath", 
+    "Headache", "Fever", "Cough", "Fatigue", "Nausea",
+    "Dizziness", "Chest pain", "Shortness of breath",
     "Sore throat", "Muscle pain", "Abdominal pain", "Rash"
   ];
 
@@ -105,16 +105,25 @@ export default function SymptomChecker({ onBookAppointment }) {
       return;
     }
 
+    console.log('API_BASE_URL:', API_BASE_URL);
+    if (!API_BASE_URL) {
+      console.error('VITE_API_BASE_URL is not defined in environment variables!');
+      setError("System configuration error: API base URL is missing.");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
+      console.log('Sending symptoms:', symptoms);
       const { data } = await axios.post(
-        `${SYMPTOM_SERVICE_URL}/api/symptoms/check`,
-        { 
-          symptoms, 
-          age: age || null, 
+        `${API_BASE_URL}/symptoms/check`,
+        {
+          symptoms,
+          age: age || null,
           gender: gender || null,
           duration: duration || null,
           severity
@@ -122,9 +131,10 @@ export default function SymptomChecker({ onBookAppointment }) {
       );
       setResult(data);
     } catch (err) {
+      console.error("Analysis error details:", err);
       setError(
         err.response?.data?.message ||
-          "Unable to analyze symptoms. Please try again."
+        "Unable to analyze symptoms. Please try again."
       );
     } finally {
       setLoading(false);
@@ -156,7 +166,7 @@ export default function SymptomChecker({ onBookAppointment }) {
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-2">AI Symptom Checker</h1>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Advanced AI-powered preliminary assessment. Get insights about your symptoms 
+            Advanced AI-powered preliminary assessment. Get insights about your symptoms
             and receive recommendations for next steps.
           </p>
         </div>
@@ -202,7 +212,7 @@ export default function SymptomChecker({ onBookAppointment }) {
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Gender (Optional)
@@ -277,7 +287,7 @@ export default function SymptomChecker({ onBookAppointment }) {
                   <span>Common Symptoms</span>
                   {showSuggestions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
-                
+
                 {showSuggestions && (
                   <div className="flex flex-wrap gap-2 mb-4">
                     {commonSymptomsList.map((symptom) => (
@@ -369,7 +379,7 @@ export default function SymptomChecker({ onBookAppointment }) {
                   <div>
                     <p className="text-sm font-semibold text-blue-900">Medical Disclaimer</p>
                     <p className="text-xs text-blue-800">
-                      This tool provides preliminary suggestions based on AI analysis and is NOT a medical diagnosis. 
+                      This tool provides preliminary suggestions based on AI analysis and is NOT a medical diagnosis.
                       Always consult with a qualified healthcare professional for proper diagnosis and treatment.
                     </p>
                   </div>

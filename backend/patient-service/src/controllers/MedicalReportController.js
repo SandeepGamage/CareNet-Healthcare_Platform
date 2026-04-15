@@ -144,6 +144,83 @@ exports.getMyReportById = async (req, res) => {
 };
 
 /**
+ * @desc    Update a specific report of logged-in patient
+ * @route   PUT /api/patients/me/reports/:reportId
+ * @access  Private (patient)
+ */
+exports.updateMyReport = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { reportId } = req.params;
+    const { title, reportType, description } = req.body;
+
+    const report = await MedicalReport.findOne({
+      $or: [{ _id: reportId }, { medicalReportId: reportId }],
+      patientUserId: userId,
+    });
+
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: "Medical report not found.",
+      });
+    }
+
+    if (title !== undefined) {
+      const trimmedTitle = String(title).trim();
+      if (!trimmedTitle) {
+        return res.status(400).json({
+          success: false,
+          message: "Report title cannot be empty.",
+        });
+      }
+      report.title = trimmedTitle;
+    }
+
+    if (reportType !== undefined) {
+      report.reportType = reportType || "general";
+    }
+
+    if (description !== undefined) {
+      const trimmedDescription = String(description).trim();
+      report.description = trimmedDescription || null;
+    }
+
+    // If a new report file is uploaded, replace file metadata and cleanup old file.
+    if (req.file) {
+      if (report.fileUrl) {
+        const relativePath = report.fileUrl.replace(/^\/+/, "");
+        const absolutePath = path.join(process.cwd(), relativePath);
+
+        if (fs.existsSync(absolutePath)) {
+          fs.unlinkSync(absolutePath);
+        }
+      }
+
+      report.fileUrl = `/uploads/reports/${req.file.filename}`;
+      report.fileName = req.file.originalname;
+      report.mimeType = req.file.mimetype;
+      report.fileSize = req.file.size;
+      report.uploadedBy = userId;
+    }
+
+    await report.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Medical report updated successfully.",
+      data: report,
+    });
+  } catch (error) {
+    console.error("updateMyReport error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Server error updating medical report.",
+    });
+  }
+};
+
+/**
  * @desc    Delete a specific report of logged-in patient
  * @route   DELETE /api/patients/me/reports/:reportId
  * @access  Private (patient)

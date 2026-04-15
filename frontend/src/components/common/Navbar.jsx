@@ -50,7 +50,7 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
       if (!token) return;
       
       // Using API Gateway path
-      const res = await axios.get('${import.meta.env.VITE_API_BASE_URL}/notifications/in-app', {
+      const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/notifications/in-app`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -70,7 +70,7 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
   const handleMarkAllRead = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.patch('${import.meta.env.VITE_API_BASE_URL}/notifications/in-app/read-all', {}, {
+      await axios.patch(`${import.meta.env.VITE_API_BASE_URL}/notifications/in-app/read-all`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));

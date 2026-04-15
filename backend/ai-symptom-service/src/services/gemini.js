@@ -99,7 +99,7 @@ const checkSymptoms = async (symptoms, age, gender) => {
       throw new Error(`Gemini API quota exceeded. ${waitMsg}`);
     }
     console.error("Gemini API error:", error.message);
-    throw new Error("Failed to analyse symptoms. Please try again.");
+    throw new Error(`Failed to analyse symptoms: ${error.message}`);
   }
 };
 

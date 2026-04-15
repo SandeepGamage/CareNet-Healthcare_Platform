@@ -8,144 +8,163 @@ echo ==========================================================
 echo        CARENET HEALTHCARE PLATFORM - STARTUP SCRIPT
 echo ==========================================================
 echo.
-echo Please choose how you want to run the project:
-echo.
-echo   [1] Run locally with Docker Compose (Faster for coding)
-echo   [2] Deploy to locally Kubernetes with Minikube (Production-like)
-echo   [3] Stop Docker Compose services
+echo   [1] Run locally with Docker Compose (Fast Dev)
+echo   [2] Deploy to Kubernetes with Minikube
+echo   [3] Stop Docker Compose (Remove volumes)
 echo   [4] Stop Minikube Cluster
-echo   [5] Restart Kubernetes Bridges (Fix connection errors)
-   [6] Exit
+echo   [5] Restart Kubernetes Bridges
+echo   [6] Cleanup Disk (Recommended)
+echo   [7] Check Docker Disk Usage
+echo   [8] Exit
 echo.
-set /p choice="Enter your choice (1-5): "
+set /p choice="Enter your choice (1-8): "
 
 if "%choice%"=="1" goto DOCKER_START
 if "%choice%"=="2" goto MINIKUBE_START
 if "%choice%"=="3" goto DOCKER_STOP
 if "%choice%"=="4" goto MINIKUBE_STOP
 if "%choice%"=="5" goto RESTART_BRIDGES
-if "%choice%"=="6" goto EXIT
-echo Invalid choice! Try again.
+if "%choice%"=="6" goto CLEANUP
+if "%choice%"=="7" goto CHECK_DISK
+if "%choice%"=="8" goto EXIT
+
+echo Invalid choice!
 timeout /t 2 >nul
 goto MENU
 
 :: =======================================
-:: 1. DOCKER COMPOSE ROUTE
+:: DOCKER COMPOSE
 :: =======================================
 :DOCKER_START
 cls
-echo [ Starting Environment with Docker Compose ]
-echo.
+echo [ Starting Docker Compose Environment ]
 docker --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Docker is not running! Please start Docker Desktop.
+    echo [ERROR] Docker is not running!
     pause
     goto MENU
 )
 
-set SERVICES=mongodb rabbitmq appointment-service symptom-service payment-service notification-service frontend auth-service api-gateway
-echo Starting all services...
+echo Starting services...
 docker-compose up -d
+
 echo.
-echo [SUCCESS] Your services are running locally!
-echo - Gateway:     http://localhost:8000
-echo - Frontend:    http://localhost:5173
-echo - RabbitMQ UI: http://localhost:15672 (guest/guest)
-echo - MongoDB:     localhost:27017
-echo.
-echo You can use 'docker-compose logs -f' in another terminal to view logs.
+echo [SUCCESS] Running!
+echo Gateway:  http://localhost:8000
+echo Frontend: http://localhost:5173
+echo RabbitMQ: http://localhost:15672 (guest/guest)
 pause
 goto MENU
 
 :DOCKER_STOP
 cls
-echo [ Stopping Docker Compose Services ]
-docker-compose down
-echo.
-echo Services stopped!
+echo [ Stopping Docker Compose + Removing Volumes ]
+docker-compose down -v
+echo Done!
 pause
 goto MENU
 
 :: =======================================
-:: 2. MINIKUBE / KUBERNETES ROUTE
+:: MINIKUBE
 :: =======================================
 :MINIKUBE_START
 cls
-echo [ Starting Environment with Minikube (Kubernetes) ]
-echo.
+echo [ Starting Minikube ]
+
 minikube status | findstr /i "Running" >nul
 if %errorlevel% neq 0 (
-    echo Starting Minikube cluster...
     minikube start --driver=docker
 ) else (
-    echo Minikube is already running!
+    echo Minikube already running
 )
 
 echo.
-echo Connecting Docker to Minikube's internal registry...
+echo Linking Docker to Minikube...
 @FOR /f "tokens=*" %%i IN ('minikube -p minikube docker-env --shell cmd') DO @%%i
 
-echo Building Docker images inside Minikube (This might take a minute)...
-docker build -t carenet-appointment-service:1.0 ./backend/appointment-service
-docker build -t symptom-service:latest ./backend/ai-symptom-service
-docker build -t auth-service:latest ./backend/auth-service
-docker build -t api-gateway:latest ./backend/api-gateway
-docker build -t patient-service:latest ./backend/patient-service
-@REM docker build -t doctor-service:latest ./backend/doctor-service
-docker build -t payment-service:latest ./backend/payment-service
-docker build -t notification-service:latest ./backend/notification-service
-@REM docker build -t telemedicine-service:latest ./backend/telemedicine-service
-@REM Build the frontend image without cache to ensure .env changes are picked up
-docker build --no-cache -t carenet-frontend:latest ./frontend
+echo.
+echo [INFO] Building images ONLY if not exists...
+
+docker image inspect carenet-appointment-service:1.0 >nul 2>&1 || docker build -t carenet-appointment-service:1.0 ./backend/appointment-service
+docker image inspect symptom-service:latest >nul 2>&1 || docker build -t symptom-service:latest ./backend/ai-symptom-service
+docker image inspect auth-service:latest >nul 2>&1 || docker build -t auth-service:latest ./backend/auth-service
+docker image inspect api-gateway:latest >nul 2>&1 || docker build -t api-gateway:latest ./backend/api-gateway
+docker image inspect payment-service:latest >nul 2>&1 || docker build -t payment-service:latest ./backend/payment-service
+docker image inspect notification-service:latest >nul 2>&1 || docker build -t notification-service:latest ./backend/notification-service
+docker image inspect carenet-frontend:latest >nul 2>&1 || docker build -t carenet-frontend:latest ./frontend
 
 echo.
-echo Applying Kubernetes Manifests...
+echo Applying Kubernetes configs...
 kubectl apply -f k8s/deployments/
 kubectl apply -f k8s/services/
 
-echo.
-echo Waiting for core services to be ready...
+echo Waiting for services...
 kubectl wait --for=condition=available deployment/api-gateway --timeout=90s
-kubectl wait --for=condition=available deployment/auth-service --timeout=90s
-kubectl wait --for=condition=available deployment/frontend --timeout=90s
 
 echo.
-echo Opening Bridge Connections to Kubernetes...
-start cmd /k "title CareNet Gateway Bridge && echo [*] Gateway Bridge... && kubectl port-forward svc/api-gateway 8000:8080"
-start cmd /k "title CareNet Backend Bridge && echo [*] Core Services... && kubectl port-forward svc/appointment-service 3004:3004"
-start cmd /k "title CareNet AI Bridge && echo [*] Symptom Checker... && kubectl port-forward svc/symptom-service 3008:3008"
-echo (Three terminal windows are opening to link your localhost to the cluster.)
-timeout /t 3 >nul
+echo Opening bridges...
+start cmd /k "kubectl port-forward svc/api-gateway 8000:8080"
+start cmd /k "kubectl port-forward svc/appointment-service 3004:3004"
+start cmd /k "kubectl port-forward svc/symptom-service 3008:3008"
 
 echo.
-echo [SUCCESS] Deployment applied to Kubernetes!
-echo To open the frontend in your browser natively, opening now...
+echo Opening frontend...
 minikube service frontend
-echo.
 
 pause
 goto MENU
 
 :MINIKUBE_STOP
 cls
-echo [ Stopping Minikube Cluster ]
+echo [ Stopping Minikube ]
 minikube stop
-echo.
-echo Minikube stopped!
 pause
 goto MENU
 
+:: =======================================
+:: RESTART BRIDGES
+:: =======================================
 :RESTART_BRIDGES
 cls
-echo [ Restarting Kubernetes Bridge Connections ]
+echo Restarting bridges...
+start cmd /k "kubectl port-forward svc/api-gateway 8000:8080"
+start cmd /k "kubectl port-forward svc/appointment-service 3004:3004"
+start cmd /k "kubectl port-forward svc/symptom-service 3008:3008"
+pause
+goto MENU
+
+:: =======================================
+:: CLEANUP (IMPORTANT)
+:: =======================================
+:CLEANUP
+cls
+echo [ Cleaning Docker System ]
+docker system prune -a -f
+
 echo.
-start cmd /k "title CareNet Gateway Bridge && echo [*] Gateway Bridge... && kubectl port-forward svc/api-gateway 8000:8080"
-start cmd /k "title CareNet Backend Bridge && echo [*] Core Services... && kubectl port-forward svc/appointment-service 3004:3004"
-start cmd /k "title CareNet AI Bridge && echo [*] Symptom Checker... && kubectl port-forward svc/symptom-service 3008:3008"
+echo [ Cleaning Volumes ]
+docker volume prune -f
+
 echo.
-echo Bridges have been triggered! 
-echo Check for three new terminal windows.
-timeout /t 3 >nul
+echo [ Optional: Delete Minikube cache ]
+echo This will REMOVE all Kubernetes data!
+set /p confirm="Delete Minikube? (y/n): "
+if /i "%confirm%"=="y" (
+    minikube delete
+)
+
+echo Cleanup complete!
+pause
+goto MENU
+
+:: =======================================
+:: CHECK DISK USAGE
+:: =======================================
+:CHECK_DISK
+cls
+echo [ Docker Disk Usage ]
+docker system df
+pause
 goto MENU
 
 :EXIT
