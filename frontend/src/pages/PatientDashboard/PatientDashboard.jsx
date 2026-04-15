@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PatientProfile from "./PatientProfile/PatientProfile";
 import MedicalRecordsTab from "./MedicalRecords/MedicalRecordsTab";
+import PrescriptionsTab from "./Prescriptions/PrescriptionsTab";
 
 // ── Mini Sparkline Chart ───────────────────────────────────────────────────────
 function MiniChart({ data, color = "#3b82f6" }) {
@@ -247,7 +248,7 @@ export default function ModernPatientDashboard() {
                 }}
             >
                 <div style={{ display: "flex", gap: "8px" }}>
-                    {["overview", "appointments", "vitals", "payments", "profile"].map((tab) => (
+                    {["overview", "appointments", "vitals", "prescriptions", "payments", "profile"].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -771,6 +772,13 @@ export default function ModernPatientDashboard() {
                     {activeTab === "vitals" && (
                         <div style={{ animation: "fadeIn 0.3s ease-in" }}>
                             <MedicalRecordsTab />
+                        </div>
+                    )}
+
+                    {/* ── PRESCRIPTIONS TAB ─────────────────────────────────────────── */}
+                    {activeTab === "prescriptions" && (
+                        <div style={{ animation: "fadeIn 0.3s ease-in" }}>
+                            <PrescriptionsTab />
                         </div>
                     )}
 
