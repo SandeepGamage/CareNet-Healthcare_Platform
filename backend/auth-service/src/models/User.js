@@ -39,6 +39,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true, // Account deactivation flag
     },
+    profileImage: {
+      type: String,
+      default: null, // Stores Supabase URL or placeholder
+    },
+    isVerified: {
+      type: Boolean,
+      default: false, // Administrative approval for doctors
+    },
   },
   {
     timestamps: true, // Auto-manage createdAt and updatedAt

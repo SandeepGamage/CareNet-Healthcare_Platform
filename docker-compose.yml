@@ -58,6 +58,11 @@ services:
       MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
       NOTIFICATION_SERVICE_URL: http://notification-service:3006
+      PATIENT_SERVICE_URL: http://patient-service:3002
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      SUPABASE_URL: ${SUPABASE_URL:-https://lppiedfxwxlalsrnnjto.supabase.co}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwcGllZGZ4d3hsYWxzcm5uanRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0OTI4NzksImV4cCI6MjA4NjA2ODg3OX0.IOCsb9fRhN7Ze6hgSGqnMuyxwutLSdC60H6eThcXw1k}
+      SUPABASE_BUCKET: ${SUPABASE_BUCKET:-user-profile}
       NODE_ENV: ${NODE_ENV:-production}
     restart: unless-stopped
     networks:
@@ -65,35 +70,35 @@ services:
 
   # ─── Patient Service ──────────────────────────────────────────
 
-  # patient-service:
-  #   build: ./backend/patient-service
-  #   container_name: patient-service
-  #   ports:
-  #     - "3002:3002"
-  #   environment:
-  #     PORT: 3002
-  #     MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
-  #     JWT_SECRET: ${JWT_SECRET:-carenet_secret}
-  #     NODE_ENV: ${NODE_ENV:-production}
-  #   restart: unless-stopped
-  #   networks:
-  #     - healthcare-network
+  patient-service:
+    build: ./backend/patient-service
+    container_name: patient-service
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      NODE_ENV: ${NODE_ENV:-production}
+    restart: unless-stopped
+    networks:
+      - healthcare-network
 
   # ─── Doctor Service ──────────────────────────────────────────
 
-  # doctor-service:
-  #   build: ./backend/doctor-service
-  #   container_name: doctor-service
-  #   ports:
-  #     - "3003:3003"
-  #   environment:
-  #     PORT: 3003
-  #     MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
-  #     JWT_SECRET: ${JWT_SECRET:-carenet_secret}
-  #     NODE_ENV: ${NODE_ENV:-production}
-  #   restart: unless-stopped
-  #   networks:
-  #     - healthcare-network
+  doctor-service:
+    build: ./backend/doctor-service
+    container_name: doctor-service
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      NODE_ENV: ${NODE_ENV:-production}
+    restart: unless-stopped
+    networks:
+      - healthcare-network
 
   # ─── Appointment Service ─────────────────────────────────────────
 

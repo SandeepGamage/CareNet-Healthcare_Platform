@@ -1,9 +1,12 @@
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
 const User = require('../models/User');
 const Doctor = require('../models/Doctor');
 const Patient = require('../models/Patient');
 const VerificationCode = require('../models/VerificationCode');
 const { sendNotification } = require('../utils/notify');
+const supabase = require('../utils/supabase');
+const path = require('path');
 
 // ── Helper: Generate JWT ──────────────────────────────────────────────────────
 const generateToken = (user) => {
@@ -22,7 +25,43 @@ const generateToken = (user) => {
 // ── POST /api/auth/register ───────────────────────────────────────────────────
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role, specialty, adminSecretKey, phone } = req.body;
+    let { name, email, password, role, specialization, qualifications, experienceYears, consultationFee, adminSecretKey, phone, dateOfBirth, bloodGroup, gender, address, allergies, chronicConditions, emergencyContactName, emergencyContactPhone, profileImage } = req.body;
+
+    // Handle profile image upload to Supabase
+    if (req.file) {
+      try {
+        const file = req.file;
+        const fileExt = path.extname(file.originalname);
+        const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}${fileExt}`;
+        const filePath = `profiles/${fileName}`;
+        const bucket = process.env.SUPABASE_BUCKET || 'profiles';
+
+        console.log(`[Auth Service] Attempting image upload to bucket: ${bucket}, path: ${filePath}`);
+
+        const { data, error: uploadError } = await supabase.storage
+          .from(bucket)
+          .upload(filePath, file.buffer, {
+            contentType: file.mimetype,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error('[Auth Service] Supabase upload error:', uploadError.message);
+          console.warn('[Auth Service] Continuing registration without profile image due to upload failure.');
+        } else {
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(filePath);
+
+          profileImage = publicUrl;
+          console.log('[Auth Service] Image upload successful:', profileImage);
+        }
+      } catch (err) {
+        console.error('[Auth Service] Supabase upload exception:', err.message);
+        console.warn('[Auth Service] Continuing registration without profile image.');
+      }
+    }
 
     // Validation
     if (!name || !email || !password) {
@@ -56,8 +95,21 @@ exports.register = async (req, res) => {
     // Prepare user data for later creation
     const userData = { name, email, password, role: role || 'patient', phone: phone || null };
     if (role === 'doctor') {
-      userData.specialty = specialty || null;
+      userData.specialization = specialization || null;
+      userData.qualifications = qualifications || null;
+      userData.experienceYears = experienceYears || null;
+      userData.consultationFee = consultationFee || null;
       userData.isVerified = false; // Doctor must be verified by admin
+    } else if (role === 'patient') {
+      userData.dateOfBirth = dateOfBirth || null;
+      userData.bloodGroup = bloodGroup || null;
+      userData.gender = gender || 'other';
+      userData.address = address || null;
+      userData.allergies = allergies || [];
+      userData.chronicConditions = chronicConditions || [];
+      userData.emergencyContactName = emergencyContactName || null;
+      userData.emergencyContactPhone = emergencyContactPhone || null;
+      userData.profileImage = profileImage || null;
     }
 
     // Generate 6 digit OTP
@@ -296,10 +348,10 @@ exports.getVerifiedDoctors = async (req, res) => {
       _id: p.userId?._id,
       name: p.userId?.name,
       email: p.userId?.email,
-      specialty: p.specialty,
+      specialization: p.specialization,
       consultationFee: p.consultationFee,
       rating: p.rating,
-      experience: p.experience
+      experienceYears: p.experienceYears
     }));
     res.status(200).json({ success: true, count: doctors.length, data: doctors });
   } catch (error) {
@@ -337,6 +389,10 @@ exports.approveDoctor = async (req, res) => {
     await doctorProfile.save();
 
     const doctor = await User.findById(doctorId);
+    if (doctor) {
+      doctor.isVerified = true;
+      await doctor.save();
+    }
 
 
     // Notify doctor
@@ -406,16 +462,17 @@ exports.verifyOTP = async (req, res) => {
       // Finish registration: Create the user now
       user = await User.create({
         ...record.registrationData,
-        isOtpVerified: true
+        isOtpVerified: true,
+        isVerified: record.registrationData.role !== 'doctor' // Patients/Admins are verified by default
       });
 
       // Create linked profile based on role
       if (user.role === 'doctor') {
         await Doctor.create({
           userId: user._id,
-          specialty: record.registrationData.specialty || null,
+          specialization: record.registrationData.specialization || null,
           qualifications: record.registrationData.qualifications || null,
-          experience: record.registrationData.experience || null,
+          experienceYears: record.registrationData.experienceYears || null,
           consultationFee: record.registrationData.consultationFee || null,
           isVerified: false
         });
@@ -424,10 +481,52 @@ exports.verifyOTP = async (req, res) => {
           userId: user._id,
           dateOfBirth: record.registrationData.dateOfBirth || null,
           bloodGroup: record.registrationData.bloodGroup || null,
-          gender: record.registrationData.gender || 'other'
+          gender: record.registrationData.gender || 'other',
+          address: record.registrationData.address || null,
+          allergies: record.registrationData.allergies || [],
+          chronicConditions: record.registrationData.chronicConditions || [],
+          emergencyContactName: record.registrationData.emergencyContactName || null,
+          emergencyContactPhone: record.registrationData.emergencyContactPhone || null,
+          profileImage: record.registrationData.profileImage || null
         });
       }
 
+      // ── Synchronize with External Services (Best Effort) ─────────────────────
+      const tempToken = generateToken(user);
+      const authHeader = `Bearer ${tempToken}`;
+
+      if (user.role === 'patient') {
+        const patientServiceUrl = process.env.PATIENT_SERVICE_URL || 'http://localhost:3002';
+        console.log(`[Auth Service] Syncing patient profile to: ${patientServiceUrl}`);
+        await axios.post(`${patientServiceUrl}/api/patients/me/profile`, {
+          dateOfBirth: record.registrationData.dateOfBirth,
+          gender: record.registrationData.gender,
+          address: record.registrationData.address,
+          bloodGroup: record.registrationData.bloodGroup,
+          allergies: record.registrationData.allergies,
+          chronicConditions: record.registrationData.chronicConditions,
+          emergencyContactName: record.registrationData.emergencyContactName,
+          emergencyContactPhone: record.registrationData.emergencyContactPhone,
+          profileImage: record.registrationData.profileImage
+        }, {
+          headers: { Authorization: authHeader }
+        }).then(() => console.log('[Auth Service] Patient Profile synced successfully.'))
+          .catch(err => console.error('[Auth Service] Patient Service sync failed:', err.response?.data?.message || err.message));
+
+      } else if (user.role === 'doctor') {
+        const doctorServiceUrl = process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003';
+        console.log(`[Auth Service] Syncing doctor profile to: ${doctorServiceUrl}`);
+        await axios.post(`${doctorServiceUrl}/api/doctors/profile`, {
+          specialization: record.registrationData.specialization,
+          qualifications: record.registrationData.qualifications,
+          experienceYears: Number(record.registrationData.experienceYears || 0),
+          consultationFee: Number(record.registrationData.consultationFee || 0),
+          profileImage: record.registrationData.profileImage
+        }, {
+          headers: { Authorization: authHeader }
+        }).then(() => console.log('[Auth Service] Doctor Profile synced successfully.'))
+          .catch(err => console.error('[Auth Service] Doctor Service sync failed:', err.response?.data?.message || err.message));
+      }
     } else {
       // Existing user verifying a new channel or re-verifying
       user = await User.findById(record.userId);

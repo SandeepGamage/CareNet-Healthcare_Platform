@@ -12,10 +12,21 @@ const patientSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
-    emergencyContact: {
-      name: { type: String, default: null },
-      phone: { type: String, default: null },
-      relation: { type: String, default: null },
+    allergies: {
+      type: [String],
+      default: [],
+    },
+    chronicConditions: {
+      type: [String],
+      default: [],
+    },
+    emergencyContactName: {
+      type: String,
+      default: null,
+    },
+    emergencyContactPhone: {
+      type: String,
+      default: null,
     },
     bloodGroup: {
       type: String,
@@ -31,6 +42,10 @@ const patientSchema = new mongoose.Schema(
       default: 'other',
     },
     address: {
+      type: String,
+      default: null,
+    },
+    profileImage: {
       type: String,
       default: null,
     },

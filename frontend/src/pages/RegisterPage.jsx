@@ -13,7 +13,7 @@ const isValidEmail  = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 const isValidPhone  = (v) => /^(\+94|0094|0)?[\s\-]?7[0-9][\s\-]?[0-9]{3}[\s\-]?[0-9]{4}$/.test(v.trim());
 const isStrongPass  = (v) => v.length >= 8;
 
-const validateRegisterForm = ({ name, email, phone, password, role, specialty, qualifications, experience, consultationFee }) => {
+const validateRegisterForm = ({ name, email, phone, password, role, specialization, qualifications, experienceYears, consultationFee }) => {
   const errors = {};
   if (!name.trim())             errors.name = "Full name is required.";
   else if (name.trim().length < 2) errors.name = "Name must be at least 2 characters.";
@@ -30,8 +30,9 @@ const validateRegisterForm = ({ name, email, phone, password, role, specialty, q
   else if (!/[0-9]/.test(password)) errors.password = "Include at least one number.";
 
   if (role === "doctor") {
-    if (!specialty?.trim()) errors.specialty = "Specialty is required.";
+    if (!specialization?.trim()) errors.specialization = "Specialization is required.";
     if (!qualifications?.trim()) errors.qualifications = "Qualifications is required.";
+    if (!experienceYears) errors.experienceYears = "Experience is required.";
   }
 
 
@@ -103,19 +104,25 @@ const RegisterPage = () => {
   const [email, setEmail]       = useState("");
   const [phone, setPhone]       = useState("");
   const [password, setPassword] = useState("");
-  const [specialty, setSpecialty] = useState("");
+  const [specialization, setSpecialization] = useState("");
   const [qualifications, setQualifications] = useState("");
-  const [experience, setExperience] = useState("");
+  const [experienceYears, setExperienceYears] = useState("");
   const [consultationFee, setConsultationFee] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [bloodGroup, setBloodGroup] = useState("");
   const [gender, setGender] = useState("other");
+  const [address, setAddress] = useState("");
+  const [allergies, setAllergies] = useState("");
+  const [chronicConditions, setChronicConditions] = useState("");
+  const [emergencyContactName, setEmergencyContactName] = useState("");
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
+  const [profileImage, setProfileImage] = useState(null); // Now stores a File object
 
   // touch tracking
   const [touched, setTouched] = useState({});
   const touch = (f) => setTouched((t) => ({ ...t, [f]: true }));
   const liveErrors = validateRegisterForm({
-    name, email, phone, password, role, specialty, qualifications, experience, consultationFee
+    name, email, phone, password, role, specialization, qualifications, experienceYears, consultationFee
   });
 
   const getErr = (f) => (touched[f] ? liveErrors[f] : undefined);
@@ -124,7 +131,8 @@ const RegisterPage = () => {
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [googleData, setGoogleData]           = useState(null);
   const [googleRole, setGoogleRole]           = useState("patient");
-  const [googleSpecialty, setGoogleSpecialty] = useState("");
+  const [googleSpecialization, setGoogleSpecialization] = useState("");
+  const [googleExperienceYears, setGoogleExperienceYears] = useState("");
   const [googlePhone, setGooglePhone]         = useState("");
   const [googlePhoneErr, setGooglePhoneErr]   = useState("");
   const [googleSpecErr, setGoogleSpecErr]     = useState("");
@@ -134,6 +142,12 @@ const RegisterPage = () => {
   const [googleDateOfBirth, setGoogleDateOfBirth] = useState("");
   const [googleBloodGroup, setGoogleBloodGroup] = useState("");
   const [googleGender, setGoogleGender]       = useState("other");
+  const [googleAddress, setGoogleAddress] = useState("");
+  const [googleAllergies, setGoogleAllergies] = useState("");
+  const [googleChronicConditions, setGoogleChronicConditions] = useState("");
+  const [googleEmergencyContactName, setGoogleEmergencyContactName] = useState("");
+  const [googleEmergencyContactPhone, setGoogleEmergencyContactPhone] = useState("");
+  const [googleProfileImage, setGoogleProfileImage] = useState(null); // Now stores a File object
 
   const handleGoogleRegister = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -144,14 +158,21 @@ const RegisterPage = () => {
         setGoogleData({ name: userInfo.name, email: userInfo.email });
         setGooglePhone("");
         setGooglePhoneErr("");
-        setGoogleSpecialty("");
+        setGoogleSpecialization("");
         setGoogleSpecErr("");
+        setGoogleExperienceYears("");
         setGoogleQualifications("");
         setGoogleQualErr("");
         setGoogleConsultationFee("");
         setGoogleDateOfBirth("");
         setGoogleBloodGroup("");
         setGoogleGender("other");
+        setGoogleAddress("");
+        setGoogleAllergies("");
+        setGoogleChronicConditions("");
+        setGoogleEmergencyContactName("");
+        setGoogleEmergencyContactPhone("");
+        setGoogleProfileImage(null);
         setGoogleRole("patient");
         setShowGoogleModal(true);
       } catch {
@@ -169,7 +190,7 @@ const RegisterPage = () => {
     else setGooglePhoneErr("");
 
     if (googleRole === "doctor") {
-      if (!googleSpecialty.trim()) { setGoogleSpecErr("Specialty is required."); hasErr = true; }
+      if (!googleSpecialization.trim()) { setGoogleSpecErr("Specialization is required."); hasErr = true; }
       else setGoogleSpecErr("");
       if (!googleQualifications.trim()) { setGoogleQualErr("Qualifications is required."); hasErr = true; }
       else setGoogleQualErr("");
@@ -180,22 +201,36 @@ const RegisterPage = () => {
     setLoading(true);
     try {
       const randomPassword = Math.random().toString(36).slice(-12) + "A1!x";
+      const formData = new FormData();
+      formData.append("name", googleData.name);
+      formData.append("email", googleData.email);
+      formData.append("password", randomPassword);
+      formData.append("role", googleRole);
+      formData.append("phone", googlePhone);
+      
+      if (googleRole === "doctor") {
+        formData.append("specialization", googleSpecialization);
+        formData.append("qualifications", googleQualifications);
+        formData.append("experienceYears", googleExperienceYears || 0);
+        formData.append("consultationFee", googleConsultationFee || 0);
+      } else {
+        formData.append("dateOfBirth", googleDateOfBirth);
+        formData.append("bloodGroup", googleBloodGroup);
+        formData.append("gender", googleGender || "other");
+        formData.append("address", googleAddress);
+        formData.append("allergies", googleAllergies);
+        formData.append("chronicConditions", googleChronicConditions);
+        formData.append("emergencyContactName", googleEmergencyContactName);
+        formData.append("emergencyContactPhone", googleEmergencyContactPhone);
+      }
+
+      if (googleProfileImage) {
+        formData.append("profileImage", googleProfileImage);
+      }
+
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: googleData.name,
-          email: googleData.email,
-          password: randomPassword,
-          role: googleRole,
-          phone: googlePhone,
-          specialty: googleRole === "doctor" ? googleSpecialty : null,
-          qualifications: googleRole === "doctor" ? googleQualifications : null,
-          consultationFee: googleRole === "doctor" ? googleConsultationFee : null,
-          dateOfBirth: googleRole === "patient" ? googleDateOfBirth : null,
-          bloodGroup: googleRole === "patient" ? googleBloodGroup : null,
-          gender: googleRole === "patient" ? googleGender : null,
-        }),
+        body: formData,
       });
 
       const data = await response.json();
@@ -225,30 +260,42 @@ const RegisterPage = () => {
     setServerError("");
     setSuccessMsg("");
 
-    setTouched({ name: true, email: true, phone: true, password: true, specialty: true });
-    const errs = validateRegisterForm({ name, email, phone, password, role, specialty });
+    setTouched({ name: true, email: true, phone: true, password: true, specialization: true, qualifications: true, experienceYears: true });
+    const errs = validateRegisterForm({ name, email, phone, password, role, specialization, qualifications, experienceYears, consultationFee });
     if (Object.keys(errs).length > 0) return;
 
     setLoading(true);
     try {
+      const formData = new FormData();
+      formData.append("name", name.trim());
+      formData.append("email", email.trim());
+      formData.append("password", password);
+      formData.append("role", role);
+      formData.append("phone", phone.trim());
+
+      if (role === "doctor") {
+        formData.append("specialization", specialization);
+        formData.append("qualifications", qualifications);
+        formData.append("experienceYears", experienceYears || 0);
+        formData.append("consultationFee", consultationFee || 0);
+      } else {
+        formData.append("dateOfBirth", dateOfBirth);
+        formData.append("bloodGroup", bloodGroup);
+        formData.append("gender", gender || "other");
+        formData.append("address", address);
+        formData.append("allergies", allergies);
+        formData.append("chronicConditions", chronicConditions);
+        formData.append("emergencyContactName", emergencyContactName);
+        formData.append("emergencyContactPhone", emergencyContactPhone);
+      }
+
+      if (profileImage) {
+        formData.append("profileImage", profileImage);
+      }
+
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-        name: name.trim(), 
-        email: email.trim(), 
-        password, 
-        role, 
-        phone: phone.trim(),
-        // Extra fields
-        specialty: role === "doctor" ? specialty : null,
-        qualifications: role === "doctor" ? qualifications : null,
-        experience: role === "doctor" ? experience : null,
-        consultationFee: role === "doctor" ? consultationFee : null,
-        dateOfBirth: role === "patient" ? dateOfBirth : null,
-        bloodGroup: role === "patient" ? bloodGroup : null,
-        gender: role === "patient" ? gender : null,
-      }),
+        body: formData,
       });
 
       const data = await response.json();
@@ -380,22 +427,22 @@ const RegisterPage = () => {
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                     <div className="space-y-1">
-                      <label className="text-sm font-semibold text-slate-700 ml-1">Specialty</label>
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Specialization</label>
                       <div className="relative group">
-                        <Stethoscope className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${getErr("specialty") ? "text-red-400" : "text-slate-400 group-focus-within:text-teal-500"}`} />
+                        <Stethoscope className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${getErr("specialization") ? "text-red-400" : "text-slate-400 group-focus-within:text-teal-500"}`} />
                         <input
                           type="text"
                           placeholder="e.g. Cardiologist"
-                          value={specialty}
-                          onChange={(e) => setSpecialty(e.target.value)}
-                          onBlur={() => touch("specialty")}
-                          className={inputCls(!!getErr("specialty"))}
+                          value={specialization}
+                          onChange={(e) => setSpecialization(e.target.value)}
+                          onBlur={() => touch("specialization")}
+                          className={inputCls(!!getErr("specialization"))}
                         />
                       </div>
-                      <FieldError msg={getErr("specialty")} />
+                      <FieldError msg={getErr("specialization")} />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-sm font-semibold text-slate-700 ml-1">Fee (LKR)</label>
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Consultation Fee (LKR)</label>
                       <input
                         type="number"
                         placeholder="e.g. 1500"
@@ -405,17 +452,42 @@ const RegisterPage = () => {
                       />
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-slate-700 ml-1">Qualifications</label>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Qualifications</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. MBBS, MD"
+                        value={qualifications}
+                        onChange={(e) => setQualifications(e.target.value)}
+                        onBlur={() => touch("qualifications")}
+                        className={inputCls(!!getErr("qualifications"))}
+                      />
+                      <FieldError msg={getErr("qualifications")} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Experience (Years)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 5"
+                        value={experienceYears}
+                        onChange={(e) => setExperienceYears(e.target.value)}
+                        onBlur={() => touch("experienceYears")}
+                        className={inputCls(!!getErr("experienceYears"))}
+                      />
+                      <FieldError msg={getErr("experienceYears")} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 pb-2">
+                    <label className="text-sm font-semibold text-slate-700 ml-1">Profile Image (Optional)</label>
                     <input
-                      type="text"
-                      placeholder="e.g. MBBS, MD"
-                      value={qualifications}
-                      onChange={(e) => setQualifications(e.target.value)}
-                      onBlur={() => touch("qualifications")}
-                      className={inputCls(!!getErr("qualifications"))}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setProfileImage(e.target.files[0])}
+                      className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 transition-all"
                     />
-                    <FieldError msg={getErr("qualifications")} />
                   </div>
                 </motion.div>
               )}
@@ -459,6 +531,88 @@ const RegisterPage = () => {
                         <option value="O-">O-</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-slate-700 ml-1">Gender</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <select
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value)}
+                        className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer"
+                      >
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-slate-700 ml-1">Home Address</label>
+                    <input
+                      type="text"
+                      placeholder="Street, City, Province"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className={inputCls(false)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Emergency Contact Name</label>
+                      <input
+                        type="text"
+                        placeholder="Guardian / Spouse Name"
+                        value={emergencyContactName}
+                        onChange={(e) => setEmergencyContactName(e.target.value)}
+                        className={inputCls(false)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Emergency Contact Phone</label>
+                      <input
+                        type="tel"
+                        placeholder="+94 77 123 4567"
+                        value={emergencyContactPhone}
+                        onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                        className={inputCls(false)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Allergies (comma separated)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Peanuts, Penicillin"
+                        value={allergies}
+                        onChange={(e) => setAllergies(e.target.value)}
+                        className={inputCls(false)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Chronic Conditions</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Diabetes, Asthma"
+                        value={chronicConditions}
+                        onChange={(e) => setChronicConditions(e.target.value)}
+                        className={inputCls(false)}
+                      />
+                    </div>
+                  </div>
+
+                   <div className="space-y-1">
+                    <label className="text-sm font-semibold text-slate-700 ml-1">Profile Image (Optional)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setProfileImage(e.target.files[0])}
+                      className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 transition-all"
+                    />
                   </div>
                 </motion.div>
               )}
@@ -597,20 +751,20 @@ const RegisterPage = () => {
                     >
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">Specialty</label>
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Specialization</label>
                           <div className="relative group">
                             <Stethoscope className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${googleSpecErr ? "text-red-400" : "text-slate-400 group-focus-within:text-teal-500"}`} />
                             <input
                               type="text" placeholder="e.g. Cardiologist"
-                              value={googleSpecialty}
-                              onChange={(e) => { setGoogleSpecialty(e.target.value); setGoogleSpecErr(""); }}
+                              value={googleSpecialization}
+                              onChange={(e) => { setGoogleSpecialization(e.target.value); setGoogleSpecErr(""); }}
                               className={inputCls(!!googleSpecErr)}
                             />
                           </div>
                           <FieldError msg={googleSpecErr} />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">Fee (LKR)</label>
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Consultation Fee (LKR)</label>
                           <input
                             type="number" placeholder="e.g. 1500"
                             value={googleConsultationFee}
@@ -619,15 +773,37 @@ const RegisterPage = () => {
                           />
                         </div>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-sm font-semibold text-slate-700 ml-1">Qualifications</label>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Qualifications</label>
+                          <input
+                            type="text" placeholder="e.g. MBBS, MD"
+                            value={googleQualifications}
+                            onChange={(e) => { setGoogleQualifications(e.target.value); setGoogleQualErr(""); }}
+                            className={inputCls(!!googleQualErr)}
+                          />
+                          <FieldError msg={googleQualErr} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Experience (Years)</label>
+                          <input
+                            type="number" placeholder="e.g. 5"
+                            value={googleExperienceYears}
+                            onChange={(e) => { setGoogleExperienceYears(e.target.value); }}
+                            className={inputCls(false)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 pb-2">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Profile Image (Optional)</label>
                         <input
-                          type="text" placeholder="e.g. MBBS, MD"
-                          value={googleQualifications}
-                          onChange={(e) => { setGoogleQualifications(e.target.value); setGoogleQualErr(""); }}
-                          className={inputCls(!!googleQualErr)}
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => setGoogleProfileImage(e.target.files[0])}
+                          className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 transition-all"
                         />
-                        <FieldError msg={googleQualErr} />
                       </div>
                     </motion.div>
                   )}
@@ -683,6 +859,73 @@ const RegisterPage = () => {
                           <option value="female">Female</option>
                           <option value="other">Other</option>
                         </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Home Address</label>
+                        <input
+                          type="text"
+                          placeholder="Street, City, Province"
+                          value={googleAddress}
+                          onChange={(e) => setGoogleAddress(e.target.value)}
+                          className={inputCls(false)}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Emergency Contact Name</label>
+                          <input
+                            type="text"
+                            placeholder="Guardian / Spouse Name"
+                            value={googleEmergencyContactName}
+                            onChange={(e) => setGoogleEmergencyContactName(e.target.value)}
+                            className={inputCls(false)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Emergency Contact Phone</label>
+                          <input
+                            type="tel"
+                            placeholder="+94 77 123 4567"
+                            value={googleEmergencyContactPhone}
+                            onChange={(e) => setGoogleEmergencyContactPhone(e.target.value)}
+                            className={inputCls(false)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Allergies (comma separated)</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Peanuts, Penicillin"
+                            value={googleAllergies}
+                            onChange={(e) => setGoogleAllergies(e.target.value)}
+                            className={inputCls(false)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-semibold text-slate-700 ml-1">Chronic Conditions</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Diabetes, Asthma"
+                            value={googleChronicConditions}
+                            onChange={(e) => setGoogleChronicConditions(e.target.value)}
+                            className={inputCls(false)}
+                          />
+                        </div>
+                      </div>
+
+                       <div className="space-y-1">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Profile Image (Optional)</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => setGoogleProfileImage(e.target.files[0])}
+                          className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 transition-all"
+                        />
                       </div>
                     </motion.div>
                   )}

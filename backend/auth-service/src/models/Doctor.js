@@ -8,7 +8,7 @@ const doctorSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    specialty: {
+    specialization: {
       type: String,
       default: null,
     },
@@ -16,8 +16,8 @@ const doctorSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    experience: {
-      type: String,
+    experienceYears: {
+      type: Number,
       default: null,
     },
     consultationFee: {

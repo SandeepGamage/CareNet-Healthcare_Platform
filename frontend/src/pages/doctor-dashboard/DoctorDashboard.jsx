@@ -30,6 +30,12 @@ export default function DoctorDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  // Load user from localStorage
+  const user = JSON.parse(localStorage.getItem("userInfo")) || {
+    name: 'Doctor',
+    role: 'Doctor'
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans">
       {/* ── SIDEBAR ───────────────────────────────────────────────────────── */}
@@ -80,12 +86,8 @@ export default function DoctorDashboard() {
         {/* Top Navbar */}
         <Navbar
           onMenuClick={() => setSidebarOpen(!sidebarOpen)}
-          title={<span className="text-xl font-bold text-slate-800">Welcome, Dr. Ahamed Shaba</span>}
-          userProfile={{
-            name: 'Dr. Ahamed Shaba',
-            email: 'doctor@carenet.com',
-            role: 'Doctor'
-          }}
+          title={<span className="text-xl font-bold text-slate-800">Welcome, {user.name}</span>}
+          userProfile={user}
         >
           <div className="hidden md:flex flex-1 justify-end pr-4">
             <div className="relative w-64">

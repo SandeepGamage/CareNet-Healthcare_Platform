@@ -3,9 +3,10 @@ const router = express.Router();
 const { register, login, getMe, getPendingDoctors, getAllDoctors, getVerifiedDoctors, approveDoctor, rejectDoctor, verifyOTP, resendOTP, deactivateAccount, getAllPatients, forgotPassword, resetPassword } = require('../controllers/authController');
 const protect = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/authMiddleware');
+const upload = require('../middleware/uploadMiddleware');
 
 // Public routes
-router.post('/register', register);
+router.post('/register', upload.single('profileImage'), register);
 router.post('/login', login);
 router.post('/verify-email', verifyOTP);
 router.post('/verify-phone', verifyOTP);
