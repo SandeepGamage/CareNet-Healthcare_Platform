@@ -1,6 +1,65 @@
 const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
-const { publishToQueue } = require('../utils/rabbitMQ');
+const axios = require('axios');
+
+const DOCTOR_SERVICE_URL = process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003';
+const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3006';
+
+// ─── HELPER: Send Notifications ───────────────────────────
+const sendNotification = async (path, payload) => {
+  try {
+    await axios.post(`${NOTIFICATION_SERVICE_URL}/api/notifications/appointments${path}`, payload);
+  } catch (err) {
+    console.error(`Failed to send notification to ${path}:`, err.message);
+  }
+};
+
+// ─── HELPERS ─────────────────────────────────────────────
+
+const parseTimeToMinutes = (value) => {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toUpperCase();
+
+  // 1. HH:mm (24h)
+  const twentyFourMatch = normalized.match(/^(\d{1,2}):(\d{2})$/);
+  if (twentyFourMatch) {
+    const hh = Number(twentyFourMatch[1]);
+    const mm = Number(twentyFourMatch[2]);
+    if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) return hh * 60 + mm;
+  }
+
+  // 2. HH:mm AM/PM
+  const twelveMatch = normalized.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+  if (twelveMatch) {
+    let hh = Number(twelveMatch[1]);
+    const mm = Number(twelveMatch[2]);
+    const ampm = twelveMatch[3];
+    if (hh >= 1 && hh <= 12 && mm >= 0 && mm <= 59) {
+      if (ampm === 'PM' && hh < 12) hh += 12;
+      if (ampm === 'AM' && hh === 12) hh = 0;
+      return hh * 60 + mm;
+    }
+  }
+  return null;
+};
+
+const formatMinutesToTime = (minutes) => {
+  const hh = Math.floor(minutes / 60);
+  const mm = minutes % 60;
+  return `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
+};
+
+const generateSlots = (startMinutes, endMinutes, duration) => {
+  const slots = [];
+  let current = startMinutes;
+  while (current + duration <= endMinutes) {
+    const slotStart = formatMinutesToTime(current);
+    const slotEnd = formatMinutesToTime(current + duration);
+    slots.push(`${slotStart} - ${slotEnd}`);
+    current += duration;
+  }
+  return slots;
+};
 const notificationService = require('../services/notificationService');
 
 // ─── POST /api/appointments ───────────────────────────────
@@ -13,7 +72,30 @@ exports.createAppointment = async (req, res) => {
       reason, consultationFee, patientName, patientEmail
     } = req.body;
 
-    // Prevent double-booking — same doctor, same date, same slot
+    // 1. Fetch Doctor Config
+    let doctorConfig;
+    try {
+      const response = await axios.get(`${DOCTOR_SERVICE_URL}/api/doctors/profile/details/${doctorId}`, {
+        headers: { Authorization: req.headers.authorization }
+      });
+      doctorConfig = response.data.data;
+    } catch (err) {
+      console.error('Failed to fetch doctor config:', err.response?.data || err.message);
+      const status = err.response?.status || 500;
+      const message = err.response?.data?.message || 'Could not verify doctor availability.';
+      return res.status(status).json({ message, details: err.message });
+    }
+
+    if (!doctorConfig.isAvailable) {
+      return res.status(400).json({ message: 'Doctor is not currently available for bookings.' });
+    }
+
+    // 2. Validate Slot
+    if (!doctorConfig.availableSlots || !doctorConfig.availableSlots.includes(timeSlot)) {
+      return res.status(400).json({ message: 'Selected time slot is no longer available.' });
+    }
+
+    // 4. Prevent double-booking
     const conflict = await Appointment.findOne({
       doctorId,
       appointmentDate: new Date(appointmentDate),
@@ -28,7 +110,7 @@ exports.createAppointment = async (req, res) => {
     }
 
     const appointment = await Appointment.create({
-      patientId:   req.user.id,      // from JWT token
+      patientId: req.user.id,      // from JWT token
       patientName,
       patientEmail,
       doctorId,
@@ -36,33 +118,36 @@ exports.createAppointment = async (req, res) => {
       specialty,
       appointmentDate: new Date(appointmentDate),
       timeSlot,
-      type:            type || 'IN_PERSON',
+      type: type || 'IN_PERSON',
       reason,
       consultationFee
     });
 
-    // Fetch patient & doctor details from profiles (users collection)
-    const [patientUser, doctorUser] = await Promise.all([
-      mongoose.connection.db.collection('users').findOne({ 
-        $or: [
-          { _id: new mongoose.Types.ObjectId(req.user.id) },
-          { email: patientEmail }
-        ]
-      }),
-      mongoose.connection.db.collection('users').findOne({ 
-        _id: new mongoose.Types.ObjectId(doctorId) 
-      })
-    ]);
+    // 5. Remove slot from doctor service
+    try {
+      await axios.patch(`${DOCTOR_SERVICE_URL}/api/doctors/profile/book-slot/${doctorId}`, {
+        slot: timeSlot
+      }, {
+        headers: { Authorization: req.headers.authorization }
+      });
+    } catch (err) {
+      console.error('Failed to remove slot from doctor config:', err.message);
+      // We still proceed as the appointment is created
+    }
 
-    const patientPhone = patientUser?.phone || null;
-    const doctorPhone  = doctorUser?.phone || null;
-    const doctorEmail  = doctorUser?.email || null;
-
-    // Notify patient + doctor via REST
-    await notificationService.notifyAppointmentBooked({
-      ...appointment.toObject(),
-      doctorEmail
-    }, patientPhone);
+    // Notify patient + doctor via direct REST call
+    sendNotification('/booked', {
+      patientId: req.user.id,
+      patientName: patientName,
+      patientEmail: patientEmail,
+      doctorId: doctorId,
+      doctorName: doctorName,
+      appointmentId: appointment._id,
+      appointmentDate: appointmentDate,
+      appointmentTime: timeSlot,
+      specialty: specialty,
+      consultationType: type || 'IN_PERSON'
+    });
 
     res.status(201).json({
       message: 'Appointment booked successfully',
@@ -102,6 +187,8 @@ exports.getDoctorAppointments = async (req, res) => {
   }
 };
 
+//GET /api/appoint
+
 // ─── GET /api/appointments/:id ────────────────────────────
 // Get single appointment detail
 exports.getAppointmentById = async (req, res) => {
@@ -115,8 +202,8 @@ exports.getAppointmentById = async (req, res) => {
     // Only the patient, doctor, or admin can view it
     const isOwner =
       appointment.patientId === req.user.id ||
-      appointment.doctorId  === req.user.id ||
-      req.user.role         === 'ADMIN';
+      appointment.doctorId === req.user.id ||
+      req.user.role === 'ADMIN';
 
     if (!isOwner) {
       return res.status(403).json({ message: 'Access denied' });
@@ -148,7 +235,7 @@ exports.updateStatus = async (req, res) => {
     }
 
     appointment.status = status;
-    if (notes)        appointment.notes = notes;
+    if (notes) appointment.notes = notes;
     if (cancelReason) appointment.cancelReason = cancelReason;
     if (status === 'CANCELLED') {
       appointment.cancelledBy = req.user.role;
@@ -207,21 +294,21 @@ exports.cancelAppointment = async (req, res) => {
       return res.status(400).json({ message: 'Cannot cancel a completed appointment' });
     }
 
-    appointment.status      = 'CANCELLED';
+    appointment.status = 'CANCELLED';
     appointment.cancelledBy = 'PATIENT';
     appointment.cancelReason = req.body.reason || 'Cancelled by patient';
     await appointment.save();
 
-    publishToQueue({
-      eventType: 'APPOINTMENT_CANCELLED',
-      recipientId: appointment.patientId,
-      recipientRole: 'patient',
-      email: appointment.patientEmail,
-      referenceId: appointment._id,
-      data: {
-        patientName:   appointment.patientName,
-        doctorName:    appointment.doctorName
-      }
+    sendNotification('/cancelled', {
+      patientId: appointment.patientId,
+      patientName: appointment.patientName,
+      patientEmail: appointment.patientEmail,
+      doctorId: appointment.doctorId,
+      doctorName: appointment.doctorName,
+      appointmentDate: appointment.appointmentDate,
+      appointmentId: appointment._id,
+      cancelledBy: 'patient',
+      reason: appointment.cancelReason
     });
 
     res.json({ message: 'Appointment cancelled successfully' });
@@ -238,11 +325,11 @@ exports.getAllAppointments = async (req, res) => {
     const { status, date, specialty } = req.query;
     const filter = {};
 
-    if (status)    filter.status    = status;
+    if (status) filter.status = status;
     if (specialty) filter.specialty = specialty;
     if (date) {
       const start = new Date(date);
-      const end   = new Date(date);
+      const end = new Date(date);
       end.setDate(end.getDate() + 1);
       filter.appointmentDate = { $gte: start, $lt: end };
     }
@@ -263,28 +350,31 @@ exports.getAvailableSlots = async (req, res) => {
   try {
     const { doctorId, date } = req.query;
 
-    const start = new Date(date);
-    const end   = new Date(date);
-    end.setDate(end.getDate() + 1);
+    if (!doctorId || !date) {
+      return res.status(400).json({ message: 'doctorId and date are required' });
+    }
 
-    const booked = await Appointment.find({
-      doctorId,
-      appointmentDate: { $gte: start, $lt: end },
-      status: { $in: ['PENDING', 'CONFIRMED'] }
-    }).select('timeSlot');
+    // 1. Fetch Doctor Config
+    let doctorConfig;
+    try {
+      const response = await axios.get(`${DOCTOR_SERVICE_URL}/api/doctors/profile/details/${doctorId}`, {
+        headers: { Authorization: req.headers.authorization }
+      });
+      doctorConfig = response.data.data;
+    } catch (err) {
+      console.error('Failed to fetch doctor config:', err.response?.data || err.message);
+      const status = err.response?.status || 500;
+      const message = err.response?.data?.message || 'Could not fetch doctor availability.';
+      return res.status(status).json({ message, details: err.message });
+    }
 
-    const bookedSlots = booked.map(a => a.timeSlot);
-
-    // All possible slots in a day
-    const allSlots = [
-      '09:00 - 09:30', '09:30 - 10:00', '10:00 - 10:30', '10:30 - 11:00',
-      '11:00 - 11:30', '11:30 - 12:00', '14:00 - 14:30', '14:30 - 15:00',
-      '15:00 - 15:30', '15:30 - 16:00', '16:00 - 16:30', '16:30 - 17:00'
-    ];
-
-    const availableSlots = allSlots.filter(slot => !bookedSlots.includes(slot));
-
-    res.json({ date, doctorId, availableSlots, bookedSlots });
+    // 3. Return available slots directly from Doctor Service
+    res.json({ 
+      date, 
+      doctorId, 
+      availableSlots: doctorConfig.availableSlots || [],
+      availableHours: doctorConfig.availableHours || ''
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

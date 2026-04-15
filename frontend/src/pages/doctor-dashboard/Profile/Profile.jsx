@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+import { Mail, MapPin, Phone, Clock3, Loader2, Check } from "lucide-react";
 
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -6,52 +8,94 @@ import { Mail, MapPin, Phone, Clock3, Loader2 } from "lucide-react";
 const API_BASE_URL = (import.meta.env.VITE_DOCTOR_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api").replace(/\/$/, "");
 const DOCTOR_PROFILE_ENDPOINT = `${API_BASE_URL}/doctors/profile`;
 
-
-export default function Profile() {
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState(null);
-	const [profile, setProfile] = useState(null);
 	const [user, setUser] = useState(null);
-
+	const [profile, setProfile] = useState(null);
 	const [hoursInput, setHoursInput] = useState("");
 	const [hoursMessage, setHoursMessage] = useState("");
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState("");
 
 	useEffect(() => {
 		const fetchProfile = async () => {
+			setLoading(true);
+			setError("");
 			try {
-				setLoading(true);
-				const userInfo = JSON.parse(localStorage.getItem("userInfo"));
 				const token = localStorage.getItem("token");
-				setUser(userInfo);
-
-				const response = await axios.get("http://localhost:3003/api/doctors/profile/me", {
-					headers: { Authorization: `Bearer ${token}` }
+				if (!token) {
+					setError("Not authenticated. Please log in.");
+					setLoading(false);
+					return;
+				}
+				const res = await fetch(`${API_BASE_URL}/doctors/profile/me`, {
+					headers: {
+						"Authorization": `Bearer ${token}`,
+						"Content-Type": "application/json"
+					}
 				});
-
-				const profileData = response.data.data;
-				setProfile(profileData);
-				setHoursInput(profileData.availableHours || "09:00-17:00");
+				const result = await res.json().catch(() => ({}));
+				if (!res.ok) {
+					setError(result.message || "Failed to fetch profile.");
+					setLoading(false);
+					return;
+				}
+				const data = result.data || {};
+				setUser({
+					name: data.name,
+					email: data.email,
+					phone: data.phone,
+					profileImage: data.profileImage,
+				});
+				setProfile({
+					specialization: data.specialization,
+					consultationFee: data.consultationFee,
+					availableHours: data.availableHours,
+					bio: data.bio,
+					qualifications: data.qualifications,
+					experienceYears: data.experienceYears,
+					isAvailable: data.isAvailable,
+					rating: data.rating,
+				});
+				setLoading(false);
 			} catch (err) {
-				console.error("Error fetching doctor profile:", err);
-				setError("Failed to load profile data. Please ensure your profile is fully set up.");
-			} finally {
+				setError("Network error. Please try again.");
 				setLoading(false);
 			}
 		};
-
 		fetchProfile();
 	}, []);
 
+
+	// Save available hours (PATCH to backend)
 	const handleSaveAvailableHours = async () => {
+		const token = localStorage.getItem("token");
+		if (!token) {
+			setHoursMessage("Not authenticated. Please log in.");
+			setTimeout(() => setHoursMessage(""), 3000);
+			return;
+		}
+		if (!hoursInput.trim()) {
+			setHoursMessage("Please enter your available hours.");
+			setTimeout(() => setHoursMessage(""), 3000);
+			return;
+		}
 		try {
-			const trimmedHours = hoursInput.trim();
-			if (!trimmedHours) {
-				setHoursMessage("Please enter available hours.");
+			const res = await fetch(`${API_BASE_URL}/profile/me/available-hours`, {
+				method: "PATCH",
+				headers: {
+					"Authorization": `Bearer ${token}`,
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify({ availableHours: hoursInput })
+			});
+			const result = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				setHoursMessage(result.message || "Failed to update available hours.");
+				setTimeout(() => setHoursMessage(""), 3000);
 				return;
 			}
 
 			const token = localStorage.getItem("token");
-			await axios.put(`http://localhost:3003/api/doctors/profile/${profile._id}`, 
+			await axios.put(`http://localhost:3003/api/doctors/profile/${profile._id}`,
 				{ availableHours: trimmedHours },
 				{ headers: { Authorization: `Bearer ${token}` } }
 			);
@@ -60,26 +104,25 @@ export default function Profile() {
 			setHoursMessage("Available hours updated successfully!");
 			setTimeout(() => setHoursMessage(""), 3000);
 		} catch (err) {
-			console.error("Error updating hours:", err);
-			setHoursMessage("Failed to update hours.");
+			setHoursMessage("Network error. Please try again.");
+			setTimeout(() => setHoursMessage(""), 3000);
 		}
 	};
 
+
 	if (loading) {
 		return (
-			<div className="flex h-96 items-center justify-center">
-				<Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-				<span className="ml-3 text-slate-600 font-medium">Loading profile...</span>
+			<div className="min-h-screen flex items-center justify-center bg-slate-50">
+				<Loader2 className="animate-spin mr-2" />
+				<span className="text-slate-700 text-lg">Loading profile...</span>
 			</div>
 		);
 	}
 
 	if (error) {
 		return (
-			<div className="p-8">
-				<div className="bg-rose-50 border border-rose-100 text-rose-600 p-4 rounded-xl font-medium">
-					{error}
-				</div>
+			<div className="min-h-screen flex items-center justify-center bg-slate-50">
+				<span className="text-rose-600 text-lg font-semibold">{error}</span>
 			</div>
 		);
 	}
@@ -90,8 +133,8 @@ export default function Profile() {
 				<div className="h-48 rounded-b-2xl shadow-lg" style={{ backgroundColor: "#87CEFA" }}></div>
 				<div className="absolute -bottom-16 left-8 z-10">
 					{user?.profileImage ? (
-						<img 
-							src={user.profileImage} 
+						<img
+							src={user.profileImage}
 							alt={user.name}
 							className="w-40 h-40 rounded-full border-4 border-white shadow-lg object-cover"
 						/>
@@ -162,7 +205,7 @@ export default function Profile() {
 						<p className={`mt-3 text-sm font-medium ${hoursMessage.includes("success") ? "text-emerald-600" : "text-rose-600"}`}>
 							{hoursMessage}
 						</p>
-					) }
+					)}
 					<p className="mt-3 text-sm text-slate-600">
 						Current available hours: <span className="font-semibold text-slate-800">{profile?.availableHours || "Not set"}</span>
 					</p>
@@ -235,3 +278,4 @@ export default function Profile() {
 		</div>
 	);
 }
+
