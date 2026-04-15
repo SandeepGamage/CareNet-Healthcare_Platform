@@ -33,7 +33,6 @@ const services = [
   { prefix: '/api/symptoms', target: SYMPTOM_SERVICE_URL },
   { prefix: '/socket.io', target: NOTIFICATION_SERVICE_URL, ws: true },
 ];
-
 // Health check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'API Gateway is following orders', timestamp: new Date() });
