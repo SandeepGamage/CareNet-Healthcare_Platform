@@ -47,6 +47,7 @@ exports.createAppointment = async (req, res) => {
       email: patientEmail,
       referenceId: appointment._id,
       data: {
+        appointmentId: appointment.appointmentId,
         patientName,
         doctorName,
         date: appointmentDate,
@@ -155,6 +156,7 @@ exports.updateStatus = async (req, res) => {
       email: appointment.patientEmail,
       referenceId: appointment._id,
       data: {
+        appointmentId: appointment.appointmentId,
         patientName:   appointment.patientName,
         doctorName:    appointment.doctorName,
         status,

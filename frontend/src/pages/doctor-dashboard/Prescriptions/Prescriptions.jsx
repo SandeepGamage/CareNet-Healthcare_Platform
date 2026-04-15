@@ -1,6 +1,19 @@
-import { useState } from "react";
-import { Plus, Trash2, FileText, Calendar, User, Eye, ArrowLeft, Edit, X, ArrowUpDown, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { Trash2, FileText, Edit, ArrowUpDown, Search } from "lucide-react";
 import PrescriptionForm from "./PrescriptionForm";
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api").replace(/\/$/, "");
+const DOCTOR_API_BASE_URL = (import.meta.env.VITE_DOCTOR_API_BASE_URL || API_BASE_URL).replace(/\/$/, "");
+const PRESCRIPTIONS_ENDPOINT = `${DOCTOR_API_BASE_URL}/doctors/prescriptions`;
+const PATIENTS_ENDPOINT = `${API_BASE_URL}/patients`;
+const APPOINTMENTS_ENDPOINT = `${API_BASE_URL}/appointments`;
+
+const MOCK_APPOINTMENTS = [
+  { patientId: "P001" },
+  { patientId: "P002" },
+  { patientId: "P003" },
+];
 
 // Mock patient and medical report data
 const MOCK_PATIENTS_DATA = [
@@ -132,13 +145,33 @@ const MOCK_PATIENTS_DATA = [
   }
 ];
 
+const getMockPatientsWithAppointments = () => {
+  const appointmentPatientIds = new Set(
+    MOCK_APPOINTMENTS.map((appointment) => String(appointment.patientId || "").trim().toUpperCase()).filter(Boolean)
+  );
+
+  return MOCK_PATIENTS_DATA.filter((patient) =>
+    appointmentPatientIds.has(String(patient.patientId || "").trim().toUpperCase())
+  );
+};
+
+const getMockPatientsWithAppointmentsAndReports = () =>
+  getMockPatientsWithAppointments().filter((patient) => Boolean(patient.medicalReportId));
+
 export default function Prescriptions() {
   const [medications, setMedications] = useState([]);
+  const [patientsData, setPatientsData] = useState(getMockPatientsWithAppointmentsAndReports());
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [editingPrescription, setEditingPrescription] = useState(null);
+  const [allPrescriptions, setAllPrescriptions] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [sortField, setSortField] = useState("createdDate");
   const [sortDirection, setSortDirection] = useState("desc");
   const [searchQuery, setSearchQuery] = useState("");
+  const [validationErrors, setValidationErrors] = useState({});
   const [formData, setFormData] = useState({
     diagnosis: "",
     medicationName: "",
@@ -149,10 +182,204 @@ export default function Prescriptions() {
     notes: ""
   });
 
-  const handleSelectPatient = (patient) => {
-    setSelectedPatient(patient);
+  const getAuthToken = () => localStorage.getItem("token");
+
+  const getRequestConfig = () => {
+    const token = getAuthToken();
+    return {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    };
+  };
+
+  const formatPrescription = (prescription) => {
+    const matchedPatient = patientsData.find((patient) => patient.patientId === prescription.patientId);
+    const createdAt = prescription.createdAt || prescription.updatedAt || new Date().toISOString();
+
+    return {
+      id: prescription._id,
+      patientName: matchedPatient?.patientName || `Patient ${prescription.patientId}`,
+      patientId: prescription.patientId,
+      diagnosis: prescription.diagnosis,
+      notes: prescription.notes || "",
+      status: "Active",
+      createdDate: new Date(createdAt).toLocaleDateString(),
+      createdTimestamp: createdAt,
+      medications: [
+        {
+          medicationName: prescription.medicationName,
+          dosage: prescription.dosage,
+          frequency: prescription.frequency,
+          duration: prescription.duration,
+          instructions: prescription.instructions || "",
+          notes: prescription.notes || "",
+        },
+      ],
+      patientReportId: prescription.patientReportId,
+    };
+  };
+
+  const fetchAllPrescriptions = async () => {
+    const token = getAuthToken();
+    if (!token) {
+      setErrorMessage("Login token not found. Please login again.");
+      return;
+    }
+
+    try {
+      setHistoryLoading(true);
+      const response = await axios.get(PRESCRIPTIONS_ENDPOINT, getRequestConfig());
+      const prescriptions = Array.isArray(response.data?.data) ? response.data.data : [];
+      setAllPrescriptions(prescriptions.map(formatPrescription));
+    } catch (error) {
+      const message = error.response?.data?.message || "Failed to load prescription history";
+      setErrorMessage(message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const mapAppointmentPatients = (appointments = []) => {
+    const unique = new Map();
+
+    appointments.forEach((appointment) => {
+      const patientUserId = String(appointment.patientId || "").trim();
+      if (!patientUserId) {
+        return;
+      }
+
+      if (!unique.has(patientUserId)) {
+        unique.set(patientUserId, {
+          id: patientUserId,
+          patientUserId,
+          patientId: patientUserId,
+          patientName: appointment.patientName || `Patient ${patientUserId.slice(-6)}`,
+          age: "N/A",
+          gender: "N/A",
+          lastVisit: appointment.appointmentDate
+            ? new Date(appointment.appointmentDate).toLocaleDateString()
+            : "N/A",
+          diagnosis: appointment.reason || "General consultation",
+          symptoms: [],
+          vitals: {},
+          allergies: [],
+          previousMedications: [],
+          medicalReportId: "",
+          reportTitle: "No report loaded",
+          reportType: "general",
+          reportDescription: "",
+          fileName: "",
+          mimeType: "",
+          fileSize: null,
+          uploadedDate: "N/A",
+          prescriptionHistory: [],
+        });
+      }
+    });
+
+    return [...unique.values()];
+  };
+
+  const fetchLatestPatientReport = async (patientUserId) => {
+    if (!patientUserId) {
+      return null;
+    }
+
+    const response = await axios.get(`${PATIENTS_ENDPOINT}/${patientUserId}/reports`, getRequestConfig());
+    const reports = Array.isArray(response.data?.data) ? response.data.data : [];
+    return reports[0] || null;
+  };
+
+  const attachLatestReportsToPatients = async (patients = []) => {
+    const hydratedPatients = await Promise.all(
+      patients.map(async (patient) => {
+        try {
+          const report = await fetchLatestPatientReport(patient.patientUserId || patient.patientId);
+          if (!report) {
+            return null;
+          }
+
+          return {
+            ...patient,
+            medicalReportId: report.medicalReportId,
+            reportTitle: report.title,
+            reportType: report.reportType || "general",
+            reportDescription: report.description || "",
+            fileName: report.fileName || "",
+            mimeType: report.mimeType || "",
+            fileSize: report.fileSize || null,
+            uploadedDate: report.createdAt ? new Date(report.createdAt).toLocaleDateString() : "N/A",
+            reportUrl: report.fileUrl || "",
+          };
+        } catch (_error) {
+          return null;
+        }
+      }),
+    );
+
+    return hydratedPatients.filter(Boolean);
+  };
+
+  const fetchDoctorPatients = async () => {
+    const token = getAuthToken();
+    if (!token) {
+      return;
+    }
+
+    try {
+      const response = await axios.get(`${APPOINTMENTS_ENDPOINT}/doctor`, getRequestConfig());
+      const appointments = Array.isArray(response.data) ? response.data : [];
+      const mappedPatients = mapAppointmentPatients(appointments);
+      const patientsWithReports = await attachLatestReportsToPatients(mappedPatients);
+
+      if (patientsWithReports.length > 0) {
+        setPatientsData(patientsWithReports);
+        setErrorMessage("");
+      } else {
+        setPatientsData([]);
+        setErrorMessage("No appointment patients with medical reports were found.");
+      }
+    } catch (_error) {
+      setPatientsData(getMockPatientsWithAppointmentsAndReports());
+      setErrorMessage("Could not load appointment patients from backend. Showing mock appointment patients.");
+    }
+  };
+
+  useEffect(() => {
+    fetchDoctorPatients();
+    fetchAllPrescriptions();
+  }, []);
+
+  const handleSelectPatient = async (patient) => {
+    let hydratedPatient = patient;
+
+    try {
+      const report = await fetchLatestPatientReport(patient.patientUserId || patient.patientId);
+      if (report) {
+        hydratedPatient = {
+          ...patient,
+          medicalReportId: report.medicalReportId,
+          reportTitle: report.title,
+          reportType: report.reportType || "general",
+          reportDescription: report.description || "",
+          fileName: report.fileName || "",
+          mimeType: report.mimeType || "",
+          fileSize: report.fileSize || null,
+          uploadedDate: report.createdAt ? new Date(report.createdAt).toLocaleDateString() : "N/A",
+          reportUrl: report.fileUrl || "",
+        };
+      }
+    } catch (_error) {
+      setErrorMessage("Could not load latest patient report from backend.");
+    }
+
+    setEditingPrescription(null);
+    setErrorMessage("");
+    setSuccessMessage("");
+    setValidationErrors({});
     setFormData({
-      diagnosis: patient.diagnosis,
+      diagnosis: "",
       medicationName: "",
       dosage: "",
       frequency: "",
@@ -161,10 +388,15 @@ export default function Prescriptions() {
       notes: ""
     });
     setMedications([]);
+    setSelectedPatient(hydratedPatient);
   };
 
   const handleBackToList = () => {
     setSelectedPatient(null);
+    setEditingPrescription(null);
+    setValidationErrors({});
+    setErrorMessage("");
+    setSuccessMessage("");
     setFormData({
       diagnosis: "",
       medicationName: "",
@@ -179,6 +411,11 @@ export default function Prescriptions() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    setValidationErrors((prev) => ({
+      ...prev,
+      [name]: "",
+      form: "",
+    }));
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -186,18 +423,18 @@ export default function Prescriptions() {
   };
 
   const handleAddMedicine = () => {
-    if (formData.diagnosis && formData.medicationName && formData.dosage && formData.frequency && formData.duration) {
-      setMedications([...medications, { ...formData, id: Date.now() }]);
-      setFormData(prev => ({
-        ...prev,
-        medicationName: "",
-        dosage: "",
-        frequency: "",
-        duration: "",
-        instructions: "",
-        notes: ""
-      }));
-    }
+    setValidationErrors({});
+    setErrorMessage("");
+    setMedications([...medications, { ...formData, id: Date.now() }]);
+    setFormData(prev => ({
+      ...prev,
+      medicationName: "",
+      dosage: "",
+      frequency: "",
+      duration: "",
+      instructions: "",
+      notes: ""
+    }));
   };
 
   const handleRemoveMedicine = (id) => {
@@ -205,29 +442,163 @@ export default function Prescriptions() {
   };
 
   const handleSubmitPrescription = () => {
-    if (medications.length === 0) {
-      alert("Please add at least one medicine");
-      return;
-    }
-    console.log("Prescription submitted for patient:", selectedPatient.patientName, medications);
-    alert("Prescription created successfully for " + selectedPatient.patientName);
-    handleBackToList();
+    const submit = async () => {
+      if (!selectedPatient?.patientId) {
+        alert("Patient ID is missing");
+        return;
+      }
+
+      const patientReportId = selectedPatient.medicalReportId || selectedPatient.patientReportId;
+      if (!patientReportId) {
+        alert("Patient report ID is missing");
+        return;
+      }
+
+      const token = getAuthToken();
+      if (!token) {
+        alert("Login token not found. Please login again.");
+        return;
+      }
+
+      try {
+        setSubmitLoading(true);
+        setErrorMessage("");
+        setSuccessMessage("");
+
+        if (editingPrescription) {
+          const firstMedicine = medications[0];
+          await axios.put(
+            `${PRESCRIPTIONS_ENDPOINT}/${editingPrescription.id}`,
+            {
+              patientReportId,
+              diagnosis: firstMedicine.diagnosis,
+              medicationName: firstMedicine.medicationName,
+              dosage: firstMedicine.dosage,
+              frequency: firstMedicine.frequency,
+              duration: firstMedicine.duration,
+              instructions: firstMedicine.instructions || "",
+              notes: firstMedicine.notes || "",
+            },
+            getRequestConfig(),
+          );
+          setSuccessMessage("Prescription updated successfully");
+        } else {
+          await Promise.all(
+            medications.map((medicine) =>
+              axios.post(
+                PRESCRIPTIONS_ENDPOINT,
+                {
+                  patientId: selectedPatient.patientId,
+                  patientReportId,
+                  diagnosis: medicine.diagnosis,
+                  medicationName: medicine.medicationName,
+                  dosage: medicine.dosage,
+                  frequency: medicine.frequency,
+                  duration: medicine.duration,
+                  instructions: medicine.instructions || "",
+                  notes: medicine.notes || "",
+                },
+                getRequestConfig(),
+              ),
+            ),
+          );
+          setSuccessMessage(`Prescription created successfully for ${selectedPatient.patientName}`);
+        }
+
+        await fetchAllPrescriptions();
+        handleBackToList();
+      } catch (error) {
+        const message = error.response?.data?.message || "Failed to submit prescription";
+        setErrorMessage(message);
+        alert(message);
+      } finally {
+        setSubmitLoading(false);
+      }
+    };
+
+    submit();
   };
 
   const handleEditPrescription = (prescription) => {
+    const matchedPatient =
+      patientsData.find((patient) => patient.patientId === prescription.patientId) ||
+      {
+        patientName: prescription.patientName,
+        patientId: prescription.patientId,
+        diagnosis: prescription.diagnosis,
+        medicalReportId: prescription.patientReportId || "",
+        age: "N/A",
+        gender: "N/A",
+        lastVisit: "N/A",
+        reportTitle: "Patient Report",
+        reportType: "general",
+        reportDescription: "",
+        fileName: "",
+        mimeType: "",
+      };
+
+    setSelectedPatient(matchedPatient);
     setEditingPrescription(prescription);
+    const firstMedicine = prescription.medications?.[0];
+
+    if (firstMedicine) {
+      setFormData({
+        diagnosis: prescription.diagnosis || firstMedicine.diagnosis || "",
+        medicationName: firstMedicine.medicationName || "",
+        dosage: firstMedicine.dosage || "",
+        frequency: firstMedicine.frequency || "",
+        duration: firstMedicine.duration || "",
+        instructions: firstMedicine.instructions || "",
+        notes: firstMedicine.notes || prescription.notes || "",
+      });
+
+      setMedications([
+        {
+          ...firstMedicine,
+          diagnosis: prescription.diagnosis || firstMedicine.diagnosis || "",
+          id: Date.now(),
+        },
+      ]);
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDeletePrescription = (prescriptionId) => {
-    if (confirm("Are you sure you want to delete this prescription?")) {
-      console.log("Prescription deleted:", prescriptionId);
-      alert("Prescription deleted successfully");
+  const handleDeletePrescription = async (prescriptionId) => {
+    if (!confirm("Are you sure you want to delete this prescription?")) {
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      alert("Login token not found. Please login again.");
+      return;
+    }
+
+    try {
+      await axios.delete(`${PRESCRIPTIONS_ENDPOINT}/${prescriptionId}`, getRequestConfig());
+      setSuccessMessage("Prescription deleted successfully");
+      setAllPrescriptions((prev) => prev.filter((prescription) => prescription.id !== prescriptionId));
+    } catch (error) {
+      const message = error.response?.data?.message || "Failed to delete prescription";
+      setErrorMessage(message);
+      alert(message);
     }
   };
 
   const handleCancelEdit = () => {
     setEditingPrescription(null);
+    setMedications([]);
+    setValidationErrors({});
+    setFormData({
+      diagnosis: "",
+      medicationName: "",
+      dosage: "",
+      frequency: "",
+      duration: "",
+      instructions: "",
+      notes: "",
+    });
   };
 
   const handleSort = (field) => {
@@ -258,8 +629,8 @@ export default function Prescriptions() {
           break;
         case "createdDate":
         default:
-          compareA = new Date(a.createdDate);
-          compareB = new Date(b.createdDate);
+          compareA = new Date(a.createdTimestamp || a.createdDate);
+          compareB = new Date(b.createdTimestamp || b.createdDate);
           break;
       }
 
@@ -299,20 +670,14 @@ export default function Prescriptions() {
 
   // Patient List View
   if (!selectedPatient) {
-    // Collect all prescriptions from all patients
-    const allPrescriptions = MOCK_PATIENTS_DATA.flatMap(patient =>
-      patient.prescriptionHistory.map(prescription => ({
-        ...prescription,
-        patientName: patient.patientName,
-        patientId: patient.patientId
-      }))
-    );
-
     return (
       <div className="p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-800">Prescriptions</h1>
           <p className="text-sm text-slate-600 mt-1">Select a patient to create a prescription</p>
+          {errorMessage && <p className="mt-2 text-sm text-red-600">{errorMessage}</p>}
+          {successMessage && <p className="mt-2 text-sm text-emerald-600">{successMessage}</p>}
+          {submitLoading && <p className="mt-2 text-sm text-blue-600">Submitting prescription...</p>}
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mb-8">
@@ -331,7 +696,7 @@ export default function Prescriptions() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {MOCK_PATIENTS_DATA.map((patient) => (
+                {patientsData.map((patient) => (
                   <tr key={patient.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 text-sm font-semibold text-slate-800">{patient.patientName}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{patient.patientId}</td>
@@ -358,13 +723,20 @@ export default function Prescriptions() {
                     </td>
                   </tr>
                 ))}
+                {patientsData.length === 0 && (
+                  <tr>
+                    <td colSpan="8" className="px-6 py-10 text-center text-sm text-slate-500">
+                      No patients with appointments and medical reports found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
         {/* Prescription History Section */}
-        {allPrescriptions.length > 0 && (
+        {(historyLoading || allPrescriptions.length > 0) && (
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
             <div className="p-6 border-b border-slate-100">
               <div className="flex flex-col gap-4 mb-4 lg:flex-row lg:items-center lg:justify-between">
@@ -436,6 +808,11 @@ export default function Prescriptions() {
             </div>
 
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {historyLoading && (
+                <div className="col-span-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                  Loading prescription history...
+                </div>
+              )}
               {filterPrescriptions(sortPrescriptions(allPrescriptions)).map((prescription) => (
                 <div key={prescription.id} className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition-all">
                   {/* Card Header */}
@@ -474,7 +851,7 @@ export default function Prescriptions() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
-                        const patient = MOCK_PATIENTS_DATA.find(p => p.patientId === prescription.patientId);
+                        const patient = patientsData.find(p => p.patientId === prescription.patientId);
                         if (patient) handleSelectPatient(patient);
                         handleEditPrescription(prescription);
                       }}
@@ -507,19 +884,33 @@ export default function Prescriptions() {
 
   // Prescription Form View
   return (
-    <PrescriptionForm
-      selectedPatient={selectedPatient}
-      editingPrescription={editingPrescription}
-      medications={medications}
-      formData={formData}
-      onBackToList={handleBackToList}
-      onInputChange={handleInputChange}
-      onAddMedicine={handleAddMedicine}
-      onRemoveMedicine={handleRemoveMedicine}
-      onSubmitPrescription={handleSubmitPrescription}
-      onEditPrescription={handleEditPrescription}
-      onDeletePrescription={handleDeletePrescription}
-      onCancelEdit={handleCancelEdit}
-    />
+    <div className="space-y-4">
+      {(validationErrors?.form || errorMessage) && (
+        <div className="mx-8 mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {validationErrors?.form || errorMessage}
+        </div>
+      )}
+
+      <PrescriptionForm
+        selectedPatient={selectedPatient}
+        editingPrescription={editingPrescription}
+        medications={medications}
+        formData={formData}
+        validationErrors={validationErrors}
+        isSubmitting={submitLoading}
+        errorMessage={errorMessage}
+        successMessage={successMessage}
+        onBackToList={handleBackToList}
+        onInputChange={handleInputChange}
+        onAddMedicine={handleAddMedicine}
+        onRemoveMedicine={handleRemoveMedicine}
+        onSubmitPrescription={handleSubmitPrescription}
+        onEditPrescription={handleEditPrescription}
+        onDeletePrescription={handleDeletePrescription}
+        onCancelEdit={handleCancelEdit}
+        onValidationErrorsChange={setValidationErrors}
+        onFormError={setErrorMessage}
+      />
+    </div>
   );
 }

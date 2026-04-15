@@ -22,7 +22,10 @@ spec:
             - name: PORT
               value: "3001"
             - name: MONGO_URI
-              value: "mongodb://mongodb:27017/carenet_auth"
+              valueFrom:
+                secretKeyRef:
+                  name: appointment-secret
+                  key: MONGO_URI
             - name: NOTIFICATION_SERVICE_URL
               value: "http://notification-service:3006"
             - name: JWT_SECRET
