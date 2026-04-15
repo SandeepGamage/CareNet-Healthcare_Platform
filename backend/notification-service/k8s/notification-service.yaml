@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: notification-service
+  namespace: healthcare
   labels:
     app: notification-service
 spec:
@@ -21,7 +22,7 @@ spec:
         - containerPort: 3006
         env:
         - name: PORT
-          value: "5004"
+          value: "3006"
         - name: NODE_ENV
           value: "production"
         - name: MONGO_URI
@@ -31,6 +32,8 @@ spec:
             secretKeyRef:
               name: healthcare-secrets
               key: jwt-secret
+        - name: RABBITMQ_URL
+          value: "amqp://user:password@rabbitmq-service:5672"
         # Cloud-native: Use secrets for credentials
         - name: EMAIL_USER
           valueFrom:
@@ -52,11 +55,31 @@ spec:
             secretKeyRef:
               name: healthcare-secrets
               key: twilio-token
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3006
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3006
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: notification-service
+  namespace: healthcare
 spec:
   selector:
     app: notification-service

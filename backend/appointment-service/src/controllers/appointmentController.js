@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
 const axios = require('axios');
 
@@ -59,6 +60,7 @@ const generateSlots = (startMinutes, endMinutes, duration) => {
   }
   return slots;
 };
+const notificationService = require('../services/notificationService');
 
 // ─── POST /api/appointments ───────────────────────────────
 // Patient books an appointment
@@ -241,17 +243,30 @@ exports.updateStatus = async (req, res) => {
 
     await appointment.save();
 
-    // Notify about status change
+    // Fetch patient & doctor phone from profiles for notifications
+    const [patientUser, doctorUser] = await Promise.all([
+      mongoose.connection.db.collection('users').findOne({ 
+        _id: new mongoose.Types.ObjectId(appointment.patientId) 
+      }),
+      mongoose.connection.db.collection('users').findOne({ 
+        _id: new mongoose.Types.ObjectId(appointment.doctorId) 
+      })
+    ]);
+
+    const patientPhone = patientUser?.phone || null;
+    const doctorPhone  = doctorUser?.phone || null;
+    const doctorEmail  = doctorUser?.email || null;
+
+    // Trigger specific notifications based on status
     if (status === 'CONFIRMED') {
-      sendNotification('/confirmed', {
-        patientId: appointment.patientId,
-        patientName: appointment.patientName,
-        patientEmail: appointment.patientEmail,
-        doctorName: appointment.doctorName,
-        appointmentDate: appointment.appointmentDate,
-        appointmentTime: appointment.timeSlot,
-        appointmentId: appointment._id
-      });
+      await notificationService.notifyAppointmentConfirmed(appointment, patientPhone);
+    } else if (status === 'COMPLETED') {
+      await notificationService.notifyConsultationCompleted({
+        ...appointment.toObject(),
+        doctorEmail
+      }, patientPhone, doctorPhone);
+    } else if (status === 'CANCELLED') {
+      await notificationService.notifyAppointmentCancelled(appointment, patientPhone, req.user.role, cancelReason);
     }
 
     res.json({ message: `Appointment ${status.toLowerCase()}`, appointment });

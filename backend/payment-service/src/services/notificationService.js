@@ -30,6 +30,7 @@ const sendPaymentConfirmation = async ({
           email: patientEmail,
           phone: patientPhone || null,
           role: 'patient',
+          recipientId: transaction.patientId, // Added for dashboard notifications
           data: {
             patientName: transaction.metadata.patientName,
             doctorName: transaction.metadata.doctorName,
@@ -44,6 +45,7 @@ const sendPaymentConfirmation = async ({
           email: doctorEmail,
           phone: doctorPhone || null,
           role: 'doctor',
+          recipientId: transaction.doctorId, // Added for dashboard notifications
           data: {
             doctorName: transaction.metadata.doctorName,
             patientName: transaction.metadata.patientName,
