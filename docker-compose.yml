@@ -1,3 +1,5 @@
+
+
 services:
   # ─── Infrastructure ──────────────────────────────────────────────
 
@@ -133,32 +135,33 @@ services:
       JITSI_APP_ID: ${JITSI_APP_ID:-}
       JITSI_APP_SECRET: ${JITSI_APP_SECRET:-}
     depends_on:
-      - mongodb
       - appointment-service
     restart: unless-stopped
     networks:
       - healthcare-network
 
+
+
  # ─── Telemedicine Service ───────────────────────────────────────
-  telemedicine-service:
-    build: ./backend/telemedicine-service
-    container_name: telemedicine-service
-    ports:
-      - "3007:3007"
-    environment:
-      PORT: 3007
-      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
-      JWT_SECRET: ${JWT_SECRET_APPOINTMENT:-carenet_secret}
-      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
-      JITSI_DOMAIN: meet.jit.si
-      JITSI_APP_ID: ${JITSI_APP_ID:-}
-      JITSI_APP_SECRET: ${JITSI_APP_SECRET:-}
-    depends_on:
-      - mongodb
-      - appointment-service
-    restart: unless-stopped
-    networks:
-      - healthcare-network
+  # telemedicine-service:
+  #   build: ./backend/telemedicine-service
+  #   container_name: telemedicine-service
+  #   ports:
+  #     - "3007:3007"
+  #   environment:
+  #     PORT: 3007
+  #     MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+  #     JWT_SECRET: ${JWT_SECRET_APPOINTMENT:-carenet_secret}
+  #     APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+  #     JITSI_DOMAIN: meet.jit.si
+  #     JITSI_APP_ID: ${JITSI_APP_ID:-}
+  #     JITSI_APP_SECRET: ${JITSI_APP_SECRET:-}
+  #   depends_on:
+  #     - mongodb
+  #     - appointment-service
+  #   restart: unless-stopped
+  #   networks:
+  #     - healthcare-network
 
   # ─── Payment Service ─────────────────────────────────────────────
 
