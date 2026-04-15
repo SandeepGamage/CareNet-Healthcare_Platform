@@ -1,5 +1,7 @@
+const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
 const { publishToQueue } = require('../utils/rabbitMQ');
+const notificationService = require('../services/notificationService');
 
 // ─── POST /api/appointments ───────────────────────────────
 // Patient books an appointment
@@ -39,22 +41,17 @@ exports.createAppointment = async (req, res) => {
       consultationFee
     });
 
-    // Notify patient + doctor asynchronously via RabbitMQ
-    publishToQueue({
-      eventType: 'APPOINTMENT_BOOKED',
-      recipientId: req.user.id,
-      recipientRole: 'patient',
-      email: patientEmail,
-      referenceId: appointment._id,
-      data: {
-        appointmentId: appointment.appointmentId,
-        patientName,
-        doctorName,
-        date: appointmentDate,
-        time: timeSlot,
-        type: type || 'IN_PERSON'
-      }
+    // Fetch patient phone from profile (users collection)
+    const patientUser = await mongoose.connection.db.collection('users').findOne({ 
+      $or: [
+        { _id: new mongoose.Types.ObjectId(req.user.id) },
+        { email: patientEmail }
+      ]
     });
+    const patientPhone = patientUser?.phone || null;
+
+    // Notify patient + doctor via REST
+    await notificationService.notifyAppointmentBooked(appointment, patientPhone);
 
     res.status(201).json({
       message: 'Appointment booked successfully',
@@ -148,22 +145,18 @@ exports.updateStatus = async (req, res) => {
 
     await appointment.save();
 
-    // Notify about status change
-    publishToQueue({
-      eventType: 'APPOINTMENT_STATUS_CHANGED',
-      recipientId: appointment.patientId,
-      recipientRole: 'patient',
-      email: appointment.patientEmail,
-      referenceId: appointment._id,
-      data: {
-        appointmentId: appointment.appointmentId,
-        patientName:   appointment.patientName,
-        doctorName:    appointment.doctorName,
-        status,
-        date: appointment.appointmentDate,
-        time: appointment.timeSlot
-      }
+    // Fetch patient phone from profile for acceptance notification
+    const patientUser = await mongoose.connection.db.collection('users').findOne({ 
+      _id: new mongoose.Types.ObjectId(appointment.patientId) 
     });
+    const patientPhone = patientUser?.phone || null;
+
+    // Trigger specific notifications based on status
+    if (status === 'CONFIRMED') {
+      await notificationService.notifyAppointmentConfirmed(appointment, patientPhone);
+    } else if (status === 'CANCELLED') {
+      await notificationService.notifyAppointmentCancelled(appointment, patientPhone, req.user.role, cancelReason);
+    }
 
     res.json({ message: `Appointment ${status.toLowerCase()}`, appointment });
 

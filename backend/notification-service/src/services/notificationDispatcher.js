@@ -23,6 +23,8 @@ const getMessage = (type, data) => {
     case 'CONSULTATION_STARTED': return `Dr. ${data?.doctorName || ''} is waiting for you in the virtual room.`;
     case 'CONSULTATION_COMPLETED': return `Your telemedicine session with Dr. ${data?.doctorName || ''} has ended.`;
     case 'PRESCRIPTION_ISSUED': return `You have a new prescription from Dr. ${data?.doctorName || ''}.`;
+    case 'PAYMENT_SUCCESS': return `Your payment of ${data?.currency || 'LKR'} ${data?.amount || ''} for Dr. ${data?.doctorName || ''} was successful. Your appointment is now waiting for approval.`;
+    case 'PAYMENT_SUCCESS_DOCTOR': return `You have received a payment of ${data?.currency || 'LKR'} ${data?.amount || ''} from ${data?.patientName || 'a patient'}.`;
     default: return 'You have a new update in your CareNet portal.';
   }
 };
@@ -34,6 +36,9 @@ const getLink = (type, refId) => {
     case 'CONSULTATION_COMPLETED':
       return `/dashboard/appointments/${refId}`;
     case 'PRESCRIPTION_ISSUED': return `/dashboard/prescriptions`;
+    case 'PAYMENT_SUCCESS': 
+    case 'PAYMENT_SUCCESS_DOCTOR':
+      return `/dashboard/payments`;
     default: return '/dashboard';
   }
 };

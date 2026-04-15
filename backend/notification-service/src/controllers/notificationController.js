@@ -40,7 +40,7 @@ const handlePaymentNotification = async (req, res, next) => {
           email         : r.email,
           phone         : r.phone,
           role          : r.role,
-          recipientId   : r.data?.recipientId,
+          recipientId   : r.recipientId || r.data?.recipientId,
           data          : r.data,
           referenceId,
           referenceType : 'transaction',

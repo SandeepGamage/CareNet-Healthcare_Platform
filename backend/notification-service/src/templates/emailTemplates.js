@@ -57,7 +57,7 @@ const templates = {
     html: wrap('Payment Confirmed', `
       <h2>Payment Successful!</h2>
       <p>Hi <strong>${d.patientName || 'Patient'}</strong>,</p>
-      <p>Your consultation payment has been processed successfully. Here are the details:</p>
+      <p>Your consultation payment has been processed successfully. Your appointment is now waiting for approval by the doctor. Here are the details:</p>
       <div class="detail-box">
         <div class="detail-row"><span class="detail-label">Doctor</span><span class="detail-value">Dr. ${d.doctorName}</span></div>
         <div class="detail-row"><span class="detail-label">Appointment Date</span><span class="detail-value">${d.appointmentDate}</span></div>

@@ -134,7 +134,6 @@ services:
       JITSI_APP_ID: ${JITSI_APP_ID:-}
       JITSI_APP_SECRET: ${JITSI_APP_SECRET:-}
     depends_on:
-      - mongodb
       - appointment-service
     restart: unless-stopped
     networks:
@@ -181,6 +180,8 @@ services:
       EMAIL_USER: carenet.admin.support@gmail.com
       EMAIL_PASS: dunmjxijnykwlloc
       EMAIL_FROM: "CareNet Healthcare <carenet.admin.support@gmail.com>"
+      TEXTLK_API_TOKEN: ${TEXTLK_API_TOKEN:-3996|rXnzTCy0SzluVtWuvkjPTtOJAVAf2t6n0udt7pO189bbe87d}
+      TEXTLK_SENDER_ID: ${TEXTLK_SENDER_ID:-CareNet}
       NODE_ENV: ${NODE_ENV:-production}
     depends_on:
       - rabbitmq
@@ -239,25 +240,7 @@ services:
     depends_on:
       - api-gateway
 
-  # ─── Notification Service ───────────────────────────────────────
-  notification-service:
-    build:
-      context: ./backend/notification-service
-      dockerfile: Dockerfile
-    container_name: notification-service
-    ports:
-      - '3006:3006'
-    env_file:
-      - ./backend/notification-service/.env
-    environment:
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
-    depends_on:
-      - rabbitmq
-    networks:
-      - healthcare-network
-    volumes:
-      - ./backend/notification-service/logs:/app/logs
-    restart: unless-stopped
+  # ─── Frontend ────────────────────────────────────────────
 
 networks:
   healthcare-network:
