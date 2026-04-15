@@ -90,8 +90,8 @@ app.get('/health/dependencies', async (req, res) => {
   });
 });
 
-app.use('/prescriptions', prescriptionRoutes);
-app.use('/profile', doctorRoutes);
+app.use('/api/doctors/prescriptions', prescriptionRoutes);
+app.use('/api/doctors/profile', doctorRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
