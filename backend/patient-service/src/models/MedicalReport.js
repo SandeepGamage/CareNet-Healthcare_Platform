@@ -2,6 +2,13 @@ const mongoose = require("mongoose");
 
 const medicalReportSchema = new mongoose.Schema(
   {
+    medicalReportId: {
+      type: String,
+      required: [true, "Medical report ID is required"],
+      unique: true,
+      index: true,
+      trim: true,
+    },
     patientUserId: {
       type: mongoose.Schema.Types.ObjectId,
       required: [true, "Patient user ID is required"],

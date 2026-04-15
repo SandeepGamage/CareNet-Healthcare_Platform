@@ -6,6 +6,7 @@ const morgan = require("morgan");
 const path = require("path");
 
 const patientRoutes = require("./routes/PatientRoutes");
+const medicalReportRoutes = require("./routes/MedicalReportRoutes");
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/api/patients", patientRoutes);
+app.use("/api/patients", medicalReportRoutes);
 
 // Multer and other middleware errors
 app.use((error, req, res, next) => {
@@ -48,7 +50,7 @@ const startServer = async () => {
 	try {
 		await mongoose.connect(process.env.MONGO_URI);
 		console.log(`MongoDB connected: ${mongoose.connection.readyState === 1 ? "YES" : "NO"}`);
-		const port = process.env.PORT || 5005;
+		const port = process.env.PORT || 3002;
 		app.listen(port, () => {
 			console.log(`Patient service running on port ${port}`);
 		});

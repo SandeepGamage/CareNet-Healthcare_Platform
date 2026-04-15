@@ -5,7 +5,6 @@ const patientController = require("../controllers/PatientController");
 
 // Adjust these imports to match your project
 const { protect, authorize } = require("../middleware/authMiddleware");
-const upload = require("../middleware/uploadMiddleware");
 
 /**
  * ----------------------------------------------------------------
@@ -37,39 +36,6 @@ router.put(
   patientController.updateMyProfile
 );
 
-// Upload medical report
-router.post(
-  "/me/reports",
-  protect,
-  authorize("patient"),
-  upload.single("report"),
-  patientController.uploadMedicalReport
-);
-
-// Get all my medical reports
-router.get(
-  "/me/reports",
-  protect,
-  authorize("patient"),
-  patientController.getMyReports
-);
-
-// Get one of my reports
-router.get(
-  "/me/reports/:reportId",
-  protect,
-  authorize("patient"),
-  patientController.getMyReportById
-);
-
-// Delete one of my reports
-router.delete(
-  "/me/reports/:reportId",
-  protect,
-  authorize("patient"),
-  patientController.deleteMyReport
-);
-
 // Get patient history summary
 router.get(
   "/me/history",
@@ -98,13 +64,6 @@ router.get(
   protect,
   authorize("doctor", "admin"),
   patientController.getPatientProfileByUserId
-);
-
-router.get(
-  "/:patientUserId/reports",
-  protect,
-  authorize("doctor", "admin"),
-  patientController.getPatientReportsByUserId
 );
 
 router.get(
