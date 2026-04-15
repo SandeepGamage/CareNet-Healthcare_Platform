@@ -1,9 +1,15 @@
 const express = require("express");
 const router = express.Router();
+const fileUpload = require("express-fileupload");
 
 const medicalReportController = require("../controllers/MedicalReportController");
 const { protect, authorize } = require("../middleware/authMiddleware");
-const upload = require("../middleware/uploadMiddleware");
+
+const reportUploadMiddleware = fileUpload({
+  useTempFiles: false,
+  abortOnLimit: false,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 
 /**
  * ----------------------------------------------------------------
@@ -16,7 +22,7 @@ router.post(
   "/me/reports",
   protect,
   authorize("patient"),
-  upload.single("report"),
+  reportUploadMiddleware,
   medicalReportController.uploadMedicalReport
 );
 
@@ -41,7 +47,7 @@ router.put(
   "/me/reports/:reportId",
   protect,
   authorize("patient"),
-  upload.single("report"),
+  reportUploadMiddleware,
   medicalReportController.updateMyReport
 );
 
