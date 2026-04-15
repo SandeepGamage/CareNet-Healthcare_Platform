@@ -1,9 +1,9 @@
-const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
 const { customAlphabet } = require("nanoid");
 
 const MedicalReport = require("../models/MedicalReport");
+const supabase = require("../utils/supabase");
 
 const counterSchema = new mongoose.Schema(
   {
@@ -17,6 +17,19 @@ const Counter =
   mongoose.models.Counter || mongoose.model("Counter", counterSchema, "counters");
 const nanoToken = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 4);
 
+const buildReportLookup = (reportId, patientUserId) => {
+  const orFilters = [{ medicalReportId: reportId }];
+
+  if (mongoose.Types.ObjectId.isValid(reportId)) {
+    orFilters.push({ _id: reportId });
+  }
+
+  return {
+    patientUserId,
+    $or: orFilters,
+  };
+};
+
 const generateMedicalReportId = async () => {
   const counter = await Counter.findByIdAndUpdate(
     "medicalReportId",
@@ -27,8 +40,74 @@ const generateMedicalReportId = async () => {
   return `MR-${String(counter.seq).padStart(6, "0")}-${nanoToken()}`;
 };
 
+const getReportsBucket = () => process.env.SUPABASE_REPORTS_BUCKET || process.env.SUPABASE_BUCKET || "medical-reports";
+
+const buildSupabaseReportPath = (userId, originalFileName = "report") => {
+  const extension = path.extname(originalFileName) || "";
+  const safeUserId = String(userId || "unknown").replace(/[^a-zA-Z0-9_-]/g, "");
+  return `reports/${safeUserId}/${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`;
+};
+
+const uploadReportToSupabase = async (file, userId) => {
+  if (!supabase) {
+    throw new Error("Supabase is not configured for patient-service.");
+  }
+
+  const bucket = getReportsBucket();
+  const filePath = buildSupabaseReportPath(userId, file.originalname);
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(filePath, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw new Error(uploadError.message || "Failed to upload medical report to Supabase.");
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(bucket).getPublicUrl(filePath);
+
+  return { fileUrl: publicUrl, bucket, filePath };
+};
+
+const extractSupabasePathFromPublicUrl = (publicUrl, bucket) => {
+  if (!publicUrl || !bucket) return null;
+  const marker = `/storage/v1/object/public/${bucket}/`;
+  const markerIndex = publicUrl.indexOf(marker);
+  if (markerIndex === -1) return null;
+
+  const startIndex = markerIndex + marker.length;
+  const pathWithPossibleQuery = publicUrl.slice(startIndex);
+  return pathWithPossibleQuery.split("?")[0] || null;
+};
+
+const deleteReportFileFromSupabase = async (fileUrl) => {
+  if (!supabase) return;
+
+  const bucket = getReportsBucket();
+  const filePath = extractSupabasePathFromPublicUrl(fileUrl, bucket);
+
+  if (!filePath) return;
+
+  const { error } = await supabase.storage.from(bucket).remove([filePath]);
+  if (error) {
+    console.warn("deleteReportFileFromSupabase warning:", error.message);
+  }
+};
+
 const getReportsByPatientUserId = async (patientUserId) => {
   return MedicalReport.find({ patientUserId }).sort({ createdAt: -1 });
+};
+
+const getAllReports = async ({ skip = 0, limit = 100 }) => {
+  return MedicalReport.find({})
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
 };
 
 /**
@@ -55,7 +134,7 @@ exports.uploadMedicalReport = async (req, res) => {
       });
     }
 
-    const fileUrl = `/uploads/reports/${req.file.filename}`;
+    const { fileUrl } = await uploadReportToSupabase(req.file, userId);
 
     const report = await MedicalReport.create({
       medicalReportId: await generateMedicalReportId(),
@@ -118,10 +197,7 @@ exports.getMyReportById = async (req, res) => {
     const userId = req.user.id;
     const { reportId } = req.params;
 
-    const report = await MedicalReport.findOne({
-      $or: [{ _id: reportId }, { medicalReportId: reportId }],
-      patientUserId: userId,
-    });
+    const report = await MedicalReport.findOne(buildReportLookup(reportId, userId));
 
     if (!report) {
       return res.status(404).json({
@@ -154,10 +230,7 @@ exports.updateMyReport = async (req, res) => {
     const { reportId } = req.params;
     const { title, reportType, description } = req.body;
 
-    const report = await MedicalReport.findOne({
-      $or: [{ _id: reportId }, { medicalReportId: reportId }],
-      patientUserId: userId,
-    });
+    const report = await MedicalReport.findOne(buildReportLookup(reportId, userId));
 
     if (!report) {
       return res.status(404).json({
@@ -188,16 +261,10 @@ exports.updateMyReport = async (req, res) => {
 
     // If a new report file is uploaded, replace file metadata and cleanup old file.
     if (req.file) {
-      if (report.fileUrl) {
-        const relativePath = report.fileUrl.replace(/^\/+/, "");
-        const absolutePath = path.join(process.cwd(), relativePath);
+      await deleteReportFileFromSupabase(report.fileUrl);
+      const { fileUrl } = await uploadReportToSupabase(req.file, userId);
 
-        if (fs.existsSync(absolutePath)) {
-          fs.unlinkSync(absolutePath);
-        }
-      }
-
-      report.fileUrl = `/uploads/reports/${req.file.filename}`;
+      report.fileUrl = fileUrl;
       report.fileName = req.file.originalname;
       report.mimeType = req.file.mimetype;
       report.fileSize = req.file.size;
@@ -230,10 +297,7 @@ exports.deleteMyReport = async (req, res) => {
     const userId = req.user.id;
     const { reportId } = req.params;
 
-    const report = await MedicalReport.findOne({
-      $or: [{ _id: reportId }, { medicalReportId: reportId }],
-      patientUserId: userId,
-    });
+    const report = await MedicalReport.findOne(buildReportLookup(reportId, userId));
 
     if (!report) {
       return res.status(404).json({
@@ -242,14 +306,7 @@ exports.deleteMyReport = async (req, res) => {
       });
     }
 
-    if (report.fileUrl) {
-      const relativePath = report.fileUrl.replace(/^\/+/, "");
-      const absolutePath = path.join(process.cwd(), relativePath);
-
-      if (fs.existsSync(absolutePath)) {
-        fs.unlinkSync(absolutePath);
-      }
-    }
+    await deleteReportFileFromSupabase(report.fileUrl);
 
     await MedicalReport.findByIdAndDelete(report._id);
 
@@ -286,6 +343,40 @@ exports.getPatientReportsByUserId = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error fetching patient reports.",
+    });
+  }
+};
+
+/**
+ * @desc    Admin - get all medical reports from all patients
+ * @route   GET /api/patients/reports/all
+ * @access  Private (admin)
+ */
+exports.getAllMedicalReports = async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const skip = (page - 1) * limit;
+
+    const [reports, total] = await Promise.all([
+      getAllReports({ skip, limit }),
+      MedicalReport.countDocuments({}),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      page,
+      limit,
+      total,
+      count: reports.length,
+      totalPages: Math.ceil(total / limit) || 1,
+      data: reports,
+    });
+  } catch (error) {
+    console.error("getAllMedicalReports error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Server error fetching all medical reports.",
     });
   }
 };
