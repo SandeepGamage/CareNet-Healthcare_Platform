@@ -135,7 +135,7 @@ export default function ModernPatientDashboard() {
             try {
                 const token = localStorage.getItem("token");
                 // Using auth-service at port 3001
-                const response = await fetch("${import.meta.env.VITE_API_BASE_URL}/auth/me", {
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/me`, {
                     headers: {
                         "Authorization": `Bearer ${token}`
                     }
@@ -498,12 +498,12 @@ export default function ModernPatientDashboard() {
                                 gap: "24px",
                                 marginBottom: "40px",
                             }}>
-                                <StatCard 
-                                    label="Next Appointment" 
-                                    value={appointmentsData.length > 0 ? appointmentsData[0].date : "None"} 
-                                    change={appointmentsData.length > 0 ? "Confirmed" : "No upcoming"} 
-                                    changeType="up" 
-                                    icon="📅" 
+                                <StatCard
+                                    label="Next Appointment"
+                                    value={appointmentsData.length > 0 ? appointmentsData[0].date : "None"}
+                                    change={appointmentsData.length > 0 ? "Confirmed" : "No upcoming"}
+                                    changeType="up"
+                                    icon="📅"
                                 />
                                 <StatCard label="Health Score" value="--" change="Not enough data" changeType="up" icon="⭐" />
                                 <StatCard label="Total Visits" value="0" change="New Patient" changeType="up" icon="🏥" />
@@ -621,18 +621,18 @@ export default function ModernPatientDashboard() {
                     {activeTab === "appointments" && (
                         <div style={{ animation: "fadeIn 0.3s ease-in" }}>
                             <div style={{ marginBottom: "24px" }}>
-                                <button 
+                                <button
                                     onClick={() => navigate("/book-appointment")}
                                     style={{
-                                    background: "#3b82f6",
-                                    color: "white",
-                                    border: "none",
-                                    padding: "12px 24px",
-                                    borderRadius: "8px",
-                                    fontSize: "16px",
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                }}>
+                                        background: "#3b82f6",
+                                        color: "white",
+                                        border: "none",
+                                        padding: "12px 24px",
+                                        borderRadius: "8px",
+                                        fontSize: "16px",
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                    }}>
                                     + Book New Appointment
                                 </button>
                             </div>
@@ -734,17 +734,17 @@ export default function ModernPatientDashboard() {
                                             </div>
 
                                             {expandedAppt === appt.id && (
-                                                <div 
+                                                <div
                                                     onClick={(e) => e.stopPropagation()}
                                                     style={{
-                                                    marginTop: "16px",
-                                                    paddingTop: "16px",
-                                                    borderTop: "1px solid #f3f4f6",
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    gap: "12px",
-                                                }}>
-                                                     <div style={{ display: "flex", gap: "12px" }}>
+                                                        marginTop: "16px",
+                                                        paddingTop: "16px",
+                                                        borderTop: "1px solid #f3f4f6",
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        gap: "12px",
+                                                    }}>
+                                                    <div style={{ display: "flex", gap: "12px" }}>
                                                         <button style={{
                                                             flex: 1,
                                                             padding: "10px",
@@ -896,10 +896,10 @@ export default function ModernPatientDashboard() {
                     {/* ── SETTINGS TAB ──────────────────────────────────────────────── */}
                     {activeTab === "settings" && (
                         <div style={{ animation: "fadeIn 0.3s ease-in" }}>
-                             <div style={{ 
-                                background: "white", 
-                                border: "1px solid #e5e7eb", 
-                                borderRadius: "16px", 
+                            <div style={{
+                                background: "white",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: "16px",
                                 padding: "40px",
                                 maxWidth: "800px"
                             }}>
@@ -911,8 +911,8 @@ export default function ModernPatientDashboard() {
                                     <p style={{ color: "#6b7280", fontSize: "14px", margin: "0 0 24px 0" }}>
                                         Once you deactivate your account, you will be logged out. You can reactive it at any time by simply logging in again with your email and password.
                                     </p>
-                                    
-                                    <button 
+
+                                    <button
                                         onClick={async () => {
                                             if (window.confirm("Are you sure you want to deactivate your account?")) {
                                                 try {
@@ -951,7 +951,7 @@ export default function ModernPatientDashboard() {
                                         Deactivate Account
                                     </button>
                                 </div>
-                             </div>
+                            </div>
                         </div>
                     )}
 

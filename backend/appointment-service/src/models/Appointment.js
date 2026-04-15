@@ -1,6 +1,17 @@
 const mongoose = require('mongoose');
+const { customAlphabet } = require('nanoid');
+
+// Create a custom nanoid generator with letters and numbers
+const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const nanoid = customAlphabet(alphabet, 8);
 
 const appointmentSchema = new mongoose.Schema({
+  appointmentId: {
+    type: String,
+    required: true,
+    unique: true,
+    default: () => `APP${nanoid()}`
+  },
 
   patientId: {
     type: String,
@@ -50,7 +61,7 @@ const appointmentSchema = new mongoose.Schema({
   },
 
   reason: {
-    type: String 
+    type: String
   },
 
   notes: {
@@ -65,6 +76,10 @@ const appointmentSchema = new mongoose.Schema({
   isPaid: {
     type: Boolean,
     default: false
+  },
+
+  tokenNum: {
+    type: Number
   },
 
   // if type is TELEMEDICINE, store the room link here
@@ -82,6 +97,6 @@ const appointmentSchema = new mongoose.Schema({
     type: String
   }
 
-}, { timestamps: true }); 
+}, { timestamps: true });
 
 module.exports = mongoose.model('Appointment', appointmentSchema);
