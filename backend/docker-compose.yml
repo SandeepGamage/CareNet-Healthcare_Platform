@@ -32,6 +32,24 @@ services:
     networks:
       - healthcare-net
 
+  patient-service:
+    build: ./patient-service
+    container_name: patient-service
+    restart: unless-stopped
+    ports:
+      - '3002:3002'
+    environment:
+      PORT: 3002
+      NODE_ENV: development
+      MONGO_URI: mongodb://mongodb:27017/carenet_patients
+      JWT_SECRET: ${JWT_SECRET}
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      DOCTOR_PRESCRIPTION_ENDPOINT_TEMPLATE: /api/doctors/prescriptions/patient/:patientUserId
+    depends_on:
+      - mongodb
+    networks:
+      - healthcare-net
+
   notification-service:
     build: ./notification-service
     container_name: notification-service

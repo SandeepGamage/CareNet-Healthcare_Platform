@@ -1,9 +1,31 @@
-const fs = require("fs");
-const path = require("path");
 const axios = require("axios");
+const mongoose = require("mongoose");
+const { customAlphabet } = require("nanoid");
 
 const PatientProfile = require("../models/PatientProfile");
-const MedicalReport = require("../models/MedicalReport");
+const { getReportsByPatientUserId } = require("./MedicalReportController");
+
+const counterSchema = new mongoose.Schema(
+  {
+    _id: { type: String, required: true },
+    seq: { type: Number, default: 0 },
+  },
+  { versionKey: false }
+);
+
+const Counter =
+  mongoose.models.Counter || mongoose.model("Counter", counterSchema, "counters");
+const nanoToken = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 4);
+
+const generatePatientId = async () => {
+  const counter = await Counter.findByIdAndUpdate(
+    "patientId",
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+
+  return `PAT-${String(counter.seq).padStart(5, "0")}-${nanoToken()}`;
+};
 
 /**
  * Helper: safely normalize incoming array-like fields.
@@ -39,16 +61,18 @@ const normalizeStringArray = (value) => {
 
 /**
  * Fetch prescription data from doctor-service.
- * Endpoint template supports :patientUserId placeholder.
+ * Supports both :patientId and legacy :patientUserId placeholders.
  */
 const fetchPrescriptionsFromDoctorService = async (patientUserId, authHeader) => {
-  const doctorServiceBaseUrl =
-    process.env.DOCTOR_SERVICE_URL || process.env.PRESCRIPTION_SERVICE_URL || "http://localhost:5001";
+  const doctorServiceBaseUrl = process.env.DOCTOR_SERVICE_URL || "http://localhost:5001";
   const endpointTemplate =
     process.env.DOCTOR_PRESCRIPTION_ENDPOINT_TEMPLATE ||
-    "/api/doctors/prescriptions/patient/:patientUserId";
+    "/api/doctors/prescriptions/patient/:patientId";
 
-  const endpoint = endpointTemplate.replace(":patientUserId", String(patientUserId));
+  const endpoint = endpointTemplate
+    .replace(":patientId", String(patientUserId))
+    .replace(":patientUserId", String(patientUserId));
+
   const url = `${doctorServiceBaseUrl.replace(/\/$/, "")}${endpoint}`;
 
   try {
@@ -57,16 +81,12 @@ const fetchPrescriptionsFromDoctorService = async (patientUserId, authHeader) =>
       timeout: 5000,
     });
 
-    if (Array.isArray(response.data)) {
-      return response.data;
-    }
-
     if (Array.isArray(response.data?.data)) {
       return response.data.data;
     }
 
-    if (Array.isArray(response.data?.prescriptions)) {
-      return response.data.prescriptions;
+    if (Array.isArray(response.data)) {
+      return response.data;
     }
 
     return [];
@@ -154,6 +174,7 @@ exports.createMyProfile = async (req, res) => {
     }
 
     const profile = await PatientProfile.create({
+      patientId: await generatePatientId(),
       userId,
       dateOfBirth,
       gender: normalizedGender,
@@ -243,167 +264,6 @@ exports.updateMyProfile = async (req, res) => {
 };
 
 /**
- * @desc    Upload a medical report
- * @route   POST /api/patients/me/reports
- * @access  Private (patient)
- */
-exports.uploadMedicalReport = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { title, reportType, description } = req.body;
-
-    if (!title) {
-      return res.status(400).json({
-        success: false,
-        message: "Report title is required.",
-      });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "Medical report file is required.",
-      });
-    }
-
-    const fileUrl = `/uploads/reports/${req.file.filename}`;
-
-    const report = await MedicalReport.create({
-      patientUserId: userId,
-      title,
-      reportType: reportType || "general",
-      description: description || null,
-      fileUrl,
-      fileName: req.file.originalname,
-      mimeType: req.file.mimetype,
-      fileSize: req.file.size,
-      uploadedBy: userId,
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Medical report uploaded successfully.",
-      data: report,
-    });
-  } catch (error) {
-    console.error("uploadMedicalReport error:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Server error uploading medical report.",
-    });
-  }
-};
-
-/**
- * @desc    Get all reports of logged-in patient
- * @route   GET /api/patients/me/reports
- * @access  Private (patient)
- */
-exports.getMyReports = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const reports = await MedicalReport.find({ patientUserId: userId }).sort({
-      createdAt: -1,
-    });
-
-    return res.status(200).json({
-      success: true,
-      count: reports.length,
-      data: reports,
-    });
-  } catch (error) {
-    console.error("getMyReports error:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Server error fetching medical reports.",
-    });
-  }
-};
-
-/**
- * @desc    Get a specific report of logged-in patient
- * @route   GET /api/patients/me/reports/:reportId
- * @access  Private (patient)
- */
-exports.getMyReportById = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { reportId } = req.params;
-
-    const report = await MedicalReport.findOne({
-      _id: reportId,
-      patientUserId: userId,
-    });
-
-    if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: "Medical report not found.",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      data: report,
-    });
-  } catch (error) {
-    console.error("getMyReportById error:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Server error fetching medical report.",
-    });
-  }
-};
-
-/**
- * @desc    Delete a specific report of logged-in patient
- * @route   DELETE /api/patients/me/reports/:reportId
- * @access  Private (patient)
- */
-exports.deleteMyReport = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { reportId } = req.params;
-
-    const report = await MedicalReport.findOne({
-      _id: reportId,
-      patientUserId: userId,
-    });
-
-    if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: "Medical report not found.",
-      });
-    }
-
-    // Delete physical file if it exists locally
-    if (report.fileUrl) {
-      const relativePath = report.fileUrl.replace(/^\/+/, "");
-      const absolutePath = path.join(process.cwd(), relativePath);
-
-      if (fs.existsSync(absolutePath)) {
-        fs.unlinkSync(absolutePath);
-      }
-    }
-
-    await MedicalReport.findByIdAndDelete(reportId);
-
-    return res.status(200).json({
-      success: true,
-      message: "Medical report deleted successfully.",
-    });
-  } catch (error) {
-    console.error("deleteMyReport error:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Server error deleting medical report.",
-    });
-  }
-};
-
-/**
  * @desc    Get patient history summary
  * @route   GET /api/patients/me/history
  * @access  Private (patient)
@@ -420,9 +280,7 @@ exports.getMyHistory = async (req, res) => {
       });
     }
 
-    const reports = await MedicalReport.find({ patientUserId: userId }).sort({
-      createdAt: -1,
-    });
+    const reports = await getReportsByPatientUserId(userId);
 
     const prescriptions = await fetchPrescriptionsFromDoctorService(
       userId,
@@ -508,33 +366,6 @@ exports.getPatientProfileByUserId = async (req, res) => {
 };
 
 /**
- * @desc    Doctor/Admin/Internal - get patient reports by user id
- * @route   GET /api/patients/:patientUserId/reports
- * @access  Private (doctor/admin/internal)
- */
-exports.getPatientReportsByUserId = async (req, res) => {
-  try {
-    const { patientUserId } = req.params;
-
-    const reports = await MedicalReport.find({ patientUserId }).sort({
-      createdAt: -1,
-    });
-
-    return res.status(200).json({
-      success: true,
-      count: reports.length,
-      data: reports,
-    });
-  } catch (error) {
-    console.error("getPatientReportsByUserId error:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Server error fetching patient reports.",
-    });
-  }
-};
-
-/**
  * @desc    Doctor/Admin/Internal - get patient history by user id
  * @route   GET /api/patients/:patientUserId/history
  * @access  Private (doctor/admin/internal)
@@ -544,9 +375,7 @@ exports.getPatientHistoryByUserId = async (req, res) => {
     const { patientUserId } = req.params;
 
     const profile = await PatientProfile.findOne({ userId: patientUserId });
-    const reports = await MedicalReport.find({ patientUserId }).sort({
-      createdAt: -1,
-    });
+    const reports = await getReportsByPatientUserId(patientUserId);
 
     const prescriptions = await fetchPrescriptionsFromDoctorService(
       patientUserId,
