@@ -36,3 +36,19 @@ spec:
                 secretKeyRef:
                   name: doctor-secret
                   key: JWT_SECRET
+            - name: PATIENT_SERVICE_URL
+              value: "http://patient-service:3002"
+            - name: APPOINTMENT_SERVICE_URL
+              value: "http://appointment-service:3004"
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:3001"
+            - name: DOCTOR_SERVICE_URL
+              value: "http://doctor-service:3003"
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-service:3006"
+            - name: PAYMENT_SERVICE_URL
+              value: "http://payment-service:3005"
+            - name: SYMPTOM_SERVICE_URL
+              value: "http://symptom-service:3008"
+            - name: TELEMEDICINE_SERVICE_URL
+              value: "http://telemedicine-service:3007"
