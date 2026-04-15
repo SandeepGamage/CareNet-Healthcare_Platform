@@ -54,6 +54,7 @@ services:
       PORT: 3001
       MONGO_URI: mongodb://mongodb:27017/carenet_auth
       JWT_SECRET: ${JWT_SECRET_APPOINTMENT:-carenet_secret}
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
     depends_on:
       - mongodb
     networks:
@@ -109,6 +110,12 @@ services:
       PORT: 3006
       MONGO_URI: mongodb://mongodb:27017/carenet_notifications
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      EMAIL_HOST: smtp.gmail.com
+      EMAIL_PORT: 587
+      EMAIL_SECURE: "false"
+      EMAIL_USER: carenet.admin.support@gmail.com
+      EMAIL_PASS: dunmjxijnykwlloc
+      EMAIL_FROM: "CareNet Healthcare <carenet.admin.support@gmail.com>"
     depends_on:
       - rabbitmq
       - mongodb

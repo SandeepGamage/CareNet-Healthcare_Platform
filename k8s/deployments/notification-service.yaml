@@ -25,6 +25,18 @@ spec:
               value: "mongodb://mongodb:27017/carenet_notifications"
             - name: RABBITMQ_URL
               value: "amqp://guest:guest@rabbitmq:5672"
+            - name: EMAIL_HOST
+              value: "smtp.gmail.com"
+            - name: EMAIL_PORT
+              value: "587"
+            - name: EMAIL_SECURE
+              value: "false"
+            - name: EMAIL_USER
+              value: "carenet.admin.support@gmail.com"
+            - name: EMAIL_PASS
+              value: "dunmjxijnykwlloc"
+            - name: EMAIL_FROM
+              value: "CareNet Healthcare <carenet.admin.support@gmail.com>"
 ---
 apiVersion: v1
 kind: Service

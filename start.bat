@@ -120,7 +120,9 @@ timeout /t 3 >nul
 echo.
 echo [SUCCESS] Deployment applied to Kubernetes!
 echo To open the frontend in your browser natively, opening now...
-minikube service frontend
+start cmd /k "title CareNet Frontend Bridge && echo [*] Frontend... && kubectl port-forward svc/frontend 5173:5173"
+echo Opening frontend at http://localhost:5173...
+start "" "http://localhost:5173"
 echo.
 
 pause
@@ -142,9 +144,10 @@ echo.
 start cmd /k "title CareNet Gateway Bridge && echo [*] Gateway Bridge... && kubectl port-forward svc/api-gateway 8000:8080"
 start cmd /k "title CareNet Backend Bridge && echo [*] Core Services... && kubectl port-forward svc/appointment-service 3004:3004"
 start cmd /k "title CareNet AI Bridge && echo [*] Symptom Checker... && kubectl port-forward svc/symptom-service 3008:3008"
+start cmd /k "title CareNet Frontend Bridge && echo [*] Frontend... && kubectl port-forward svc/frontend 5173:5173"
 echo.
 echo Bridges have been triggered! 
-echo Check for three new terminal windows.
+echo Check for four new terminal windows.
 timeout /t 3 >nul
 goto MENU
 

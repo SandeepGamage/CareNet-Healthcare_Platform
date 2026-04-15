@@ -1,6 +1,10 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { HeartPulse, Mail, Lock, ArrowLeft, ArrowRight, Eye, EyeOff, AlertCircle } from "lucide-react";
+import {
+  HeartPulse, Mail, Lock, ArrowLeft, ArrowRight,
+  Eye, EyeOff, AlertCircle, KeyRound, X, CheckCircle2,
+  RefreshCw, ShieldCheck,
+} from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGoogleLogin } from "@react-oauth/google";
 
@@ -41,6 +45,27 @@ const inputClass = (hasError) =>
       : "border-slate-200 focus:ring-teal-500/20 focus:border-teal-500"
   }`;
 
+const modalInputClass = (hasError) =>
+  `w-full pl-12 pr-4 py-3 rounded-xl bg-slate-50 border transition-all focus:outline-none focus:ring-2 text-sm ${
+    hasError
+      ? "border-red-400 focus:ring-red-300/30 focus:border-red-400"
+      : "border-slate-200 focus:ring-teal-500/20 focus:border-teal-500"
+  }`;
+
+// ── Step indicator pill ───────────────────────────────────────────────────────
+const StepPill = ({ current, total }) => (
+  <div className="flex items-center justify-center gap-2 mb-6">
+    {Array.from({ length: total }).map((_, i) => (
+      <div
+        key={i}
+        className={`h-1.5 rounded-full transition-all duration-400 ${
+          i < current ? "bg-teal-500 w-8" : i === current ? "bg-teal-400 w-8" : "bg-slate-200 w-4"
+        }`}
+      />
+    ))}
+  </div>
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const LoginPage = () => {
@@ -60,8 +85,127 @@ const LoginPage = () => {
   const touch = (field) => setTouched((t) => ({ ...t, [field]: true }));
 
   const liveErrors = validateLoginForm({ email, password });
-
   const getErr = (field) => (touched[field] ? liveErrors[field] : undefined);
+
+  // ── Forgot Password State ────────────────────────────────────────────────────
+  const [showForgot, setShowForgot] = useState(false);
+  const [fpStep, setFpStep]         = useState(1);   // 1 = email, 2 = otp + new pass
+
+  const [fpEmail, setFpEmail]           = useState("");
+  const [fpEmailError, setFpEmailError] = useState("");
+
+  const [fpOtp, setFpOtp]               = useState("");
+  const [fpNewPass, setFpNewPass]       = useState("");
+  const [fpConfirmPass, setFpConfirmPass] = useState("");
+  const [fpShowPass, setFpShowPass]     = useState(false);
+  const [fpResetToken, setFpResetToken] = useState("");
+
+  const [fpLoading, setFpLoading]   = useState(false);
+  const [fpError, setFpError]       = useState("");
+  const [fpSuccess, setFpSuccess]   = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const closeForgot = () => {
+    setShowForgot(false);
+    setTimeout(() => {
+      setFpStep(1);
+      setFpEmail(""); setFpEmailError(""); setFpOtp("");
+      setFpNewPass(""); setFpConfirmPass(""); setFpResetToken("");
+      setFpError(""); setFpSuccess(false); setFpLoading(false);
+      setResendCooldown(0);
+    }, 300);
+  };
+
+  const startResendCooldown = () => {
+    setResendCooldown(60);
+    const timer = setInterval(() => {
+      setResendCooldown((c) => {
+        if (c <= 1) { clearInterval(timer); return 0; }
+        return c - 1;
+      });
+    }, 1000);
+  };
+
+  // Step 1 – request reset code
+  const handleForgotRequest = async (e) => {
+    e.preventDefault();
+    setFpError("");
+    if (!fpEmail.trim()) { setFpEmailError("Email is required."); return; }
+    if (!isValidEmail(fpEmail)) { setFpEmailError("Enter a valid email address."); return; }
+    setFpEmailError("");
+    setFpLoading(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: fpEmail.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFpResetToken(data.resetToken || "");
+        setFpStep(2);
+        startResendCooldown();
+      } else {
+        setFpError(data.message || "Failed to send reset code.");
+      }
+    } catch {
+      setFpError("Unable to connect. Please try again.");
+    } finally {
+      setFpLoading(false);
+    }
+  };
+
+  // Resend from step 2
+  const handleResend = async () => {
+    if (resendCooldown > 0) return;
+    setFpError(""); setFpLoading(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: fpEmail.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFpResetToken(data.resetToken || "");
+        setFpOtp("");
+        startResendCooldown();
+      } else {
+        setFpError(data.message || "Failed to resend code.");
+      }
+    } catch {
+      setFpError("Unable to connect. Please try again.");
+    } finally {
+      setFpLoading(false);
+    }
+  };
+
+  // Step 2 – submit OTP + new password
+  const handleForgotReset = async (e) => {
+    e.preventDefault();
+    setFpError("");
+    if (fpOtp.length !== 6)           { setFpError("Enter the 6-digit reset code."); return; }
+    if (fpNewPass.length < 8)         { setFpError("Password must be at least 8 characters."); return; }
+    if (fpNewPass !== fpConfirmPass)  { setFpError("Passwords do not match."); return; }
+    setFpLoading(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetToken: fpResetToken, code: fpOtp, newPassword: fpNewPass }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFpSuccess(true);
+      } else {
+        setFpError(data.message || "Reset failed. Please try again.");
+      }
+    } catch {
+      setFpError("Unable to connect. Please try again.");
+    } finally {
+      setFpLoading(false);
+    }
+  };
 
   // ── Google Login ────────────────────────────────────────────────────────────
   const handleGoogleLogin = useGoogleLogin({
@@ -104,7 +248,6 @@ const LoginPage = () => {
     e.preventDefault();
     setServerError("");
 
-    // Mark all as touched so errors surface
     setTouched({ email: true, password: true });
     const validationErrors = validateLoginForm({ email, password });
     if (Object.keys(validationErrors).length > 0) return;
@@ -234,7 +377,14 @@ const LoginPage = () => {
             <div className="space-y-1">
               <div className="flex justify-between items-center ml-1">
                 <label className="text-sm font-semibold text-slate-700">Password</label>
-                <a href="#" className="text-xs font-semibold text-teal-600 hover:text-teal-700">Forgot Password?</a>
+                <button
+                  id="forgot-password-btn"
+                  type="button"
+                  onClick={() => setShowForgot(true)}
+                  className="text-xs font-semibold text-teal-600 hover:text-teal-700 transition-colors focus:outline-none focus:underline"
+                >
+                  Forgot Password?
+                </button>
               </div>
               <div className="relative group">
                 <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${getErr("password") ? "text-red-400" : "text-slate-400 group-focus-within:text-teal-500"}`} />
@@ -279,6 +429,322 @@ const LoginPage = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* ── Forgot Password Modal ────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showForgot && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="fp-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              onClick={closeForgot}
+              className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm"
+            />
+
+            {/* Modal Card */}
+            <motion.div
+              key="fp-modal"
+              initial={{ opacity: 0, scale: 0.93, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 24 }}
+              transition={{ type: "spring", stiffness: 340, damping: 30 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+            >
+              <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl shadow-slate-900/20 border border-slate-100 pointer-events-auto overflow-hidden">
+
+                {/* Modal Header */}
+                <div className="relative bg-gradient-to-r from-teal-500 to-blue-500 px-6 pt-7 pb-8">
+                  <button
+                    id="close-forgot-modal-btn"
+                    onClick={closeForgot}
+                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center mb-3">
+                    <KeyRound className="w-6 h-6 text-white" />
+                  </div>
+                  <h2 className="text-xl font-bold text-white">
+                    {fpSuccess ? "All Done!" : "Reset Password"}
+                  </h2>
+                  <p className="text-teal-100 text-sm mt-1">
+                    {fpSuccess
+                      ? "Your password has been reset successfully."
+                      : fpStep === 1
+                        ? "Enter your email and we'll send a 6-digit reset code."
+                        : `Check your inbox at ${fpEmail} for the reset code.`}
+                  </p>
+                </div>
+
+                {/* Step Pills (only when not success) */}
+                {!fpSuccess && (
+                  <div className="px-6 pt-5">
+                    <StepPill current={fpStep - 1} total={2} />
+                  </div>
+                )}
+
+                {/* Modal Body */}
+                <div className="px-6 pb-7">
+                  <AnimatePresence mode="wait">
+
+                    {/* ── SUCCESS STATE ─────────────────────────────── */}
+                    {fpSuccess && (
+                      <motion.div
+                        key="fp-success"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="flex flex-col items-center text-center py-4"
+                      >
+                        <div className="w-16 h-16 rounded-full bg-teal-50 flex items-center justify-center mb-4">
+                          <CheckCircle2 className="w-9 h-9 text-teal-500" />
+                        </div>
+                        <p className="text-slate-700 font-semibold text-base mb-1">Password Updated</p>
+                        <p className="text-slate-500 text-sm mb-6">
+                          You can now log in with your new password.
+                        </p>
+                        <button
+                          id="fp-go-signin-btn"
+                          onClick={closeForgot}
+                          className="w-full py-3 rounded-xl bg-teal-500 hover:bg-teal-600 text-white font-bold text-sm transition-all duration-200 shadow-lg shadow-teal-500/25 hover:shadow-xl hover:-translate-y-0.5"
+                        >
+                          Back to Sign In
+                        </button>
+                      </motion.div>
+                    )}
+
+                    {/* ── STEP 1: Email ─────────────────────────────── */}
+                    {!fpSuccess && fpStep === 1 && (
+                      <motion.form
+                        key="fp-step1"
+                        initial={{ opacity: 0, x: -16 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -16 }}
+                        transition={{ duration: 0.22 }}
+                        onSubmit={handleForgotRequest}
+                        noValidate
+                        className="space-y-4"
+                      >
+                        {/* Error */}
+                        <AnimatePresence>
+                          {fpError && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0 }}
+                              className="flex items-center gap-2 bg-red-50 text-red-600 text-xs font-medium p-3 rounded-xl border border-red-100"
+                            >
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              {fpError}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 ml-0.5">
+                            Email Address
+                          </label>
+                          <div className="relative">
+                            <Mail className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${fpEmailError ? "text-red-400" : "text-slate-400"}`} />
+                            <input
+                              id="fp-email-input"
+                              type="email"
+                              placeholder="name@example.com"
+                              value={fpEmail}
+                              onChange={(e) => { setFpEmail(e.target.value); setFpEmailError(""); setFpError(""); }}
+                              className={modalInputClass(!!fpEmailError)}
+                              autoFocus
+                            />
+                          </div>
+                          <FieldError msg={fpEmailError} />
+                        </div>
+
+                        <button
+                          id="fp-send-code-btn"
+                          type="submit"
+                          disabled={fpLoading}
+                          className="w-full py-3 rounded-xl bg-teal-500 hover:bg-teal-600 disabled:bg-teal-400 text-white font-bold text-sm transition-all duration-200 shadow-lg shadow-teal-500/25 hover:shadow-xl hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                        >
+                          {fpLoading ? (
+                            <>
+                              <motion.span
+                                animate={{ rotate: 360 }}
+                                transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
+                                className="inline-block"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </motion.span>
+                              Sending…
+                            </>
+                          ) : (
+                            <>Send Reset Code <ArrowRight className="w-4 h-4" /></>
+                          )}
+                        </button>
+                      </motion.form>
+                    )}
+
+                    {/* ── STEP 2: OTP + New Password ────────────────── */}
+                    {!fpSuccess && fpStep === 2 && (
+                      <motion.form
+                        key="fp-step2"
+                        initial={{ opacity: 0, x: 16 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 16 }}
+                        transition={{ duration: 0.22 }}
+                        onSubmit={handleForgotReset}
+                        noValidate
+                        className="space-y-4"
+                      >
+                        {/* Error */}
+                        <AnimatePresence>
+                          {fpError && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0 }}
+                              className="flex items-center gap-2 bg-red-50 text-red-600 text-xs font-medium p-3 rounded-xl border border-red-100"
+                            >
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              {fpError}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        {/* 6-digit OTP */}
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 ml-0.5">
+                            6-Digit Reset Code
+                          </label>
+                          <div className="relative">
+                            <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                              id="fp-otp-input"
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={6}
+                              placeholder="123456"
+                              value={fpOtp}
+                              onChange={(e) => { setFpOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setFpError(""); }}
+                              className={`${modalInputClass(false)} tracking-[0.3em] font-mono text-center`}
+                              autoFocus
+                            />
+                          </div>
+                          {/* Resend */}
+                          <div className="flex justify-end mt-1.5">
+                            <button
+                              id="fp-resend-btn"
+                              type="button"
+                              onClick={handleResend}
+                              disabled={resendCooldown > 0 || fpLoading}
+                              className={`text-xs font-semibold transition-colors ${
+                                resendCooldown > 0 ? "text-slate-400 cursor-not-allowed" : "text-teal-600 hover:text-teal-700"
+                              }`}
+                            >
+                              {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* New Password */}
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 ml-0.5">
+                            New Password
+                          </label>
+                          <div className="relative">
+                            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                              id="fp-new-password-input"
+                              type={fpShowPass ? "text" : "password"}
+                              placeholder="Min. 8 characters"
+                              value={fpNewPass}
+                              onChange={(e) => { setFpNewPass(e.target.value); setFpError(""); }}
+                              className={`${modalInputClass(false)} pr-10`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setFpShowPass((v) => !v)}
+                              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                              tabIndex={-1}
+                            >
+                              {fpShowPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Confirm Password */}
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1.5 ml-0.5">
+                            Confirm New Password
+                          </label>
+                          <div className="relative">
+                            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                              id="fp-confirm-password-input"
+                              type={fpShowPass ? "text" : "password"}
+                              placeholder="Re-enter password"
+                              value={fpConfirmPass}
+                              onChange={(e) => { setFpConfirmPass(e.target.value); setFpError(""); }}
+                              className={`${modalInputClass(
+                                !!(fpConfirmPass && fpNewPass !== fpConfirmPass)
+                              )} pr-10`}
+                            />
+                            {fpConfirmPass && fpNewPass === fpConfirmPass && (
+                              <CheckCircle2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-500" />
+                            )}
+                          </div>
+                          {fpConfirmPass && fpNewPass !== fpConfirmPass && (
+                            <p className="text-xs text-red-500 mt-1 ml-0.5 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" /> Passwords do not match
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            id="fp-back-btn"
+                            type="button"
+                            onClick={() => { setFpStep(1); setFpError(""); setFpOtp(""); setFpNewPass(""); setFpConfirmPass(""); }}
+                            className="w-10 h-10 shrink-0 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:text-teal-600 hover:border-teal-200 transition-all"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                          </button>
+                          <button
+                            id="fp-reset-btn"
+                            type="submit"
+                            disabled={fpLoading}
+                            className="flex-1 py-3 rounded-xl bg-teal-500 hover:bg-teal-600 disabled:bg-teal-400 text-white font-bold text-sm transition-all duration-200 shadow-lg shadow-teal-500/25 hover:shadow-xl hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                          >
+                            {fpLoading ? (
+                              <>
+                                <motion.span
+                                  animate={{ rotate: 360 }}
+                                  transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
+                                  className="inline-block"
+                                >
+                                  <RefreshCw className="w-4 h-4" />
+                                </motion.span>
+                                Resetting…
+                              </>
+                            ) : (
+                              "Reset Password"
+                            )}
+                          </button>
+                        </div>
+                      </motion.form>
+                    )}
+
+                  </AnimatePresence>
+                </div>
+
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -406,7 +406,8 @@ exports.verifyOTP = async (req, res) => {
     }
 
     await VerificationCode.deleteMany({ _id: userId }); // clear this code
-    if (user._id) await VerificationCode.deleteMany({ userId: user._id }); // clear all codes for this user
+    // Only clear verification codes – never touch password_reset codes
+    if (user._id) await VerificationCode.deleteMany({ userId: user._id, purpose: { $ne: 'password_reset' } });
 
     let token = null;
     if (user.role !== 'doctor' || user.isVerified) {
@@ -461,7 +462,8 @@ exports.resendOTP = async (req, res) => {
     const name = user ? user.name : pending.registrationData.name;
 
     await VerificationCode.deleteMany({ _id: userId });
-    if (user) await VerificationCode.deleteMany({ userId: user._id });
+    // Only clear verification codes – never touch password_reset codes
+    if (user) await VerificationCode.deleteMany({ userId: user._id, purpose: { $ne: 'password_reset' } });
 
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     
@@ -532,5 +534,105 @@ exports.deactivateAccount = async (req, res) => {
   } catch (error) {
     console.error('deactivateAccount error:', error.message);
     res.status(500).json({ success: false, message: 'Server error during deactivation.' });
+  }
+};
+
+// ── POST /api/auth/forgot-password ───────────────────────────────────────────
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required.' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    // Always return success to prevent email enumeration attacks
+    if (!user || !user.isOtpVerified) {
+      return res.status(200).json({
+        success: true,
+        message: 'If a verified account with that email exists, a reset code has been sent.',
+      });
+    }
+
+    // Clear any existing password reset codes for this user
+    await VerificationCode.deleteMany({ userId: user._id, purpose: 'password_reset' });
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const record = await VerificationCode.create({
+      userId: user._id,
+      code: otpCode,
+      type: 'email',
+      purpose: 'password_reset',
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+    });
+
+    await sendNotification({
+      to: user.email,
+      subject: 'CareNet - Password Reset Code',
+      body: `Hello ${user.name},\n\nYour password reset code is: ${otpCode}\n\nThis code expires in 15 minutes. If you did not request a password reset, please ignore this email.`,
+      type: 'EMAIL',
+      apiPath: 'verify',
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset code sent to your email.',
+      resetToken: record._id,
+    });
+  } catch (error) {
+    console.error('forgotPassword error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error. Please try again.' });
+  }
+};
+
+// ── POST /api/auth/reset-password ────────────────────────────────────────────
+exports.resetPassword = async (req, res) => {
+  try {
+    const { resetToken, code, newPassword } = req.body;
+
+    if (!resetToken || !code || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Reset token, code, and new password are required.' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.' });
+    }
+
+    const record = await VerificationCode.findById(resetToken);
+    if (!record || record.purpose !== 'password_reset' || record.code !== code) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired reset code.' });
+    }
+    if (record.expiresAt < new Date()) {
+      await VerificationCode.deleteMany({ _id: resetToken });
+      return res.status(400).json({ success: false, message: 'Reset code has expired. Please request a new one.' });
+    }
+
+    const user = await User.findById(record.userId).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Account not found.' });
+    }
+
+    user.password = newPassword; // pre-save hook will hash this
+    await user.save();
+
+    await VerificationCode.deleteMany({ _id: resetToken });
+
+    // Fire-and-forget confirmation notification
+    sendNotification({
+      to: user.email,
+      subject: 'CareNet - Password Changed Successfully',
+      body: `Hello ${user.name}, your CareNet password has been successfully changed. If you did not make this change, please contact our support team immediately.`,
+      type: 'EMAIL',
+      apiPath: 'account',
+      eventType: 'ACCOUNT_UPDATE',
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successfully. You can now log in with your new password.',
+    });
+  } catch (error) {
+    console.error('resetPassword error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error. Please try again.' });
   }
 };
