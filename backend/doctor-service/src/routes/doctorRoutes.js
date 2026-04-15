@@ -7,6 +7,7 @@ const {
 const {
   normalizeDoctorPayload,
   createProfile,
+  getProfileMe,
   getAllProfiles,
   getAvailableProfilesByTime,
   updateProfile,
@@ -16,6 +17,7 @@ const {
 const router = express.Router();
 
 router.get("/", protect, authorizeDoctorAdminPatient, getAllProfiles);
+router.get("/me", protect, authorizeDoctor, getProfileMe);
 router.get("/available", protect, authorizeDoctorAdminPatient, getAvailableProfilesByTime);
 router.post("/", protect, authorizeDoctor, normalizeDoctorPayload, createProfile);
 router.put("/:id", protect, authorizeDoctor, normalizeDoctorPayload, updateProfile);

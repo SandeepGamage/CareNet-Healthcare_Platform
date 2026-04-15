@@ -108,8 +108,12 @@ start cmd /k "kubectl port-forward svc/appointment-service 3004:3004"
 start cmd /k "kubectl port-forward svc/symptom-service 3008:3008"
 
 echo.
-echo Opening frontend...
-minikube service frontend
+echo [SUCCESS] Deployment applied to Kubernetes!
+echo To open the frontend in your browser natively, opening now...
+start cmd /k "title CareNet Frontend Bridge && echo [*] Frontend... && kubectl port-forward svc/frontend 5173:5173"
+echo Opening frontend at http://localhost:5173...
+start "" "http://localhost:5173"
+echo.
 
 pause
 goto MENU
