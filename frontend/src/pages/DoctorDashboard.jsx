@@ -18,6 +18,7 @@ import {
   MapPin
 } from "lucide-react";
 import Navbar from "../components/common/Navbar";
+import ShowAppointments from "./doctor-dashboard-components/appointments/showAppointments";
 
 // ── Mock Data ────────────────────────────────────────────────────────────────
 const MOCK_STATS = [
@@ -107,6 +108,8 @@ export default function DoctorDashboard() {
         </Navbar>
 
         <div className="p-8">
+          {activeTab === "overview" && (
+            <>
           {/* Dashboard Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
             {MOCK_STATS.map((stat, idx) => (
@@ -213,6 +216,12 @@ export default function DoctorDashboard() {
               </div>
             </div>
           </div>
+            </>
+          )}
+
+          {activeTab === "appointments" && (
+            <ShowAppointments />
+          )}
         </div>
       </main>
     </div>

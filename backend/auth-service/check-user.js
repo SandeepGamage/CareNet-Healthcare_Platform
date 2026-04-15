@@ -1,8 +1,9 @@
 
+require('dotenv').config();
 const mongoose = require('mongoose');
 
-// Auth Service DB
-const AUTH_MONGO_URI = 'mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/?appName=Cluster0';
+// Use MONGO_URI from .env
+const AUTH_MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/carenet_auth';
 
 async function checkUser() {
   try {
