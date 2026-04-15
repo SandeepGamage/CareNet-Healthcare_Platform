@@ -1,5 +1,10 @@
-import { useState, useEffect } from "react";
-import { Edit, Mail, MapPin, Phone, Clock3, Check, Loader2 } from "lucide-react";
+
+import { useEffect, useState, useEffect } from "react";
+import axios from "axios";
+import { Mail, MapPin, Phone, Clock3, Loader2 } from "lucide-react";
+
+const API_BASE_URL = (import.meta.env.VITE_DOCTOR_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api").replace(/\/$/, "");
+const DOCTOR_PROFILE_ENDPOINT = `${API_BASE_URL}/doctors/profile`;
 import axios from "axios";
 
 export default function Profile() {
@@ -81,12 +86,8 @@ export default function Profile() {
 
 	return (
 		<div className="min-h-screen bg-slate-50">
-			{/* Header Banner */}
 			<div className="relative">
-				<div className="h-48 rounded-b-2xl shadow-lg" style={{ backgroundColor: "#87CEFA" }}>
-				</div>
-
-				{/* Profile Picture */}
+				<div className="h-48 rounded-b-2xl shadow-lg" style={{ backgroundColor: "#87CEFA" }}></div>
 				<div className="absolute -bottom-16 left-8 z-10">
 					{user?.profileImage ? (
 						<img 
@@ -104,9 +105,7 @@ export default function Profile() {
 				</div>
 			</div>
 
-			{/* Profile Content */}
 			<div className="px-8 pt-24 pb-8 max-w-6xl mx-auto">
-				{/* Profile Header Info */}
 				<div className="mb-8">
 					<div className="flex justify-between items-start mb-6">
 						<div>

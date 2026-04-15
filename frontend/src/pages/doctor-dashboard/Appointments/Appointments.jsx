@@ -1,69 +1,101 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import axios from "axios";
 import { Calendar, CheckCircle, XCircle, Clock3, User, MessageSquare, ArrowUpDown, Search, X } from "lucide-react";
 
-const REQUESTED_APPOINTMENTS = [
-	{
-		id: "APT-1001",
-		patientName: "Ahamed Shaba",
-		patientId: "P001",
-		requestedDate: "2026-04-18",
-		requestedTime: "09:30",
-		appointmentType: "First Consultation",
-		reason: "High blood pressure and headache",
-		status: "Pending",
-	},
-	{
-		id: "APT-1002",
-		patientName: "Sandeep Gamage",
-		patientId: "P002",
-		requestedDate: "2026-04-18",
-		requestedTime: "10:15",
-		appointmentType: "Follow-up",
-		reason: "Review diabetes test results",
-		status: "Pending",
-	},
-	{
-		id: "APT-1003",
-		patientName: "M. Rizwan",
-		patientId: "P003",
-		requestedDate: "2026-04-19",
-		requestedTime: "13:00",
-		appointmentType: "Cardiac Checkup",
-		reason: "Chest pain and shortness of breath",
-		status: "Pending",
-	},
-	{
-		id: "APT-1004",
-		patientName: "Nithya Perera",
-		patientId: "P004",
-		requestedDate: "2026-04-19",
-		requestedTime: "14:45",
-		appointmentType: "General Consultation",
-		reason: "Fever and body pain",
-		status: "Confirmed",
-	},
-	{
-		id: "APT-1005",
-		patientName: "Imran Khan",
-		patientId: "P005",
-		requestedDate: "2026-04-20",
-		requestedTime: "11:00",
-		appointmentType: "Follow-up",
-		reason: "Medication review",
-		status: "Pending",
-	},
-];
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api").replace(/\/$/, "");
 
 const statusStyles = {
-	Pending: "bg-amber-100 text-amber-700",
-	Confirmed: "bg-emerald-100 text-emerald-700",
-	Rejected: "bg-rose-100 text-rose-700",
+	PENDING: "bg-amber-100 text-amber-700",
+	CONFIRMED: "bg-emerald-100 text-emerald-700",
+	CANCELLED: "bg-rose-100 text-rose-700",
+	COMPLETED: "bg-blue-100 text-blue-700",
 };
 
+const normalizeStatus = (status) => String(status || "PENDING").toUpperCase();
+
+const formatStatusLabel = (status) => {
+	const normalized = normalizeStatus(status);
+	if (normalized === "CANCELLED") return "Rejected";
+	return normalized.charAt(0) + normalized.slice(1).toLowerCase();
+};
+
+const formatDateForTable = (dateValue) => {
+	if (!dateValue) return "N/A";
+	const date = new Date(dateValue);
+	if (Number.isNaN(date.getTime())) return "N/A";
+	return date.toISOString().slice(0, 10);
+};
+
+const normalizeAppointment = (appointment) => ({
+	id: appointment._id || appointment.id || "",
+	patientName: appointment.patientName || "Unknown Patient",
+	patientId: appointment.patientId || "N/A",
+	requestedDate: formatDateForTable(appointment.appointmentDate || appointment.requestedDate),
+	requestedTime: appointment.timeSlot || appointment.requestedTime || "N/A",
+	appointmentType: appointment.type || appointment.appointmentType || "General Consultation",
+	reason: appointment.reason || "No reason provided",
+	status: normalizeStatus(appointment.status),
+});
+
 export default function Appointments() {
+	const [appointments, setAppointments] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [errorMessage, setErrorMessage] = useState("");
 	const [sortField, setSortField] = useState("requestedDate");
 	const [sortDirection, setSortDirection] = useState("asc");
 	const [searchQuery, setSearchQuery] = useState("");
+
+	const getAuthToken = () => localStorage.getItem("token");
+
+	const getRequestConfig = () => {
+		const token = getAuthToken();
+		return {
+			headers: {
+				Authorization: `Bearer ${token}`,
+			},
+		};
+	};
+
+	const fetchDoctorAppointments = async () => {
+		const token = getAuthToken();
+		if (!token) {
+			setAppointments([]);
+			setErrorMessage("Login token not found. Please login again.");
+			setLoading(false);
+			return;
+		}
+
+		try {
+			setLoading(true);
+			const response = await axios.get(`${API_BASE_URL}/appointments/doctor`, getRequestConfig());
+			const rawAppointments = Array.isArray(response.data)
+				? response.data
+				: Array.isArray(response.data?.data)
+					? response.data.data
+					: [];
+
+			setAppointments(rawAppointments.map(normalizeAppointment));
+			setErrorMessage("");
+		} catch (error) {
+			setAppointments([]);
+			setErrorMessage(error.response?.data?.message || "Could not load appointment requests from backend.");
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const updateAppointmentStatus = async (appointmentId, status) => {
+		try {
+			await axios.patch(`${API_BASE_URL}/appointments/${appointmentId}/status`, { status }, getRequestConfig());
+			await fetchDoctorAppointments();
+		} catch (error) {
+			setErrorMessage(error.response?.data?.message || "Failed to update appointment status.");
+		}
+	};
+
+	useEffect(() => {
+		fetchDoctorAppointments();
+	}, []);
 
 	const handleSort = (field) => {
 		if (sortField === field) {
@@ -114,7 +146,7 @@ export default function Appointments() {
 		return sorted;
 	};
 
-	const sortedAppointments = sortAppointments(REQUESTED_APPOINTMENTS);
+	const sortedAppointments = sortAppointments(appointments);
 	const SortIcon = ({ columnKey }) => {
 		if (sortField !== columnKey) {
 			return <ArrowUpDown size={14} className="opacity-30" />;
@@ -142,15 +174,16 @@ export default function Appointments() {
 
 	const filteredAppointments = filterAppointments(sortedAppointments);
 
-	const totalRequests = REQUESTED_APPOINTMENTS.length;
-	const pendingRequests = REQUESTED_APPOINTMENTS.filter((appointment) => appointment.status === "Pending").length;
-	const confirmedRequests = REQUESTED_APPOINTMENTS.filter((appointment) => appointment.status === "Confirmed").length;
+	const totalRequests = appointments.length;
+	const pendingRequests = appointments.filter((appointment) => appointment.status === "PENDING").length;
+	const confirmedRequests = appointments.filter((appointment) => appointment.status === "CONFIRMED").length;
 
 	return (
 		<div className="p-8">
 			<div className="mb-6">
 				<h1 className="text-2xl font-bold text-slate-800">Appointments</h1>
 				<p className="mt-1 text-sm text-slate-600">Requested appointments sent by patients</p>
+				{errorMessage && <p className="mt-2 text-sm text-red-600">{errorMessage}</p>}
 			</div>
 
 			<div className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-6">
@@ -295,11 +328,10 @@ export default function Appointments() {
 			</div>
 
 			<div className="overflow-x-auto">
-				<table className="w-full min-w-[1100px]">
+				<table className="w-full min-w-[1000px]">
 					<thead className="bg-slate-50">
 						<tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
 							<th className="px-6 py-3">Patient</th>
-							<th className="px-6 py-3">Patient ID</th>
 							<th className="px-6 py-3">Requested Date</th>
 							<th className="px-6 py-3">Requested Time</th>
 							<th className="px-6 py-3">Type</th>
@@ -309,7 +341,14 @@ export default function Appointments() {
 						</tr>
 					</thead>
 					<tbody className="divide-y divide-slate-100">
-						{filteredAppointments.map((appointment) => (
+						{loading ? (
+							<tr>
+								<td colSpan="7" className="px-6 py-10 text-center text-sm text-slate-500">
+									Loading appointment requests...
+								</td>
+							</tr>
+						) : (
+							filteredAppointments.map((appointment) => (
 							<tr key={appointment.id} className="hover:bg-slate-50/60 transition-colors">
 								<td className="px-6 py-4">
 									<div>
@@ -317,7 +356,6 @@ export default function Appointments() {
 										<p className="text-xs text-slate-500">Requested by patient</p>
 									</div>
 								</td>
-								<td className="px-6 py-4 text-sm text-slate-600">{appointment.patientId}</td>
 								<td className="px-6 py-4 text-sm text-slate-600">{appointment.requestedDate}</td>
 								<td className="px-6 py-4 text-sm text-slate-600">{appointment.requestedTime}</td>
 								<td className="px-6 py-4 text-sm text-slate-600">{appointment.appointmentType}</td>
@@ -328,22 +366,38 @@ export default function Appointments() {
 									</div>
 								</td>
 								<td className="px-6 py-4">
-									<span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[appointment.status]}`}>
-										{appointment.status}
+									<span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[appointment.status] || "bg-slate-100 text-slate-700"}`}>
+										{formatStatusLabel(appointment.status)}
 									</span>
 								</td>
 								<td className="px-6 py-4">
 									<div className="flex justify-center gap-2">
-										<button className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100">
+										<button
+											onClick={() => updateAppointmentStatus(appointment.id, "CONFIRMED")}
+											disabled={appointment.status !== "PENDING"}
+											className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+										>
 											Accept
 										</button>
-										<button className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100">
+										<button
+											onClick={() => updateAppointmentStatus(appointment.id, "CANCELLED")}
+											disabled={appointment.status !== "PENDING"}
+											className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+										>
 											Reject
 										</button>
 									</div>
 								</td>
 							</tr>
-						))}
+							))
+						)}
+						{!loading && filteredAppointments.length === 0 && (
+							<tr>
+								<td colSpan="7" className="px-6 py-10 text-center text-sm text-slate-500">
+									No appointment requests found.
+								</td>
+							</tr>
+						)}
 					</tbody>
 				</table>
 			</div>
