@@ -1,12 +1,12 @@
-const express = require("express");
-const cors = require("cors");
 const dotenv = require("dotenv");
-const symptomRoutes = require("./routes/symptom");
-
 dotenv.config();
 
+const express = require("express");
+const cors = require("cors");
+const symptomRoutes = require("./routes/symptom");
+
 const app = express();
-const PORT = process.env.PORT || 3008;
+const PORT = process.env.PORT;
 
 // Middleware
 app.use(cors());

@@ -1,1 +1,0 @@
-Symptom Service running on port 3008
