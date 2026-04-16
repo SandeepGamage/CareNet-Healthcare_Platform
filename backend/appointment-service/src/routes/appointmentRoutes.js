@@ -9,7 +9,9 @@ const {
   cancelAppointment,
   getAllAppointments,
   getAvailableSlots,
-  adminDeleteAppointment
+  adminDeleteAppointment,
+  updateAppointmentByPatient,
+  deleteAppointmentByPatient
 } = require('../controllers/appointmentController');
 
 // Public-ish (still needs JWT, but any role)
@@ -26,7 +28,9 @@ router.get('/doctor',  protect, restrictTo('DOCTOR'),  getDoctorAppointments);
 // Patient routes
 router.post('/',       protect, restrictTo('PATIENT'), createAppointment);
 router.get('/my',      protect, restrictTo('PATIENT'), getMyAppointments);
-router.delete('/:id',  protect, restrictTo('PATIENT'), cancelAppointment);
+router.delete('/:id/patient', protect, restrictTo('PATIENT'), deleteAppointmentByPatient);
+router.patch('/update/:id', protect, restrictTo('PATIENT'), updateAppointmentByPatient);
+
 
 // Shared (patient + doctor + admin can view single)
 router.get('/:id',     protect, getAppointmentById);
