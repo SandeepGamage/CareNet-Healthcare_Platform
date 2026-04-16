@@ -152,6 +152,18 @@ const bookSlot = asyncHandler(async (req, res) => {
   });
 });
 
+const freeSlot = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { slot } = req.body;
+  const profile = await freeDoctorSlot(id, slot);
+
+  res.status(200).json({
+    success: true,
+    message: 'Slot freed successfully',
+    data: profile,
+  });
+});
+
 const resetAllSlots = asyncHandler(async (req, res) => {
   const result = await resetAllDoctorSlots();
   res.status(200).json({
@@ -209,5 +221,6 @@ module.exports = {
   updateProfile,
   deleteProfile,
   bookSlot,
+  freeSlot,
   resetAllSlots,
 };

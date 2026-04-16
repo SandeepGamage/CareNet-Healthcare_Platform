@@ -17,6 +17,7 @@ const {
   updateProfile,
   deleteProfile,
   bookSlot,
+  freeSlot,
   resetAllSlots,
 } = require("../controllers/doctorController");
 
@@ -34,6 +35,7 @@ router.patch("/me/available-hours", protect, authorizeDoctor, updateMyProfileAva
 router.post("/", protect, authorizeDoctor, normalizeDoctorPayload, createProfile);
 router.put("/:id", protect, authorizeDoctor, normalizeDoctorPayload, updateProfile);
 router.patch("/book-slot/:id", protect, bookSlot); // Can be called by appointment service
+router.patch("/free-slot/:id", protect, freeSlot); // Can be called by appointment service
 router.post("/reset-slots", protect, resetAllSlots);
 router.delete("/:id", protect, authorizeDoctor, deleteProfile);
 

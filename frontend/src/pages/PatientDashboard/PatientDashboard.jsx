@@ -5,6 +5,7 @@ import PatientProfile from "./PatientProfile/PatientProfile";
 import MedicalRecordsTab from "./MedicalRecords/MedicalRecordsTab";
 import PrescriptionsTab from "./Prescriptions/PrescriptionsTab";
 import TelemedicineTab from "../../components/telemedicine/TelemedicineTab";
+import ViewAppointments from "./Appointments/viewAppointments";
 
 // ── Mini Sparkline Chart ───────────────────────────────────────────────────────
 function MiniChart({ data, color = "#3b82f6" }) {
@@ -99,8 +100,6 @@ const healthScoreData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 export default function ModernPatientDashboard() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("overview");
-    const [expandedAppt, setExpandedAppt] = useState(null);
-    const [payingAppt, setPayingAppt] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [appointmentsData, setAppointmentsData] = useState([]);
     const [paymentsData, setPaymentsData] = useState([]);
@@ -622,151 +621,7 @@ export default function ModernPatientDashboard() {
                     {/* ── APPOINTMENTS TAB ──────────────────────────────────────────── */}
                     {activeTab === "appointments" && (
                         <div style={{ animation: "fadeIn 0.3s ease-in" }}>
-                            <div style={{ marginBottom: "24px" }}>
-                                <button
-                                    onClick={() => navigate("/book-appointment")}
-                                    style={{
-                                        background: "#3b82f6",
-                                        color: "white",
-                                        border: "none",
-                                        padding: "12px 24px",
-                                        borderRadius: "8px",
-                                        fontSize: "16px",
-                                        fontWeight: 600,
-                                        cursor: "pointer",
-                                    }}>
-                                    + Book New Appointment
-                                </button>
-                            </div>
-
-                            <div style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
-                                gap: "24px",
-                            }}>
-                                {appointmentsData.length === 0 ? (
-                                    <div style={{
-                                        gridColumn: "1 / -1",
-                                        padding: "80px 40px",
-                                        textAlign: "center",
-                                        background: "white",
-                                        borderRadius: "20px",
-                                        border: "2px dashed #e5e7eb",
-                                        color: "#6b7280"
-                                    }}>
-                                        <p style={{ fontSize: "48px", margin: "0 0 24px 0" }}>📅</p>
-                                        <h3 style={{ fontSize: "20px", fontWeight: 600, color: "#111827", margin: "0 0 8px 0" }}>No upcoming appointments</h3>
-                                        <p style={{ fontSize: "16px", margin: 0 }}>You don't have any appointments scheduled at the moment.</p>
-                                    </div>
-                                ) : (
-                                    appointmentsData.map((appt) => (
-                                        <div
-                                            key={appt.id}
-                                            onClick={() => {
-                                                if (expandedAppt !== appt.id) {
-                                                    setExpandedAppt(appt.id);
-                                                    setPayingAppt(null);
-                                                } else {
-                                                    setExpandedAppt(null);
-                                                }
-                                            }}
-                                            style={{
-                                                background: "white",
-                                                border: "1px solid #e5e7eb",
-                                                borderRadius: "16px",
-                                                padding: "24px",
-                                                cursor: "pointer",
-                                                transition: "all 0.2s",
-                                                boxShadow: expandedAppt === appt.id ? "0 10px 25px rgba(0,0,0,0.1)" : "none",
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (expandedAppt !== appt.id) {
-                                                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
-                                                }
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                if (expandedAppt !== appt.id) {
-                                                    e.currentTarget.style.boxShadow = "none";
-                                                }
-                                            }}
-                                        >
-                                            <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", marginBottom: "16px" }}>
-                                                <img src={appt.avatar} alt={appt.doctor} style={{
-                                                    width: "56px",
-                                                    height: "56px",
-                                                    borderRadius: "12px",
-                                                    objectFit: "cover",
-                                                }} />
-                                                <div style={{ flex: 1 }}>
-                                                    <h4 style={{ fontSize: "16px", fontWeight: 600, color: "#111827", margin: "0 0 4px 0" }}>
-                                                        {appt.doctor}
-                                                    </h4>
-                                                    <p style={{ fontSize: "13px", color: "#6b7280", margin: 0 }}>
-                                                        {appt.specialty}
-                                                    </p>
-                                                </div>
-                                                <span style={{
-                                                    background: appt.statusColor || "#3b82f6",
-                                                    color: "white",
-                                                    padding: "6px 12px",
-                                                    borderRadius: "6px",
-                                                    fontSize: "11px",
-                                                    fontWeight: 600,
-                                                }}>
-                                                    {appt.status}
-                                                </span>
-                                            </div>
-
-                                            <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: "16px" }}>
-                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-                                                    <div>
-                                                        <p style={{ fontSize: "11px", color: "#9ca3af", fontWeight: 600, margin: "0 0 4px 0", textTransform: "uppercase" }}>Date</p>
-                                                        <p style={{ fontSize: "14px", color: "#111827", fontWeight: 500, margin: 0 }}>{appt.date}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p style={{ fontSize: "11px", color: "#9ca3af", fontWeight: 600, margin: "0 0 4px 0", textTransform: "uppercase" }}>Time</p>
-                                                        <p style={{ fontSize: "14px", color: "#111827", fontWeight: 500, margin: 0 }}>{appt.time}</p>
-                                                    </div>
-                                                </div>
-
-                                                <div>
-                                                    <p style={{ fontSize: "11px", color: "#9ca3af", fontWeight: 600, margin: "0 0 4px 0", textTransform: "uppercase" }}>Type</p>
-                                                    <p style={{ fontSize: "14px", color: "#111827", fontWeight: 500, margin: 0 }}>{appt.type}</p>
-                                                </div>
-                                            </div>
-
-                                            {expandedAppt === appt.id && (
-                                                <div
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    style={{
-                                                        marginTop: "16px",
-                                                        paddingTop: "16px",
-                                                        borderTop: "1px solid #f3f4f6",
-                                                        display: "flex",
-                                                        flexDirection: "column",
-                                                        gap: "12px",
-                                                    }}>
-                                                    <div style={{ display: "flex", gap: "12px" }}>
-                                                        <button style={{
-                                                            flex: 1,
-                                                            padding: "10px",
-                                                            background: "#f3f4f6",
-                                                            color: "#374151",
-                                                            border: "none",
-                                                            borderRadius: "8px",
-                                                            fontSize: "14px",
-                                                            fontWeight: 600,
-                                                            cursor: "pointer",
-                                                        }}>
-                                                            Details
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
+                            <ViewAppointments />
                         </div>
                     )}
 
