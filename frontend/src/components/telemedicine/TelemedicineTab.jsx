@@ -240,7 +240,7 @@ export default function TelemedicineTab({ role = "patient" }) {
             <div className="border-b border-blue-100 bg-linear-to-r from-blue-50 to-sky-50 px-6 py-4">
                 <h2 className="text-lg font-bold text-slate-800">Telemedicine Sessions</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                    Appointment-based secure video calls powered by meet.jit.si
+                    Appointment-based secure video calls powered by Jitsi as a Service (JaaS)
                 </p>
             </div>
 

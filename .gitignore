@@ -79,6 +79,9 @@ web_modules/
 .env.*
 !.env.example
 
+# Telemedicine private keys
+backend/telemedicine-service/keys/*.pem
+
 # Kubernetes secrets
 *-secret.yaml
 kubeconfig
