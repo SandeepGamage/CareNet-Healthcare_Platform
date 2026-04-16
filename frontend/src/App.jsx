@@ -13,6 +13,8 @@ import MyAppointments from './pages/appointment/AppointmentsViewAsPatient'
 import Symptom from './pages/ai-symptom/SymptomChecker'
 import PaymentSuccess from './pages/payment/PaymentSuccess'
 import PaymentCancel from './pages/payment/PaymentCancel'
+import LandingPageTest from './pages/LandingPageTest'
+import AboutUs from './pages/about-us/AboutUs'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -29,8 +31,10 @@ function App() {
           <Route path="/patient-dashboard" element={<PatientDashboard />} />
           <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
           <Route path="/book-appointment" element={<BookAppointment />} />
+          <Route path="/landing-test" element={<LandingPageTest />} />
           <Route path="/my-appointments" element={<MyAppointments />} />
           <Route path="/ai-symptom" element={<Symptom />} />
+          <Route path="/about" element={<AboutUs />} />
           <Route path="/payment/success" element={<PaymentSuccess />} />
           <Route path="/payment/cancel" element={<PaymentCancel />} />
         </Routes>

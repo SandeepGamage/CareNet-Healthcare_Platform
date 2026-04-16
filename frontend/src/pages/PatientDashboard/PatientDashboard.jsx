@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, Trash2, X, Download, ShieldCheck, Calendar, User, DollarSign, Info } from "lucide-react";
-import Navbar from "../../components/common/Navbar";
+// Render a local header instead of the shared Navbar
 import PatientProfile from "./PatientProfile/PatientProfile";
 import MedicalRecordsTab from "./MedicalRecords/MedicalRecordsTab";
 import PrescriptionsTab from "./Prescriptions/PrescriptionsTab";
@@ -251,14 +250,69 @@ export default function ModernPatientDashboard() {
             background: "linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%)",
             fontFamily: "'Segoe UI', 'Helvetica Neue', sans-serif",
         }}>
-            {/* ── MAIN LAYOUT ───────────────────────────────────────────────────────── */}
+            {/* ── TOP NAVIGATION ────────────────────────────────────────────────── */}
+            {/* ── TOP NAVIGATION ────────────────────────────────────────────────── */}
+            <header style={{ padding: "16px 24px", borderBottom: "1px solid #e5e7eb", background: "linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "20px", minWidth: 0 }}>
+                        <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ padding: "8px", borderRadius: "8px", border: "none", background: "transparent", cursor: "pointer" }}>☰</button>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px", whiteSpace: "nowrap", minWidth: 0 }}>
+                            <div style={{
+                                width: "40px",
+                                height: "40px",
+                                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                                borderRadius: "10px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "white",
+                                fontSize: "20px",
+                            }}>
+                                💙
+                            </div>
+                            <span style={{ fontSize: "20px", fontWeight: 700, color: "#111827", flexShrink: 0 }}>CareNet</span>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "8px", marginLeft: "12px", flexWrap: "nowrap", overflowX: "auto", alignItems: "center" }}>
+                            {["overview", "appointments", "telemedicine", "vitals", "prescriptions", "payments", "profile"].map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    style={{
+                                        padding: "8px 16px",
+                                        fontSize: "14px",
+                                        fontWeight: 500,
+                                        color: activeTab === tab ? "#3b82f6" : "#6b7280",
+                                        background: "transparent",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        borderBottom: activeTab === tab ? "2px solid #3b82f6" : "none",
+                                        transition: "all 0.2s",
+                                        whiteSpace: "nowrap"
+                                    }}
+                                >
+                                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: "14px", fontWeight: 700, color: "#111827" }}>{userProfile.name}</div>
+                            <div style={{ fontSize: "12px", color: "#6b7280" }}>{userProfile.email}</div>
+                        </div>
+                        <img src={userProfile.avatar} alt="Profile" style={{ width: "40px", height: "40px", borderRadius: "8px", objectFit: "cover" }} />
+                    </div>
+                </div>
+            </header>
+
+            {/* ── SIDEBAR ───────────────────────────────────────────────────────── */}
             <div style={{
                 display: "flex",
-                minHeight: "100vh",
-                paddingTop: "24px", // Added spacing from the top
+                minHeight: "calc(100vh - 72px)",
             }}>
-
-
                 {/* Sidebar */}
                 <aside style={{
                     width: sidebarOpen ? "280px" : "0px",
