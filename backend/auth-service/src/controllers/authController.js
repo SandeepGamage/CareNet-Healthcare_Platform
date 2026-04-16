@@ -795,3 +795,36 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error. Please try again.' });
   }
 };
+
+// ── PATCH /api/auth/doctors/:id/availability ──────────────────────────
+exports.setDoctorAvailability = async (req, res) => {
+  try {
+    const { isAvailable } = req.body;
+    const doctorId = req.params.id;
+    console.log(`[Auth Service] Setting availability for doctor ${doctorId} to ${isAvailable}`);
+
+    const doctorProfile = await Doctor.findOne({ userId: doctorId });
+    if (!doctorProfile) {
+      console.log(`[Auth Service] Doctor profile not found for userId: ${doctorId}`);
+      return res.status(404).json({ success: false, message: `Doctor profile not found for ID: ${doctorId}` });
+    }
+
+    doctorProfile.isAvailable = isAvailable;
+    await doctorProfile.save();
+
+    const doctorUser = await User.findById(doctorId);
+    if (doctorUser) {
+      doctorUser.isAvailable = isAvailable;
+      await doctorUser.save();
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Doctor availability set to ${isAvailable}`, 
+      data: { isAvailable } 
+    });
+  } catch (error) {
+    console.error('setDoctorAvailability error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error updating availability.' });
+  }
+};
