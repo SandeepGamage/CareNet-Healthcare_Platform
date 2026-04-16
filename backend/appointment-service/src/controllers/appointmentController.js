@@ -135,13 +135,38 @@ exports.createAppointment = async (req, res) => {
       // We still proceed as the appointment is created
     }
 
+    // Fetch patient & doctor details from users collection for notifications
+    let patientPhone = null;
+    let doctorPhone = null;
+    let doctorEmail = null;
+
+    try {
+      const [patientUser, doctorUser] = await Promise.all([
+        mongoose.connection.db.collection('users').findOne({
+          _id: new mongoose.Types.ObjectId(req.user.id)
+        }),
+        mongoose.connection.db.collection('users').findOne({
+          _id: new mongoose.Types.ObjectId(doctorId)
+        })
+      ]);
+
+      patientPhone = patientUser?.phone || null;
+      doctorPhone = doctorUser?.phone || null;
+      doctorEmail = doctorUser?.email || null;
+    } catch (dbErr) {
+      console.error('Failed to fetch contact details for notification:', dbErr.message);
+    }
+
     // Notify patient + doctor via direct REST call
     sendNotification('/booked', {
       patientId: req.user.id,
       patientName: patientName,
       patientEmail: patientEmail,
+      patientPhone: patientPhone,
       doctorId: doctorId,
       doctorName: doctorName,
+      doctorEmail: doctorEmail,
+      doctorPhone: doctorPhone,
       appointmentId: appointment._id,
       appointmentDate: appointmentDate,
       appointmentTime: timeSlot,
