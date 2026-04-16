@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe, getPendingDoctors, getAllDoctors, getVerifiedDoctors, approveDoctor, rejectDoctor, verifyOTP, resendOTP, deactivateAccount, getAllPatients, forgotPassword, resetPassword } = require('../controllers/authController');
+const { register, login, getMe, getPendingDoctors, getAllDoctors, getVerifiedDoctors, approveDoctor, rejectDoctor, verifyOTP, resendOTP, deactivateAccount, getAllPatients, forgotPassword, resetPassword, setDoctorAvailability } = require('../controllers/authController');
 const protect = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
@@ -27,6 +27,11 @@ router.get('/admin/patients', protect, authorize('admin'), getAllPatients);
 router.get('/admin/doctors/pending', protect, authorize('admin'), getPendingDoctors);
 router.put('/admin/doctors/:id/verify', protect, authorize('admin'), approveDoctor);
 router.delete('/admin/doctors/:id/reject', protect, authorize('admin'), rejectDoctor);
+
+//Update doctor availability
+router.patch('/doctors/:id/availability', protect, setDoctorAvailability);
+
+
 
 module.exports = router;
 

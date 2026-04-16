@@ -5,6 +5,8 @@ const {
   buildRoomName,
   buildRoomUrl,
   buildParticipantConfig,
+  getJitsiDomain,
+  signJitsiJwt,
 } = require("../services/jitsiService");
 
 const sessionToken = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
@@ -219,11 +221,29 @@ exports.joinSession = async (req, res) => {
     addParticipantJoin(session, req.user);
     await session.save();
 
+    const enforceJitsiJwt =
+      String(process.env.JITSI_ENFORCE_JWT || "false").toLowerCase() === "true";
+    const jitsiJwt = signJitsiJwt({
+      roomName: session.roomName,
+      userId: req.user.id,
+      role,
+      name: req.user.name,
+      email: req.user.email,
+    });
+
+    if (enforceJitsiJwt && !jitsiJwt) {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Jitsi JWT mode is enabled but JITSI JWT configuration is incomplete.",
+      });
+    }
+
     const joinPayload = {
-      domain: process.env.JITSI_DOMAIN || "meet.jit.si",
+      domain: getJitsiDomain(),
       roomName: session.roomName,
       roomUrl: session.roomUrl,
-      jwt: null,
+      jwt: jitsiJwt || null,
       participant: buildParticipantConfig({
         role,
         name: req.user.name,

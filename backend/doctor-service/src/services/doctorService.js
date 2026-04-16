@@ -50,6 +50,7 @@ const getCurrentDoctorProfile = async (user) => {
   const doctor = await getDoctorByUser(user, true); // populate userId
   const userObj = doctor.userId;
   return {
+    userId: userObj?._id || doctor.userId?._id || doctor.userId,
     name: userObj && userObj.name ? userObj.name : undefined,
     email: userObj && userObj.email ? userObj.email : undefined,
     phone: userObj && userObj.phone ? userObj.phone : undefined,
@@ -60,6 +61,7 @@ const getCurrentDoctorProfile = async (user) => {
     experienceYears: doctor.experienceYears,
     availableHours: doctor.availableHours,
     isAvailable: doctor.isAvailable,
+    availableSlots: doctor.availableSlots,
     consultationFee: doctor.consultationFee,
     rating: doctor.rating,
     // Add more fields as needed
@@ -312,6 +314,7 @@ const getDoctorProfileForFrontend = async (user) => {
   }
   const userObj = doctor.userId;
   return {
+    userId: userObj?._id || doctor.userId?._id || doctor.userId,
     name: userObj && userObj.name ? userObj.name : undefined,
     email: userObj && userObj.email ? userObj.email : undefined,
     phone: userObj && userObj.phone ? userObj.phone : undefined,
@@ -321,6 +324,7 @@ const getDoctorProfileForFrontend = async (user) => {
     experienceYears: doctor.experienceYears,
     availableHours: doctor.availableHours,
     isAvailable: doctor.isAvailable,
+    availableSlots: doctor.availableSlots,
     consultationFee: doctor.consultationFee,
     // Add more fields as needed
   };
