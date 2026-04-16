@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Mail, MapPin, Phone, Clock3, Loader2, Check, User, DollarSign, Award } from "lucide-react";
 
 import axios from "axios";
+import UpdateDoctorProfile from "./UpdateDoctorProfile";
 
 export default function DoctorProfile() {
 
@@ -144,34 +145,8 @@ export default function DoctorProfile() {
 
 	const handleEditToggle = () => {
 		setSaveMessage("");
-		if (!showModal) {
-			// open modal: mount then animate in
-			setShowModal(true);
-			setTimeout(() => {
-				setEditing(true);
-				setModalAnimate(true);
-			}, 10);
-			return;
-		}
-		// close modal: animate out then unmount and reset form
-		setModalAnimate(false);
-		setTimeout(() => {
-			setEditing(false);
-			setShowModal(false);
-			// reset form values to current saved profile/user
-			setForm({
-				name: user?.name || "",
-				phone: user?.phone || "",
-				profileImage: user?.profileImage || "",
-				specialization: profile?.specialization || "",
-				consultationFee: profile?.consultationFee || "",
-				availableHours: profile?.availableHours || "",
-				bio: profile?.bio || "",
-				qualifications: profile?.qualifications || "",
-				experienceYears: profile?.experienceYears || "",
-				isAvailable: !!profile?.isAvailable,
-			});
-		}, 200);
+		// Open edit view using the same pattern as PatientProfile (full-page editor)
+		setEditing(true);
 	};
 
 	const handleChange = (e) => {
@@ -244,180 +219,205 @@ export default function DoctorProfile() {
 			</div>
 		);
 	}
+		// If editing, render the full-page editor (same pattern as PatientProfile)
+		if (editing) {
+			return (
+				<div className="min-h-screen bg-slate-50 p-6 md:p-8">
+					<UpdateDoctorProfile
+						embedded
+						onCancel={() => setEditing(false)}
+						onSaved={() => {
+							setEditing(false);
+							// refetch profile to refresh view
+							(async () => {
+								setLoading(true);
+								try {
+									const token = localStorage.getItem("token");
+									if (token) {
+										const profileRes = await fetch(`${API_BASE_URL}/doctors/profile/me`, {
+											headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+										});
+										const profileResult = await profileRes.json().catch(() => ({}));
+										const data = profileResult.data || {};
+										setUser({ name: data.name, email: data.email, phone: data.phone, profileImage: data.profileImage });
+										setProfile({ specialization: data.specialization, consultationFee: data.consultationFee, availableHours: data.availableHours, bio: data.bio, qualifications: data.qualifications, experienceYears: data.experienceYears, isAvailable: data.isAvailable, rating: data.rating });
+										setForm({ name: data.name || "", phone: data.phone || "", profileImage: data.profileImage || "", specialization: data.specialization || "", consultationFee: data.consultationFee || "", availableHours: data.availableHours || "", bio: data.bio || "", qualifications: data.qualifications || "", experienceYears: data.experienceYears || "", isAvailable: !!data.isAvailable });
+									}
+								} catch (e) {
+									// ignore
+								} finally {
+									setLoading(false);
+								}
+							})();
+						}}
+					/>
+				</div>
+			);
+		}
 
-	return (
+		return (
 		<div className="min-h-screen bg-slate-50">
 			<div className="relative">
-				<div className="h-48 rounded-b-2xl shadow-lg" style={{ backgroundColor: "#87CEFA" }}></div>
+				<div className="h-48 rounded-b-2xl shadow-lg" style={{ backgroundColor: "#87CEFA" }} />
 				<div className="absolute -bottom-16 left-8 z-10">
-					{user?.profileImage ? (
-						<img
-							src={user.profileImage}
-							alt={user.name}
-							className="w-40 h-40 rounded-full border-4 border-white shadow-lg object-cover"
-						/>
-					) : (
-						<div className="w-40 h-40 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 border-4 border-white shadow-lg flex items-center justify-center">
-							<span className="text-5xl font-bold text-white">
-								{user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
-							</span>
-						</div>
-					)}
+					<div className="h-40 w-40 rounded-full border-4 border-white shadow-lg overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600">
+						{user?.profileImage ? (
+							<img src={user.profileImage} alt={user.name} className="h-full w-full object-cover" />
+						) : (
+							<div className="flex h-full w-full items-center justify-center">
+								<span className="text-5xl font-bold text-white">
+									{user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+								</span>
+							</div>
+						)}
+					</div>
 				</div>
 			</div>
 
-			<div className="px-8 pt-24 pb-8 max-w-6xl mx-auto">
+			<div className="mx-auto max-w-6xl px-8 pb-8 pt-24">
 				<div className="mb-8">
-					<div className="flex justify-between items-start mb-6">
+					<div className="mb-4 flex flex-wrap items-start justify-between gap-4">
 						<div>
-							<h1 className="text-3xl font-bold text-slate-900">{user?.name}</h1>
-							<p className="text-lg text-blue-600 font-semibold mt-1">{profile?.specialization || "General Physician"}</p>
+							<h1 className="text-3xl font-bold text-slate-900">{user?.name || 'Doctor'}</h1>
+							<p className="mt-1 text-lg font-semibold text-blue-600">{profile?.specialization || 'General Physician'}</p>
+							<p className="mt-2 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+								<Check size={14} />
+								Logged-in account details
+							</p>
 						</div>
 
-						<div className="flex items-start gap-2">
-							{!editing && (
-								<button onClick={handleEditToggle} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Edit Profile</button>
-							)}
-							{editing && (
-								<span className="inline-flex items-center px-3 py-1 rounded-full bg-yellow-50 text-yellow-700 border border-yellow-100 text-sm">Editing...</span>
-							)}
+						<button
+							type="button"
+							onClick={handleEditToggle}
+							className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+						>
+							Edit Profile
+						</button>
+					</div>
+
+					<div className="mb-4 flex flex-wrap gap-6">
+						<div className="flex items-center gap-2 text-slate-600">
+							<Mail size={16} />
+							<span className="text-sm">{user?.email || 'Not provided'}</span>
+						</div>
+						<div className="flex items-center gap-2 text-slate-600">
+							<Phone size={16} />
+							<span className="text-sm">{user?.phone || 'Not provided'}</span>
+						</div>
+						<div className="flex items-center gap-2 text-slate-600">
+							<MapPin size={16} />
+							<span className="text-sm">{profile?.clinicAddress || 'Not provided'}</span>
 						</div>
 					</div>
 
-					   <div className="flex flex-wrap gap-6 mb-6">
-						   <div className="flex items-center gap-2 text-slate-600">
-							   <Mail size={16} />
-							   <span className="text-sm">{user?.email}</span>
-						   </div>
-						   <div className="flex items-center gap-2 text-slate-600">
-							   <Phone size={16} />
-							   <span className="text-sm">{user?.phone || "Not provided"}</span>
-						   </div>
-					   </div>
+					{saveMessage && <p className="text-sm text-slate-600">{saveMessage}</p>}
 				</div>
 
-
-				{/* About Section */}
-			   <div className="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-md mb-8">
-				       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-4">
-					       <div className="flex items-center gap-3">
-						       <User size={18} className="text-white" />
-						       <h2 className="text-lg font-bold text-white">Biography</h2>
-					       </div>
-					   </div>
-				   <div className="p-6">
-					   <p className="text-slate-700 leading-relaxed italic border-l-4 border-blue-100 pl-4 bg-slate-50 py-3 rounded-r-lg">
-						   {profile?.bio || "No biography provided yet. Update your profile to add a brief introduction for your patients."}
-					   </p>
-				   </div>
-			   </div>
-
-				   {showModal && (
-						<div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-							<div className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${modalAnimate ? 'opacity-100 pointer-events-auto' : 'opacity-0'}`} onClick={handleEditToggle}></div>
-							<div className={`relative w-full max-w-3xl mx-4 bg-white rounded-2xl shadow-lg p-6 z-10 transform transition-all duration-200 ${modalAnimate ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-95 opacity-0'}`}>
-								<div className="border-b border-slate-100 bg-slate-50 px-4 py-3 mb-4 rounded-t-2xl">
-									<p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600">Profile</p>
-									<div className="flex items-center justify-between">
-										<h3 className="text-lg font-bold">Edit Profile</h3>
-										<button onClick={handleEditToggle} className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100">Cancel</button>
-									</div>
-								</div>
-								<div className="p-2 space-y-4">
-									{saveError && (
-										<div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</div>
-									)}
-									{saveMessage && (
-										<div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{saveMessage}</div>
-									)}
-									{validationErrors?.form && (
-										<div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">{validationErrors.form}</div>
-									)}
-
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-										<div>
-											<label className="block text-sm font-semibold text-slate-700 mb-2">Specialization</label>
-											<input name="specialization" value={form.specialization} onChange={handleChange} placeholder="Specialization" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.specialization ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} />
-										</div>
-										<div>
-											<label className="block text-sm font-semibold text-slate-700 mb-2">Consultation fee (USD)</label>
-											<input name="consultationFee" value={form.consultationFee} onChange={handleChange} placeholder="Consultation fee" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.consultationFee ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} />
-										</div>
-
-										<div className="col-span-1 md:col-span-2">
-											<label className="block text-sm font-semibold text-slate-700 mb-2">Short biography</label>
-											<textarea name="bio" value={form.bio} onChange={handleChange} placeholder="Short biography" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm resize-none disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.bio ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} rows={3} />
-										</div>
-										<div>
-											<label className="block text-sm font-semibold text-slate-700 mb-2">Qualifications</label>
-											<input name="qualifications" value={form.qualifications} onChange={handleChange} placeholder="Qualifications" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.qualifications ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} />
-										</div>
-										<div>
-											<label className="block text-sm font-semibold text-slate-700 mb-2">Experience (years)</label>
-											<input name="experienceYears" value={form.experienceYears} onChange={handleChange} placeholder="Experience years" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.experienceYears ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} />
-										</div>
-										<div className="col-span-1 md:col-span-2 flex items-center">
-											<label className="flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" name="isAvailable" checked={form.isAvailable} onChange={handleChange} className="form-checkbox" /> <span>Available now</span></label>
-										</div>
-									</div>
-
-									{/* hidden fields kept in DOM to preserve values in payload */}
-									<input type="hidden" name="profileImage" value={form.profileImage} />
-									<input type="hidden" name="availableHours" value={form.availableHours} />
-
-									<button onClick={handleSaveProfile} disabled={saveLoading} className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2">{saveLoading ? 'Saving...' : 'Save Changes'}</button>
-								</div>
-							</div>
-						</div>
-				   )}
-
-				{/* Professional Overview Card */}
-				<div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_20px_50px_rgba(2,6,23,0.08)] mb-8">
-					<div className="px-6 py-5 flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-700 rounded-t-2xl">
-						<div>
-							<h2 className="text-lg font-bold text-white">Professional Summary</h2>
-							<p className="mt-1 text-sm text-blue-100 opacity-90">Snapshot of your professional metrics and availability</p>
-						</div>
-						<div />
+				<div className="mb-8 grid gap-4 md:grid-cols-3">
+					<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+						<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Consultation Schedule</p>
+						<p className="mt-2 inline-flex items-center gap-2 text-base font-semibold text-slate-800">
+							<Clock3 size={16} />
+							{profile?.availableHours || 'Not specified'}
+						</p>
 					</div>
-					<div className="p-6">
-						<div className="flex flex-wrap items-center gap-3 mb-6">
-							<span className="inline-flex items-center rounded-full bg-slate-50 px-3.5 py-1.5 text-xs font-bold text-slate-700 border border-slate-100">
-								{profile?.specialization || 'General'}
-							</span>
-							<span className="inline-flex items-center rounded-full bg-slate-50 px-3.5 py-1.5 text-xs font-bold text-slate-700 border border-slate-100">
-								{profile?.experienceYears || 0} yrs
-							</span>
-							<span className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-xs font-bold ${profile?.isAvailable ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-rose-50 text-rose-700 border border-rose-100"}`}>
-								{profile?.isAvailable ? "Available" : "Offline"}
-							</span>
-						</div>
+					<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+						<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Service Fee</p>
+						<p className="mt-2 inline-flex items-center gap-2 text-base font-semibold text-slate-800">
+							<DollarSign size={16} />
+							{profile?.consultationFee || 0}
+						</p>
+						<div className="mt-3 text-sm text-slate-500">per session</div>
+					</div>
+					<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+						<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Education</p>
+						<p className="mt-2 inline-flex items-center gap-2 text-base font-semibold text-slate-800">
+							<Award size={16} />
+							{profile?.qualifications || 'No qualifications listed.'}
+						</p>
+					</div>
+				</div>
 
-						<div className="grid gap-4 sm:grid-cols-3">
-							<div className="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50 p-5 hover:shadow-lg transition-shadow">
-								<p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Consultation Schedule</p>
-								<p className="mt-2 text-base font-extrabold text-slate-900 flex items-center gap-2">
-									<Clock3 size={18} className="text-blue-500" />
-									{profile?.availableHours || "Not specified"}
-								</p>
-							</div>
-								<div className="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50 p-5 hover:shadow-lg transition-shadow flex flex-col justify-between">
-								<div>
-									<p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Service Fee</p>
-									<p className="mt-2 text-2xl font-extrabold text-slate-900 flex items-baseline gap-2"><DollarSign size={20} className="text-blue-500" />{profile?.consultationFee || 0}</p>
-								</div>
-								<div className="mt-3 text-sm text-slate-500">per session</div>
-							</div>
-							<div className="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50 p-5 hover:shadow-lg transition-shadow">
-								<p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Education</p>
-								<p className="mt-2 text-sm font-bold text-slate-800 flex items-center gap-2">
-									<Award size={16} className="text-indigo-600" />
-									{profile?.qualifications || "No qualifications listed."}
-								</p>
-							</div>
+				<div className="overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-md">
+					<div className="border-b border-blue-100 px-6 py-4">
+						<h2 className="text-lg font-bold text-slate-800">Biography & Details</h2>
+						<p className="mt-1 text-sm text-slate-600">Short introduction and professional details</p>
+					</div>
+					<div className="grid gap-6 p-6 md:grid-cols-2">
+						<div>
+							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Biography</p>
+							<p className="mt-2 text-base font-semibold text-slate-800">{profile?.bio || 'No biography provided yet.'}</p>
+						</div>
+						<div>
+							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Experience</p>
+							<p className="mt-2 text-base font-semibold text-slate-800">{profile?.experienceYears ? `${profile.experienceYears} years` : 'Not specified'}</p>
+							<p className="mt-3 text-xs text-slate-500">{profile?.isAvailable ? 'Currently accepting patients' : 'Not accepting patients'}</p>
+						</div>
+						<div className="md:col-span-2">
+							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Qualifications</p>
+							<p className="mt-2 text-base font-semibold text-slate-800">{profile?.qualifications || 'No qualifications listed.'}</p>
 						</div>
 					</div>
 				</div>
+
+				{/* keep modal for backward compatibility (unused when using full-page editor) */}
+				{showModal && (
+					<div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+						<div className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${modalAnimate ? 'opacity-100 pointer-events-auto' : 'opacity-0'}`} onClick={handleEditToggle}></div>
+						<div className={`relative w-full max-w-3xl mx-4 bg-white rounded-2xl shadow-lg p-6 z-10 transform transition-all duration-200 ${modalAnimate ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-95 opacity-0'}`}>
+							<div className="border-b border-slate-100 bg-slate-50 px-4 py-3 mb-4 rounded-t-2xl">
+								<p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600">Profile</p>
+								<div className="flex items-center justify-between">
+									<h3 className="text-lg font-bold">Edit Profile</h3>
+									<button onClick={handleEditToggle} className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100">Cancel</button>
+								</div>
+							</div>
+							<div className="p-2 space-y-4">
+								{saveError && (
+									<div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</div>
+								)}
+								{saveMessage && (
+									<div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{saveMessage}</div>
+								)}
+								{validationErrors?.form && (
+									<div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">{validationErrors.form}</div>
+								)}
+
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<div>
+										<label className="block text-sm font-semibold text-slate-700 mb-2">Specialization</label>
+										<input name="specialization" value={form.specialization} onChange={handleChange} placeholder="Specialization" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.specialization ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} />
+									</div>
+									<div>
+										<label className="block text-sm font-semibold text-slate-700 mb-2">Consultation fee (USD)</label>
+										<input name="consultationFee" value={form.consultationFee} onChange={handleChange} placeholder="Consultation fee" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.consultationFee ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} />
+									</div>
+
+									<div className="col-span-1 md:col-span-2">
+										<label className="block text-sm font-semibold text-slate-700 mb-2">Short biography</label>
+										<textarea name="bio" value={form.bio} onChange={handleChange} placeholder="Short biography" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm resize-none disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.bio ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} rows={3} />
+									</div>
+									<div>
+										<label className="block text-sm font-semibold text-slate-700 mb-2">Qualifications</label>
+										<input name="qualifications" value={form.qualifications} onChange={handleChange} placeholder="Qualifications" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.qualifications ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} />
+									</div>
+									<div>
+										<label className="block text-sm font-semibold text-slate-700 mb-2">Experience (years)</label>
+										<input name="experienceYears" value={form.experienceYears} onChange={handleChange} placeholder="Experience years" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.experienceYears ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} />
+									</div>
+									<div className="col-span-1 md:col-span-2 flex items-center">
+										<label className="flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" name="isAvailable" checked={form.isAvailable} onChange={handleChange} className="form-checkbox" /> <span>Available now</span></label>
+									</div>
+								</div>
+
+								<input type="hidden" name="profileImage" value={form.profileImage} />
+								<input type="hidden" name="availableHours" value={form.availableHours} />
+
+								<button onClick={handleSaveProfile} disabled={saveLoading} className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2">{saveLoading ? 'Saving...' : 'Save Changes'}</button>
+							</div>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);
