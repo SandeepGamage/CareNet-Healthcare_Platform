@@ -5,7 +5,7 @@ import axios from "axios";
 
 export default function DoctorProfile() {
 
-	const API_BASE_URL = (import.meta.env.VITE_DOCTOR_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api").replace(/\/$/, "");
+	const API_BASE_URL = (import.meta.env.VITE_DOCTOR_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:3003/api").replace(/\/$/, "");
 	const DOCTOR_PROFILE_ENDPOINT = `${API_BASE_URL}/doctors/profile`;
 
 	const [user, setUser] = useState(null);
@@ -335,14 +335,6 @@ export default function DoctorProfile() {
 									)}
 
 									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-										<div>
-											<label className="block text-sm font-semibold text-slate-700 mb-2">Full name</label>
-											<input name="name" value={form.name} onChange={handleChange} placeholder="Full name" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.name ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} />
-										</div>
-										<div>
-											<label className="block text-sm font-semibold text-slate-700 mb-2">Phone</label>
-											<input name="phone" value={form.phone} onChange={handleChange} placeholder="Phone" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.phone ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} />
-										</div>
 										<div>
 											<label className="block text-sm font-semibold text-slate-700 mb-2">Specialization</label>
 											<input name="specialization" value={form.specialization} onChange={handleChange} placeholder="Specialization" className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${validationErrors?.specialization ? "border-red-400 focus:ring-red-500/20 focus:border-red-500" : "border-slate-300 focus:ring-blue-500/20 focus:border-blue-500"}`} />
