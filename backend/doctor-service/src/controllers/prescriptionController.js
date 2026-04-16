@@ -1,11 +1,26 @@
+
 const asyncHandler = require('../utils/asyncHandler');
 const {
   createPrescription,
   getAllPrescriptions,
   getPrescriptionsByPatientId,
+  getPrescriptionsByDoctorId,
   updatePrescription,
   deletePrescription,
 } = require('../services/prescriptionService');
+
+// Get prescriptions by doctor
+const getPrescriptionsByDoctor = asyncHandler(async (req, res) => {
+  // doctorId can be from req.user (for logged-in doctor) or from params
+  const doctorId = req.params.doctorId || (req.user && (req.user.id || req.user.userId || req.user._id));
+  const prescriptions = await getPrescriptionsByDoctorId(req.user, doctorId);
+
+  res.status(200).json({
+    success: true,
+    message: 'Prescriptions fetched successfully for doctor',
+    data: prescriptions,
+  });
+});
 
 const createDigitalPrescription = asyncHandler(async (req, res) => {
   const prescription = await createPrescription(req.user, req.body);
@@ -60,6 +75,7 @@ module.exports = {
   createDigitalPrescription,
   getAllDigitalPrescriptions,
   getPrescriptionsByPatient,
+  getPrescriptionsByDoctor,
   updateDigitalPrescription,
   deleteDigitalPrescription,
 };
