@@ -1,6 +1,20 @@
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
-const { createDoctor, getAllDoctors, getAvailableDoctorsByTime, getDoctorByUserId, getDoctorById, getDoctorAvailability, updateDoctor, deleteDoctor, bookDoctorSlot, resetAllDoctorSlots, getDoctorByUser } = require('../services/doctorService');
+const { 
+  createDoctor, 
+  getAllDoctors, 
+  getAvailableDoctorsByTime, 
+  getDoctorByUserId, 
+  getDoctorById, 
+  getDoctorAvailability, 
+  getDoctorByUser,
+  updateMyAvailableHours,
+  updateDoctor, 
+  deleteDoctor, 
+  bookDoctorSlot, 
+  resetAllDoctorSlots, getDoctorByUser,
+  getDoctorProfileForFrontend 
+} = require('../services/doctorService');
 
 const normalizeDoctorPayload = (req, _res, next) => {
   if (req.body && req.body.consultationFee !== undefined) {

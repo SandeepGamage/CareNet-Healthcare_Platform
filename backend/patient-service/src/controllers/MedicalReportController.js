@@ -5,6 +5,14 @@ const { customAlphabet } = require("nanoid");
 const MedicalReport = require("../models/MedicalReport");
 const supabase = require("../utils/supabase");
 
+const REPORT_MAX_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_REPORT_MIME_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/jpg",
+]);
+
 const counterSchema = new mongoose.Schema(
   {
     _id: { type: String, required: true },
@@ -40,7 +48,37 @@ const generateMedicalReportId = async () => {
   return `MR-${String(counter.seq).padStart(6, "0")}-${nanoToken()}`;
 };
 
-const getReportsBucket = () => process.env.SUPABASE_REPORTS_BUCKET || process.env.SUPABASE_BUCKET || "medical-reports";
+const getReportsBucket = () => process.env.SUPABASE_REPORTS_BUCKET || process.env.SUPABASE_BUCKET || "reports";
+const isSupabaseConfigured = () => Boolean(supabase);
+
+const getUploadedReportFile = (req) => {
+  const candidate = req?.files?.report;
+  if (!candidate) {
+    return null;
+  }
+
+  return Array.isArray(candidate) ? candidate[0] : candidate;
+};
+
+const validateUploadedReportFile = (file) => {
+  if (!file) {
+    return "Medical report file is required.";
+  }
+
+  if (!ALLOWED_REPORT_MIME_TYPES.has(file.mimetype)) {
+    return "Only PDF, JPG, JPEG, and PNG files are allowed.";
+  }
+
+  if (typeof file.size === "number" && file.size > REPORT_MAX_SIZE_BYTES) {
+    return "Medical report file size must be 5MB or less.";
+  }
+
+  if (!file.data || !Buffer.isBuffer(file.data)) {
+    return "Uploaded file payload is invalid.";
+  }
+
+  return null;
+};
 
 const buildSupabaseReportPath = (userId, originalFileName = "report") => {
   const extension = path.extname(originalFileName) || "";
@@ -54,11 +92,11 @@ const uploadReportToSupabase = async (file, userId) => {
   }
 
   const bucket = getReportsBucket();
-  const filePath = buildSupabaseReportPath(userId, file.originalname);
+  const filePath = buildSupabaseReportPath(userId, file.name);
 
   const { error: uploadError } = await supabase.storage
     .from(bucket)
-    .upload(filePath, file.buffer, {
+    .upload(filePath, file.data, {
       contentType: file.mimetype,
       upsert: false,
     });
@@ -71,7 +109,7 @@ const uploadReportToSupabase = async (file, userId) => {
     data: { publicUrl },
   } = supabase.storage.from(bucket).getPublicUrl(filePath);
 
-  return { fileUrl: publicUrl, bucket, filePath };
+  return publicUrl;
 };
 
 const extractSupabasePathFromPublicUrl = (publicUrl, bucket) => {
@@ -117,8 +155,16 @@ const getAllReports = async ({ skip = 0, limit = 100 }) => {
  */
 exports.uploadMedicalReport = async (req, res) => {
   try {
+    if (!isSupabaseConfigured()) {
+      return res.status(500).json({
+        success: false,
+        message: "Supabase is not configured for patient-service uploads.",
+      });
+    }
+
     const userId = req.user.id;
     const { title, reportType, description } = req.body;
+    const reportFile = getUploadedReportFile(req);
 
     if (!title) {
       return res.status(400).json({
@@ -127,14 +173,15 @@ exports.uploadMedicalReport = async (req, res) => {
       });
     }
 
-    if (!req.file) {
+    const fileValidationError = validateUploadedReportFile(reportFile);
+    if (fileValidationError) {
       return res.status(400).json({
         success: false,
-        message: "Medical report file is required.",
+        message: fileValidationError,
       });
     }
 
-    const { fileUrl } = await uploadReportToSupabase(req.file, userId);
+    const fileUrl = await uploadReportToSupabase(reportFile, userId);
 
     const report = await MedicalReport.create({
       medicalReportId: await generateMedicalReportId(),
@@ -143,9 +190,9 @@ exports.uploadMedicalReport = async (req, res) => {
       reportType: reportType || "general",
       description: description || null,
       fileUrl,
-      fileName: req.file.originalname,
-      mimeType: req.file.mimetype,
-      fileSize: req.file.size,
+      fileName: reportFile.name,
+      mimeType: reportFile.mimetype,
+      fileSize: reportFile.size,
       uploadedBy: userId,
     });
 
@@ -158,7 +205,7 @@ exports.uploadMedicalReport = async (req, res) => {
     console.error("uploadMedicalReport error:", error.message);
     return res.status(500).json({
       success: false,
-      message: "Server error uploading medical report.",
+      message: error.message || "Server error uploading medical report.",
     });
   }
 };
@@ -226,9 +273,17 @@ exports.getMyReportById = async (req, res) => {
  */
 exports.updateMyReport = async (req, res) => {
   try {
+    if (!isSupabaseConfigured()) {
+      return res.status(500).json({
+        success: false,
+        message: "Supabase is not configured for patient-service uploads.",
+      });
+    }
+
     const userId = req.user.id;
     const { reportId } = req.params;
     const { title, reportType, description } = req.body;
+    const reportFile = getUploadedReportFile(req);
 
     const report = await MedicalReport.findOne(buildReportLookup(reportId, userId));
 
@@ -260,14 +315,22 @@ exports.updateMyReport = async (req, res) => {
     }
 
     // If a new report file is uploaded, replace file metadata and cleanup old file.
-    if (req.file) {
+    if (reportFile) {
+      const fileValidationError = validateUploadedReportFile(reportFile);
+      if (fileValidationError) {
+        return res.status(400).json({
+          success: false,
+          message: fileValidationError,
+        });
+      }
+
       await deleteReportFileFromSupabase(report.fileUrl);
-      const { fileUrl } = await uploadReportToSupabase(req.file, userId);
+      const fileUrl = await uploadReportToSupabase(reportFile, userId);
 
       report.fileUrl = fileUrl;
-      report.fileName = req.file.originalname;
-      report.mimeType = req.file.mimetype;
-      report.fileSize = req.file.size;
+      report.fileName = reportFile.name;
+      report.mimeType = reportFile.mimetype;
+      report.fileSize = reportFile.size;
       report.uploadedBy = userId;
     }
 
@@ -282,7 +345,7 @@ exports.updateMyReport = async (req, res) => {
     console.error("updateMyReport error:", error.message);
     return res.status(500).json({
       success: false,
-      message: "Server error updating medical report.",
+      message: error.message || "Server error updating medical report.",
     });
   }
 };

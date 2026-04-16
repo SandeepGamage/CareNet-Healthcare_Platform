@@ -67,6 +67,10 @@ services:
       PORT: 3002
       MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_REPORTS_BUCKET: ${SUPABASE_REPORTS_BUCKET:-reports}
       NODE_ENV: ${NODE_ENV:-production}
       AUTH_SERVICE_URL: http://auth-service:3001
       DOCTOR_SERVICE_URL: http://doctor-service:3003
@@ -129,11 +133,10 @@ services:
     environment:
       PORT: 3007
       MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
-      JWT_SECRET: ${JWT_SECRET_APPOINTMENT:-carenet_secret}
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
       APPOINTMENT_SERVICE_URL: http://appointment-service:3004
       JITSI_DOMAIN: meet.jit.si
-      JITSI_APP_ID: ${JITSI_APP_ID:-}
-      JITSI_APP_SECRET: ${JITSI_APP_SECRET:-}
+      JITSI_ENFORCE_JWT: "false"
     depends_on:
       - appointment-service
     restart: unless-stopped
@@ -141,27 +144,6 @@ services:
       - healthcare-network
 
 
-
- # ─── Telemedicine Service ───────────────────────────────────────
-  # telemedicine-service:
-  #   build: ./backend/telemedicine-service
-  #   container_name: telemedicine-service
-  #   ports:
-  #     - "3007:3007"
-  #   environment:
-  #     PORT: 3007
-  #     MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
-  #     JWT_SECRET: ${JWT_SECRET_APPOINTMENT:-carenet_secret}
-  #     APPOINTMENT_SERVICE_URL: http://appointment-service:3004
-  #     JITSI_DOMAIN: meet.jit.si
-  #     JITSI_APP_ID: ${JITSI_APP_ID:-}
-  #     JITSI_APP_SECRET: ${JITSI_APP_SECRET:-}
-  #   depends_on:
-  #     - mongodb
-  #     - appointment-service
-  #   restart: unless-stopped
-  #   networks:
-  #     - healthcare-network
 
   # ─── Payment Service ─────────────────────────────────────────────
 
@@ -204,26 +186,14 @@ services:
       EMAIL_USER: carenet.admin.support@gmail.com
       EMAIL_PASS: dunmjxijnykwlloc
       EMAIL_FROM: "CareNet Healthcare <carenet.admin.support@gmail.com>"
+      TEXTLK_API_TOKEN: ${TEXTLK_API_TOKEN:-3996|rXnzTCy0SzluVtWuvkjPTtOJAVAf2t6n0udt7pO189bbe87d}
+      TEXTLK_SENDER_ID: ${TEXTLK_SENDER_ID:-CareNet}
       NODE_ENV: ${NODE_ENV:-production}
     restart: unless-stopped
     networks:
       - healthcare-network
 
-  # ─── Telemedicine Service ──────────────────────────────────────
 
-  # telemedicine-service:
-  #   build: ./backend/telemedicine-service
-  #   container_name: telemedicine-service
-  #   ports:
-  #     - "3007:3007"
-  #   environment:
-  #     PORT: 3007
-  #     MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
-  #     JWT_SECRET: ${JWT_SECRET:-carenet_secret}
-  #     NODE_ENV: ${NODE_ENV:-production}
-  #   restart: unless-stopped
-  #   networks:
-  #     - healthcare-network
 
   # ─── Symptom AI Service ──────────────────────────────────────────
 
@@ -259,6 +229,8 @@ services:
       - healthcare-network
     depends_on:
       - api-gateway
+
+  # ─── Frontend ────────────────────────────────────────────
 
 networks:
   healthcare-network:

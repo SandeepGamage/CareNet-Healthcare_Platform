@@ -8,6 +8,8 @@ const {
   handleAccountNotification,
   getLogs,
   getMyLogs,
+  deleteLog,
+  handleManualNotification,
 } = require('../controllers/notificationController');
 
 // ── Internal service-to-service routes (no auth — secured by network/API key in prod) ──
@@ -26,6 +28,12 @@ router.post('/account', handleAccountNotification);
 // ── Authenticated routes ──────────────────────────────────────────────────────
 // Admin: view all notification logs
 router.get('/logs', protect, authorize('admin'), getLogs);
+
+// Admin: delete a specific log
+router.delete('/logs/:id', protect, authorize('admin'), deleteLog);
+
+// Admin: send manual notification
+router.post('/manual', protect, authorize('admin'), handleManualNotification);
 
 // Patient / Doctor: view own notification history
 router.get('/logs/my', protect, authorize('patient', 'doctor'), getMyLogs);

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
 const axios = require('axios');
 
@@ -59,6 +60,7 @@ const generateSlots = (startMinutes, endMinutes, duration) => {
   }
   return slots;
 };
+const notificationService = require('../services/notificationService');
 
 // ─── POST /api/appointments ───────────────────────────────
 // Patient books an appointment
@@ -73,7 +75,7 @@ exports.createAppointment = async (req, res) => {
     // 1. Fetch Doctor Config
     let doctorConfig;
     try {
-      const response = await axios.get(`${DOCTOR_SERVICE_URL}/api/doctors/profile/details/${doctorId}`, {
+      const response = await axios.get(`${DOCTOR_SERVICE_URL}/api/doctors/profile/user/${doctorId}`, {
         headers: { Authorization: req.headers.authorization }
       });
       doctorConfig = response.data.data;
@@ -225,10 +227,10 @@ exports.updateStatus = async (req, res) => {
     }
 
     // Role-based status rules
-    if (status === 'CONFIRMED' && req.user.role !== 'DOCTOR') {
+    if (status === 'CONFIRMED' && req.user.role !== 'doctor') {
       return res.status(403).json({ message: 'Only doctors can confirm appointments' });
     }
-    if (status === 'COMPLETED' && req.user.role !== 'DOCTOR') {
+    if (status === 'COMPLETED' && req.user.role !== 'doctor') {
       return res.status(403).json({ message: 'Only doctors can mark as completed' });
     }
 
@@ -241,17 +243,30 @@ exports.updateStatus = async (req, res) => {
 
     await appointment.save();
 
-    // Notify about status change
+    // Fetch patient & doctor phone from profiles for notifications
+    const [patientUser, doctorUser] = await Promise.all([
+      mongoose.connection.db.collection('users').findOne({
+        _id: new mongoose.Types.ObjectId(appointment.patientId)
+      }),
+      mongoose.connection.db.collection('users').findOne({
+        _id: new mongoose.Types.ObjectId(appointment.doctorId)
+      })
+    ]);
+
+    const patientPhone = patientUser?.phone || null;
+    const doctorPhone = doctorUser?.phone || null;
+    const doctorEmail = doctorUser?.email || null;
+
+    // Trigger specific notifications based on status
     if (status === 'CONFIRMED') {
-      sendNotification('/confirmed', {
-        patientId: appointment.patientId,
-        patientName: appointment.patientName,
-        patientEmail: appointment.patientEmail,
-        doctorName: appointment.doctorName,
-        appointmentDate: appointment.appointmentDate,
-        appointmentTime: appointment.timeSlot,
-        appointmentId: appointment._id
-      });
+      await notificationService.notifyAppointmentConfirmed(appointment, patientPhone);
+    } else if (status === 'COMPLETED') {
+      await notificationService.notifyConsultationCompleted({
+        ...appointment.toObject(),
+        doctorEmail
+      }, patientPhone, doctorPhone);
+    } else if (status === 'CANCELLED') {
+      await notificationService.notifyAppointmentCancelled(appointment, patientPhone, req.user.role, cancelReason);
     }
 
     res.json({ message: `Appointment ${status.toLowerCase()}`, appointment });
@@ -342,10 +357,11 @@ exports.getAvailableSlots = async (req, res) => {
     // 1. Fetch Doctor Config
     let doctorConfig;
     try {
-      const response = await axios.get(`${DOCTOR_SERVICE_URL}/api/doctors/profile/details/${doctorId}`, {
+      const response = await axios.get(`${DOCTOR_SERVICE_URL}/api/doctors/profile/user/${doctorId}`, {
         headers: { Authorization: req.headers.authorization }
       });
       doctorConfig = response.data.data;
+      console.log("Doctor Config------>", doctorConfig);
     } catch (err) {
       console.error('Failed to fetch doctor config:', err.response?.data || err.message);
       const status = err.response?.status || 500;
@@ -353,13 +369,58 @@ exports.getAvailableSlots = async (req, res) => {
       return res.status(status).json({ message, details: err.message });
     }
 
-    // 3. Return available slots directly from Doctor Service
-    res.json({ 
-      date, 
-      doctorId, 
-      availableSlots: doctorConfig.availableSlots || [],
-      availableHours: doctorConfig.availableHours || ''
+    // 2. Fetch Existing Appointments for this doctor on this day
+    const searchDate = new Date(date);
+    const startOfDay = new Date(searchDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(searchDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingAppointments = await Appointment.find({
+      doctorId: doctorId,
+      appointmentDate: { $gte: startOfDay, $lte: endOfDay },
+      status: { $in: ['PENDING', 'CONFIRMED', 'COMPLETED'] }
     });
+
+    const bookedSlots = existingAppointments.map(app => app.timeSlot);
+
+    // 3. Filter available slots
+    const templateSlots = doctorConfig.availableSlots || [];
+    const availableSlots = templateSlots.filter(slot => !bookedSlots.includes(slot));
+
+    console.log("Available slots---------->", availableSlots)
+
+    // 4. Return the filtered list
+    res.json({
+      date,
+      doctorId,
+      availableSlots,
+      availableHours: doctorConfig.availableHours || '',
+      slotDuration: doctorConfig.slotDuration || 30
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ─── DELETE /api/appointments/admin/:id ───────────────────
+// Admin permanently deletes an appointment
+exports.adminDeleteAppointment = async (req, res) => {
+  try {
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    // Optional: Only allow deletion if already cancelled or completed?
+    // Based on user request, it's enforced on frontend, but backend can be flexible or strict.
+    // For now, let's keep it flexible to Admin since they are highly trusted.
+
+    await Appointment.findByIdAndDelete(req.params.id);
+
+    res.json({ message: 'Appointment permanently deleted from records' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

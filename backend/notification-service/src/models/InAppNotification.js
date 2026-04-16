@@ -35,6 +35,7 @@ const inAppNotificationSchema = new mongoose.Schema(
         'APPOINTMENT_CANCELLED',
         'APPOINTMENT_CONFIRMED',
         'PAYMENT_SUCCESS',
+        'PAYMENT_SUCCESS_DOCTOR',
         'CONSULTATION_STARTED',
         'CONSULTATION_COMPLETED',
         'PRESCRIPTION_ISSUED',

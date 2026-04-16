@@ -1,4 +1,3 @@
-// Get doctor by user (used by other service functions)
 // If populate=true, populate userId for name/email/phone/profileImage
 const getDoctorByUser = async (user, populate = false) => {
   const userId = resolveUserId(user);
@@ -14,6 +13,35 @@ const getDoctorByUser = async (user, populate = false) => {
   if (!doctor) {
     throw new ApiError(404, 'Doctor profile not found');
   }
+
+  // Lazy-fix for corrupted database data (slotDuration: "" or invalid slots, or string isAvailable)
+  const needsFix = doctor.slotDuration === null || 
+                   isNaN(Number(doctor.slotDuration)) || 
+                   Number(doctor.slotDuration) <= 0 || 
+                   (doctor.availableSlots.length === 1 && doctor.availableSlots[0] === "") ||
+                   typeof doctor.isAvailable === 'string';
+
+  if (needsFix) {
+      console.log(`Self-healing profile for doctor ${doctor._id}...`);
+      if (typeof doctor.isAvailable === 'string') {
+          doctor.isAvailable = doctor.isAvailable === 'true';
+      }
+      
+      if (doctor.slotDuration === null || isNaN(Number(doctor.slotDuration)) || Number(doctor.slotDuration) <= 0) {
+          doctor.slotDuration = 30;
+      }
+
+      if (doctor.availableHours) {
+          doctor.availableSlots = generateTimeSlots(doctor.availableHours, Number(doctor.slotDuration));
+      } else {
+          doctor.availableSlots = [];
+      }
+      // Final sanity check for empty string slots
+      doctor.availableSlots = (doctor.availableSlots || []).filter(s => s && s.trim() !== "");
+      
+      await doctor.save();
+  }
+
   return doctor;
 };
 
@@ -131,6 +159,11 @@ const formatMinutesToTime = (minutes) => {
 };
 
 const generateTimeSlots = (rangeString, duration) => {
+  // Guard against invalid duration to prevent infinite loops
+  if (!duration || typeof duration !== 'number' || duration <= 0) {
+    return [];
+  }
+
   const range = parseAvailableHoursRange(rangeString);
   if (!range) return [];
 
@@ -217,14 +250,9 @@ const createDoctor = async (user, payload) => {
     throw new ApiError(409, 'Doctor profile already exists');
   }
 
-  const { specialization, bio, qualifications, experienceYears, availableHours, isAvailable, consultationFee } = payload;
-
-  if (!specialization) {
-    throw new ApiError(400, 'specialization is required');
-  }
-
   const duration = parseNonNegativeNumber(payload.slotDuration, 'slotDuration', 30);
-  const slots = availableHours ? generateTimeSlots(availableHours, duration) : [];
+  const slots = (availableHours ? generateTimeSlots(availableHours, duration) : [])
+                .filter(s => s && s.trim() !== "");
 
   return Doctor.create({
     userId,
@@ -233,7 +261,7 @@ const createDoctor = async (user, payload) => {
     qualifications: qualifications || '',
     experienceYears: parseNonNegativeNumber(experienceYears, 'experienceYears'),
     availableHours: availableHours || '',
-    isAvailable: typeof isAvailable === 'boolean' ? isAvailable : false,
+    isAvailable: String(isAvailable) === 'true',
     consultationFee: parseNonNegativeNumber(consultationFee, 'consultationFee'),
     slotDuration: duration,
     availableSlots: slots
@@ -254,6 +282,19 @@ const getDoctorByUserId = async (userId) => {
   if (!doctor) {
     throw new ApiError(404, 'Doctor profile not found');
   }
+
+  // Lazy-fix for corrupted database data (slotDuration: "" or invalid slots)
+  if (doctor.slotDuration === null || isNaN(Number(doctor.slotDuration)) || Number(doctor.slotDuration) <= 0 || (doctor.availableSlots.length === 1 && doctor.availableSlots[0] === "")) {
+    console.log(`Self-healing profile for doctor ${doctor._id} (by userId)...`);
+    doctor.slotDuration = 30;
+    if (doctor.availableHours) {
+        doctor.availableSlots = generateTimeSlots(doctor.availableHours, 30);
+    } else {
+        doctor.availableSlots = [];
+    }
+    await doctor.save();
+  }
+
   return doctor;
 };
 
@@ -294,6 +335,12 @@ const updateMyAvailableHours = async (user, availableHours) => {
   }
 
   doctor.availableHours = trimmedHours;
+  
+  // Also regenerate slots using current duration
+  const duration = parseNonNegativeNumber(doctor.slotDuration, 'slotDuration', 30);
+  doctor.availableSlots = generateTimeSlots(trimmedHours, duration);
+  doctor.slotDuration = duration; // Sync back cleaned duration
+
   await doctor.save();
 
   return doctor;
@@ -363,7 +410,13 @@ const updateDoctor = async (user, doctorId, payload) => {
   const updates = {};
 
   allowedFields.forEach((field) => {
-    if (payload[field] !== undefined) updates[field] = payload[field];
+    if (payload[field] !== undefined) {
+      if (field === 'isAvailable') {
+        updates[field] = String(payload[field]) === 'true';
+      } else {
+        updates[field] = payload[field];
+      }
+    }
   });
 
   if (updates.experienceYears !== undefined) {
@@ -377,7 +430,14 @@ const updateDoctor = async (user, doctorId, payload) => {
   // If availableHours or slotDuration changed, regenerate slots
   if (updates.availableHours !== undefined || updates.slotDuration !== undefined) {
     const hours = updates.availableHours !== undefined ? updates.availableHours : existingDoctor.availableHours;
-    const duration = updates.slotDuration !== undefined ? Number(updates.slotDuration) : existingDoctor.slotDuration;
+    
+    // Ensure duration is handled safely via our helper
+    const durationInput = updates.slotDuration !== undefined ? updates.slotDuration : existingDoctor.slotDuration;
+    const duration = parseNonNegativeNumber(durationInput, 'slotDuration', 30);
+    
+    // If it was in updates but was invalid, sync the cleaned value back
+    if (updates.slotDuration !== undefined) updates.slotDuration = duration;
+    
     updates.availableSlots = generateTimeSlots(hours, duration);
   }
 
@@ -405,10 +465,18 @@ const bookDoctorSlot = async (doctorId, slot) => {
 const resetAllDoctorSlots = async () => {
   const doctors = await Doctor.find();
   const results = await Promise.all(doctors.map(async (doc) => {
-    if (doc.availableHours) {
-      const slots = generateTimeSlots(doc.availableHours, doc.slotDuration || 30);
-      return Doctor.findByIdAndUpdate(doc._id, { availableSlots: slots });
-    }
+    if (doctor.availableHours) {
+    const duration = parseNonNegativeNumber(doc.slotDuration, 'slotDuration', 30);
+    const rawSlots = generateTimeSlots(doc.availableHours, duration);
+    const slots = (rawSlots || []).filter(s => s && s.trim() !== "");
+    
+    // Clean up the slotDuration in DB if it was bad
+    return Doctor.findByIdAndUpdate(doc._id, { 
+      availableSlots: slots,
+      slotDuration: duration,
+      isAvailable: String(doc.isAvailable) === 'true'
+    });
+  }
   }));
   return { updated: results.length };
 };

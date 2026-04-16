@@ -62,6 +62,11 @@ const notificationLogSchema = new mongoose.Schema(
     // Payload snapshot (for debugging/resend)
     payload: { type: mongoose.Schema.Types.Mixed, default: {} },
 
+    // Explicit display details
+    message: { type: String, default: null },
+    subject: { type: String, default: null },
+    recipientName: { type: String, default: null },
+
     // Overall status
     status: {
       type: String,

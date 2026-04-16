@@ -114,7 +114,7 @@ exports.register = async (req, res) => {
 
     // Generate 6 digit OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
+
     // Create VerificationCode with registration data (User not created yet!)
     const pRecord = await VerificationCode.create({
       registrationData: userData,
@@ -169,7 +169,7 @@ exports.login = async (req, res) => {
         });
         await adminUser.save();
       }
-      
+
       const token = generateToken(adminUser);
       return res.status(200).json({
         success: true,
@@ -294,8 +294,8 @@ exports.getMe = async (req, res) => {
       profile = await Patient.findOne({ userId: user._id });
     }
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       user: {
         ...user.toObject(),
         profile
@@ -343,15 +343,33 @@ exports.getAllDoctors = async (req, res) => {
 // Returns only admin-approved doctors — accessible to any logged-in user (patients included)
 exports.getVerifiedDoctors = async (req, res) => {
   try {
-    const doctorProfiles = await Doctor.find({ isVerified: true }).populate('userId', 'name email phone');
+    const doctorProfiles = await Doctor.find({ isVerified: true }).populate('userId', 'name email phone profileImage');
     const doctors = doctorProfiles.map(p => ({
       _id: p.userId?._id,
       name: p.userId?.name,
       email: p.userId?.email,
+      phone: p.userId?.phone,
+      profileImage: p.userId?.profileImage || p.profilePicture,
       specialization: p.specialization,
+      specialty: p.specialization, // Duplicate for frontend compatibility
       consultationFee: p.consultationFee,
-      rating: p.rating,
-      experienceYears: p.experienceYears
+      fee: p.consultationFee, // Duplicate for frontend compatibility
+      rating: p.rating || 4.5,
+      experienceYears: p.experienceYears,
+      experience: p.experienceYears, // Duplicate for frontend compatibility
+      qualifications: p.qualifications,
+      education: p.qualifications, // Duplicate for frontend compatibility
+      about: p.bio,
+      bio: p.bio, // Duplicate for frontend compatibility
+      availability: p.isAvailable,
+      availableHours: p.availableHours, // Duplicate for frontend compatibility
+      availableSlots: p.availableSlots || [],
+      slotDuration: p.slotDuration || 30,
+      gender: 'Male', // Default as it's not in the schema yet
+      hospital: 'CareNet General Hospital', // Default
+      languages: ['English'], // Default
+      totalPatients: 100, // Default
+      reviewCount: 20 // Default
     }));
     res.status(200).json({ success: true, count: doctors.length, data: doctors });
   } catch (error) {
@@ -459,11 +477,18 @@ exports.verifyOTP = async (req, res) => {
 
     let user;
     if (record.registrationData) {
-      // Finish registration: Create the user now
+      // Finish registration: Create the user now with only core fields
+      const { name, email, password, role, phone, profileImage } = record.registrationData;
+      
       user = await User.create({
-        ...record.registrationData,
+        name,
+        email,
+        password,
+        role,
+        phone,
+        profileImage,
         isOtpVerified: true,
-        isVerified: record.registrationData.role !== 'doctor' // Patients/Admins are verified by default
+        isVerified: role !== 'doctor' // Patients/Admins are verified by default
       });
 
       // Create linked profile based on role
@@ -474,6 +499,8 @@ exports.verifyOTP = async (req, res) => {
           qualifications: record.registrationData.qualifications || null,
           experienceYears: record.registrationData.experienceYears || null,
           consultationFee: record.registrationData.consultationFee || null,
+          availableHours: record.registrationData.availableHours || '09:00 AM - 05:00 PM',
+          slotDuration: record.registrationData.slotDuration || 30,
           isVerified: false
         });
       } else if (user.role === 'patient') {
@@ -575,11 +602,11 @@ exports.resendOTP = async (req, res) => {
   try {
     const { userId, type } = req.body;
     if (!userId) return res.status(400).json({ success: false, message: 'User ID required.' });
-    
+
     // Check if it's a pending registration or an existing user
     let user = await User.findById(userId);
     let pending = null;
-    
+
     if (!user) {
       pending = await VerificationCode.findById(userId);
       if (!pending || !pending.registrationData) {

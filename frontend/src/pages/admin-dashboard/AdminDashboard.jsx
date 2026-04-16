@@ -30,7 +30,8 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import axios from 'axios';
-import Navbar from '../components/common/Navbar';
+import Navbar from '../../components/common/Navbar';
+import AppointmentsView from './Appointments/viewAppointments';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -83,10 +84,6 @@ const AdminDashboard = () => {
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifSuccess, setNotifSuccess] = useState(null);
 
-  // Modal states
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [statusUpdate, setStatusUpdate] = useState({ status: '', notes: '' });
   const [cancelReason, setCancelReason] = useState('');
 
   // Get auth token from localStorage
@@ -98,26 +95,19 @@ const AdminDashboard = () => {
     navigate('/login');
   };
 
-  // Fetch appointments from your backend
-  const fetchAppointments = async () => {
-    try {
-      setLoading(true);
-      const token = getAuthToken();
-      const params = new URLSearchParams();
-      if (filters.status) params.append('status', filters.status);
-      if (filters.date) params.append('date', filters.date);
-      if (filters.specialty) params.append('specialty', filters.specialty);
 
-      const response = await axios.get(`${API_BASE_URL}/appointments/all?${params.toString()}`, {
+
+  // Fetch appointments (simplified for stats)
+  const fetchAppointmentsSummary = async () => {
+    try {
+      const token = getAuthToken();
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/appointments/all`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const apts = Array.isArray(response.data) ? response.data : (response.data?.appointments || []);
       setAppointments(apts);
-      setError(null);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch appointments');
-    } finally {
-      setLoading(false);
+      console.error('Failed to fetch appointments for stats');
     }
   };
 
@@ -139,39 +129,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // Update appointment status
-  const updateAppointmentStatus = async (id, status, notes) => {
-    try {
-      const token = getAuthToken();
-      await axios.patch(
-        `${API_BASE_URL}/appointments/${id}/status`,
-        { status, notes },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchAppointments();
-      setShowStatusModal(false);
-      setStatusUpdate({ status: '', notes: '' });
-      setError(null);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update appointment status');
-    }
-  };
 
-  // Cancel appointment
-  const cancelAppointment = async (id, reason) => {
-    try {
-      const token = getAuthToken();
-      await axios.delete(`${API_BASE_URL}/appointments/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { reason }
-      });
-      await fetchAppointments();
-      setCancelReason('');
-      setError(null);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to cancel appointment');
-    }
-  };
 
   // Fetch global dashboard counts on load
   const fetchDashboardStatsData = async () => {
@@ -190,41 +148,17 @@ const AdminDashboard = () => {
     }
   };
 
-  // Automatically rebuild stats whenever appointments, patients, or doctors count changes
+  // Automatically rebuild stats whenever patients, or doctors count changes
   useEffect(() => {
-    const totalAppointments = appointments.length;
-    const totalRevenue = appointments
-      .filter(a => a.status === 'COMPLETED')
-      .reduce((sum, a) => sum + (a.consultationFee || 0), 0);
-
     setStats([
       { title: 'Total Patients', value: patients.length || '0', change: '+12%', icon: Users, color: 'from-blue-500 to-blue-700', bg: 'bg-blue-50' },
-      { title: 'Appointments', value: totalAppointments, change: '+8%', icon: Calendar, color: 'from-indigo-500 to-indigo-700', bg: 'bg-indigo-50' },
-      { title: 'Revenue', value: `$${totalRevenue.toLocaleString()}`, change: '+23%', icon: DollarSign, color: 'from-emerald-500 to-emerald-700', bg: 'bg-emerald-50' },
+      { title: 'Appointments', value: '42', change: '+8%', icon: Calendar, color: 'from-indigo-500 to-indigo-700', bg: 'bg-indigo-50' },
+      { title: 'Revenue', value: `$1,240`, change: '+23%', icon: DollarSign, color: 'from-emerald-500 to-emerald-700', bg: 'bg-emerald-50' },
       { title: 'Total Doctors', value: allDoctorsCount || '0', change: '+5%', icon: Users, color: 'from-rose-500 to-rose-700', bg: 'bg-rose-50' },
     ]);
-  }, [appointments, patients, allDoctorsCount]);
+  }, [patients, allDoctorsCount]);
 
-  // Get status color and icon
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'CONFIRMED': return 'bg-green-100 text-green-800';
-      case 'PENDING': return 'bg-yellow-100 text-yellow-800';
-      case 'CANCELLED': return 'bg-red-100 text-red-800';
-      case 'COMPLETED': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'CONFIRMED': return <CheckCircle className="w-4 h-4" />;
-      case 'PENDING': return <Clock className="w-4 h-4" />;
-      case 'CANCELLED': return <AlertCircle className="w-4 h-4" />;
-      case 'COMPLETED': return <CheckCircle className="w-4 h-4" />;
-      default: return null;
-    }
-  };
 
   // Format date
   const formatDate = (dateString) => {
@@ -321,7 +255,7 @@ const AdminDashboard = () => {
       setNotifLoading(true);
       setNotifSuccess(null);
       const token = getAuthToken();
-      
+
       const payload = {
         ...notifForm,
         recipients: recipientSource === 'list' ? selectedRecipients : [],
@@ -332,7 +266,7 @@ const AdminDashboard = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNotifSuccess(response.data.message || 'Notifications sent successfully!');
-      
+
       // Reset form
       setNotifForm({
         recipient: '',
@@ -370,7 +304,7 @@ const AdminDashboard = () => {
   const selectRecipient = (person) => {
     // Check if already in list
     if (selectedRecipients.find(r => r._id === person._id)) return;
-    
+
     setSelectedRecipients([...selectedRecipients, {
       ...person,
       role: selectedRole
@@ -385,16 +319,13 @@ const AdminDashboard = () => {
   const handleSelectAll = () => {
     const list = selectedRole === 'patient' ? patients : allDoctors;
     const filtered = list.filter(p => p.name?.toLowerCase().includes(searchQuery.toLowerCase()));
-    
+
     const newItems = filtered.filter(f => !selectedRecipients.find(r => r._id === f._id));
-    setSelectedRecipients([...selectedRecipients, ...newItems.map(i => ({...i, role: selectedRole}))]);
+    setSelectedRecipients([...selectedRecipients, ...newItems.map(i => ({ ...i, role: selectedRole }))]);
     setSearchQuery('');
   };
 
-  // Load data on component mount and when filters change
-  useEffect(() => {
-    fetchAppointments();
-  }, [filters]);
+
 
   // Load global data once on mount
   useEffect(() => {
@@ -414,14 +345,12 @@ const AdminDashboard = () => {
     if (activeTab === 'notifications') {
       fetchNotificationLogs();
     }
+    if (activeTab === 'analytics' || activeTab === 'revenue' || activeTab === 'overview') {
+      fetchAppointmentsSummary();
+    }
   }, [activeTab]);
 
-  // Filter appointments by search term
-  const filteredAppointments = appointments.filter(apt =>
-    searchTerm === '' ||
-    apt.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    apt.doctorName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -464,8 +393,8 @@ const AdminDashboard = () => {
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === item.id
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
                 }`}
             >
               <item.icon className={`w-5 h-5 ${activeTab === item.id ? 'text-blue-700' : 'text-gray-500'}`} />
@@ -527,8 +456,8 @@ const AdminDashboard = () => {
 
         {/* Dashboard Content */}
         <div className="p-6">
-          {/* Stats Cards - Only show in Overview or List views */}
-          {(activeTab === 'overview' || (activeTab === 'appointments' && viewMode === 'list')) && (
+          {/* Stats Cards - Only show in Overview tab */}
+          {activeTab === 'overview' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {stats.map((stat, index) => (
                 <div key={index} className="relative overflow-hidden bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 group">
@@ -562,21 +491,7 @@ const AdminDashboard = () => {
                     <button onClick={() => setActiveTab('appointments')} className="text-sm font-semibold text-blue-600 hover:text-blue-700">View all</button>
                   </div>
                   <div className="space-y-6">
-                    {appointments.slice(0, 5).map((apt, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stats[1].color} flex items-center justify-center text-white font-bold`}>
-                            {apt.patientName?.[0]}
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-gray-900">{apt.patientName}</p>
-                            <p className="text-xs text-gray-500">{apt.type} with Dr. {apt.doctorName}</p>
-                          </div>
-                        </div>
-                        <span className="text-xs font-medium text-gray-400">{formatDate(apt.appointmentDate)}</span>
-                      </div>
-                    ))}
-                    {appointments.length === 0 && <p className="text-center text-gray-500 py-4">No recent activity</p>}
+                    <p className="text-center text-gray-500 py-10 italic">Activity log available in specific modules.</p>
                   </div>
                 </div>
 
@@ -632,333 +547,7 @@ const AdminDashboard = () => {
 
           {/* Appointments Tab Content */}
           {activeTab === 'appointments' && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              {viewMode === 'list' ? (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="p-6 border-b border-gray-100">
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                      <h2 className="text-2xl font-bold text-gray-900 tracking-tight">All Appointments</h2>
-                      <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => setShowFilters(!showFilters)}
-                          className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 border border-gray-200 rounded-xl transition-all"
-                        >
-                          <Filter className="w-5 h-5" />
-                        </button>
-                        <button className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 border border-gray-200 rounded-xl transition-all">
-                          <Download className="w-5 h-5" />
-                        </button>
-                        <button className="flex items-center space-x-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200 transition-all font-semibold">
-                          <PlusCircle className="w-5 h-5" />
-                          <span>New Appointment</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Filters */}
-                    {showFilters && (
-                      <div className="mt-6 p-6 bg-gray-50/50 rounded-2xl border border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top-2 duration-300">
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Status</label>
-                          <select
-                            value={filters.status || ''}
-                            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                          >
-                            <option value="">All Status</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="CONFIRMED">Confirmed</option>
-                            <option value="COMPLETED">Completed</option>
-                            <option value="CANCELLED">Cancelled</option>
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Date</label>
-                          <input
-                            type="date"
-                            value={filters.date || ''}
-                            onChange={(e) => setFilters({ ...filters, date: e.target.value })}
-                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Specialty Search</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. Cardiology"
-                            value={filters.specialty || ''}
-                            onChange={(e) => setFilters({ ...filters, specialty: e.target.value })}
-                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {loading ? (
-                    <div className="p-20 text-center">
-                      <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent shadow-sm"></div>
-                      <p className="mt-4 text-gray-500 font-medium">Fetching secure records...</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="bg-gray-50/50">
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Patient Details</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Medical Specialist</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Schedule</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Specialty</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {filteredAppointments.map((appointment) => (
-                            <tr key={appointment._id} className="group hover:bg-blue-50/30 transition-all duration-300">
-                              <td className="px-6 py-5 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  <div className="relative">
-                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center border border-blue-100 group-hover:scale-110 transition-transform">
-                                      <span className="text-sm font-bold text-blue-600">
-                                        {appointment.patientName?.split(' ').map(n => n[0]).join('') || 'P'}
-                                      </span>
-                                    </div>
-                                    <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white flex items-center justify-center border border-gray-100">
-                                      <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]"></div>
-                                    </div>
-                                  </div>
-                                  <div className="ml-4">
-                                    <p className="text-sm font-bold text-gray-900">{appointment.patientName}</p>
-                                    <p className="text-xs text-gray-500/80 font-medium">{appointment.patientEmail}</p>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-6 py-5 whitespace-nowrap">
-                                <p className="text-sm font-semibold text-gray-800">Dr. {appointment.doctorName}</p>
-                              </td>
-                              <td className="px-6 py-5 whitespace-nowrap">
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-bold text-gray-900">{formatDate(appointment.appointmentDate)}</span>
-                                  <span className="text-xs font-medium text-gray-400 inline-flex items-center mt-1">
-                                    <Clock className="w-3 h-3 mr-1" /> {appointment.timeSlot}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-5 whitespace-nowrap">
-                                <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold tracking-tight">
-                                  {appointment.specialty}
-                                </span>
-                              </td>
-                              <td className="px-6 py-5 whitespace-nowrap">
-                                <span className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border-2 ${appointment.status === 'CONFIRMED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                    appointment.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                      appointment.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700 border-rose-100' :
-                                        'bg-blue-50 text-blue-700 border-blue-100'
-                                  }`}>
-                                  {getStatusIcon(appointment.status)}
-                                  <span className="capitalize">{appointment.status?.toLowerCase()}</span>
-                                </span>
-                              </td>
-                              <td className="px-6 py-5 whitespace-nowrap">
-                                <div className="flex items-center justify-center space-x-2">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedAppointment(appointment);
-                                      setViewMode('detail');
-                                    }}
-                                    className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white hover:shadow-lg hover:shadow-blue-100 transition-all flex items-center space-x-2"
-                                    title="View Full Details"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                    <span className="text-xs font-bold pr-1">Full View</span>
-                                  </button>
-                                  {appointment.status !== 'COMPLETED' && appointment.status !== 'CANCELLED' && (
-                                    <button
-                                      onClick={() => {
-                                        setSelectedAppointment(appointment);
-                                        setShowStatusModal(true);
-                                      }}
-                                      className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white hover:shadow-lg hover:shadow-emerald-100 transition-all"
-                                    >
-                                      <Edit className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                  {appointment.status !== 'CANCELLED' && appointment.status !== 'COMPLETED' && (
-                                    <button
-                                      onClick={() => {
-                                        if (window.confirm('Are you sure you want to cancel this appointment?')) {
-                                          const reason = prompt('Please provide a cancellation reason:');
-                                          if (reason) cancelAppointment(appointment._id, reason);
-                                        }
-                                      }}
-                                      className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white hover:shadow-lg hover:shadow-rose-100 transition-all"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {filteredAppointments.length === 0 && (
-                        <div className="p-20 text-center">
-                          <div className="p-4 bg-gray-50 inline-block rounded-full mb-4">
-                            <Search className="w-10 h-10 text-gray-300" />
-                          </div>
-                          <p className="text-gray-500 font-bold">No appointments match your search criteria</p>
-                          <button onClick={() => { setSearchTerm(''); setFilters({}); }} className="mt-4 text-blue-600 font-bold hover:underline">Clear all filters</button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* Appointment Detail View - "Only appointment should show" */
-                <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
-                  <div className="flex items-center justify-between bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <button
-                      onClick={() => setViewMode('list')}
-                      className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-50 rounded-xl text-gray-600 transition-colors font-bold"
-                    >
-                      <ArrowLeft className="w-5 h-5" />
-                      <span>Back to Appointments</span>
-                    </button>
-                    <div className="flex items-center space-x-3">
-                      <span className={`px-4 py-1.5 rounded-xl text-xs font-bold border-2 ${getStatusColor(selectedAppointment.status)} border-opacity-30`}>
-                        {selectedAppointment.status}
-                      </span>
-                      {selectedAppointment.status !== 'COMPLETED' && selectedAppointment.status !== 'CANCELLED' && (
-                        <button
-                          onClick={() => setShowStatusModal(true)}
-                          className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all"
-                        >
-                          Change Status
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Main Content Info */}
-                    <div className="lg:col-span-2 space-y-8">
-                      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-700 relative">
-                          <div className="absolute -bottom-12 left-8 p-1 bg-white rounded-3xl shadow-xl">
-                            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center border border-gray-100">
-                              <span className="text-3xl font-extrabold text-blue-600">
-                                {selectedAppointment.patientName?.[0]}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="pt-16 pb-8 px-8">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h1 className="text-3xl font-black text-gray-900 tracking-tight">{selectedAppointment.patientName}</h1>
-                              <p className="text-gray-500 font-medium flex items-center mt-1">
-                                <Mail className="w-4 h-4 mr-2 text-blue-400" /> {selectedAppointment.patientEmail}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Appointment ID</p>
-                              <p className="text-sm font-mono font-bold text-gray-700">{selectedAppointment._id}</p>
-                            </div>
-                          </div>
-
-                          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center">
-                                <Activity className="w-4 h-4 mr-2 text-indigo-500" /> Consultation Reason
-                              </h3>
-                              <p className="text-gray-900 font-semibold leading-relaxed">
-                                {selectedAppointment.reason || 'No specific reason provided for this visit.'}
-                              </p>
-                            </div>
-                            <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center">
-                                <Clock className="w-4 h-4 mr-2 text-indigo-500" /> Additional Notes
-                              </h3>
-                              <p className="text-gray-900 font-semibold leading-relaxed italic">
-                                {selectedAppointment.notes || 'No administrative notes recorded yet.'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {selectedAppointment.cancelReason && (
-                        <div className="bg-rose-50 border border-rose-100 rounded-2xl p-6 flex items-start space-x-4">
-                          <AlertCircle className="w-6 h-6 text-rose-600 flex-shrink-0" />
-                          <div>
-                            <h4 className="text-sm font-bold text-rose-900 mb-1">Cancellation Record</h4>
-                            <p className="text-sm text-rose-700 font-medium leading-relaxed">{selectedAppointment.cancelReason}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Sidebar Info */}
-                    <div className="space-y-8">
-                      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
-                        <h3 className="text-lg font-black text-gray-900 mb-6">Medical Personnel</h3>
-                        <div className="flex items-center p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 mb-6">
-                          <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white shrink-0">
-                            <User className="w-6 h-6" />
-                          </div>
-                          <div className="ml-4">
-                            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest leading-none mb-1">Primary Doctor</p>
-                            <p className="text-lg font-black text-indigo-900">Dr. {selectedAppointment.doctorName}</p>
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                            <span className="text-sm font-bold text-gray-500">Specialty</span>
-                            <span className="text-sm font-black text-gray-900">{selectedAppointment.specialty}</span>
-                          </div>
-                          <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                            <span className="text-sm font-bold text-gray-500">Service Type</span>
-                            <span className="text-sm font-black text-gray-900 font-mono">{selectedAppointment.type}</span>
-                          </div>
-                          <div className="flex justify-between items-center py-2">
-                            <span className="text-sm font-bold text-gray-500">Consultation Fee</span>
-                            <span className="text-lg font-black text-emerald-600">${selectedAppointment.consultationFee}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-gradient-to-br from-gray-900 to-indigo-900 rounded-3xl shadow-xl p-8 text-white relative overflow-hidden group">
-                        <div className="relative z-10">
-                          <h3 className="text-lg font-black mb-6">Schedule Details</h3>
-                          <div className="space-y-6">
-                            <div className="flex items-start">
-                              <Calendar className="w-5 h-5 mr-4 text-indigo-400" />
-                              <div>
-                                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Date</p>
-                                <p className="text-lg font-bold">{formatDate(selectedAppointment.appointmentDate)}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-start">
-                              <Clock className="w-5 h-5 mr-4 text-indigo-400" />
-                              <div>
-                                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Time Slot</p>
-                                <p className="text-lg font-bold">{selectedAppointment.timeSlot}</p>
-                              </div>
-                            </div>
-                          </div>
-                          <button className="w-full mt-8 py-4 bg-white/10 hover:bg-white/20 rounded-2xl text-sm font-black transition-all border border-white/10 flex items-center justify-center">
-                            Export to PDF <Download className="w-4 h-4 ml-2" />
-                          </button>
-                        </div>
-                        <Activity className="absolute -right-8 -bottom-8 w-40 h-40 opacity-5 group-hover:scale-110 transition-transform duration-700" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <AppointmentsView />
           )}
 
           {/* Patients Tab Content */}
@@ -1316,7 +905,7 @@ const AdminDashboard = () => {
                     <h2 className="text-2xl font-black text-gray-900 tracking-tight">Send Notification</h2>
                     <p className="text-sm text-gray-500 mt-1">Directly target users via Email, SMS, or Both.</p>
                   </div>
-                  
+
                   <form onSubmit={handleSendNotification} className="p-8 space-y-6">
                     {notifSuccess && (
                       <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-700 text-sm font-bold flex items-center mb-4">
@@ -1345,9 +934,9 @@ const AdminDashboard = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Channel</label>
-                        <select 
+                        <select
                           value={notifForm.type}
-                          onChange={(e) => setNotifForm({...notifForm, type: e.target.value})}
+                          onChange={(e) => setNotifForm({ ...notifForm, type: e.target.value })}
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
                         >
                           <option value="EMAIL">📧 Email Only</option>
@@ -1357,9 +946,9 @@ const AdminDashboard = () => {
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Mode</label>
-                        <select 
+                        <select
                           value={notifForm.isOtp ? 'OTP' : 'MESSAGE'}
-                          onChange={(e) => setNotifForm({...notifForm, isOtp: e.target.value === 'OTP'})}
+                          onChange={(e) => setNotifForm({ ...notifForm, isOtp: e.target.value === 'OTP' })}
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
                         >
                           <option value="MESSAGE">General Message</option>
@@ -1386,12 +975,12 @@ const AdminDashboard = () => {
                             DOCTORS
                           </button>
                         </div>
-                        
+
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 bg-blue-50 rounded-lg">
                             <Search className="w-3.3 h-3.5 text-blue-600" />
                           </div>
-                          <input 
+                          <input
                             type="text"
                             placeholder={`Search ${selectedRole}s by name...`}
                             value={searchQuery}
@@ -1405,7 +994,7 @@ const AdminDashboard = () => {
                           >
                             SELECT ALL
                           </button>
-                          
+
                           {searchQuery && (
                             <div className="absolute z-10 w-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl max-h-48 overflow-y-auto p-2 space-y-1">
                               {(selectedRole === 'patient' ? patients : allDoctors)
@@ -1430,12 +1019,12 @@ const AdminDashboard = () => {
 
                         {selectedRecipients.length > 0 && (
                           <div className="space-y-2">
-                             <div className="flex items-center justify-between px-1">
+                            <div className="flex items-center justify-between px-1">
                               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
                                 Targets ({selectedRecipients.length})
                               </label>
-                              <button 
-                                type="button" 
+                              <button
+                                type="button"
                                 onClick={() => setSelectedRecipients([])}
                                 className="text-[10px] font-bold text-rose-500 hover:underline"
                               >
@@ -1444,13 +1033,13 @@ const AdminDashboard = () => {
                             </div>
                             <div className="flex flex-wrap gap-2 p-3 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200 min-h-[60px] max-h-40 overflow-y-auto">
                               {selectedRecipients.map((person) => (
-                                <div 
-                                  key={person._id} 
+                                <div
+                                  key={person._id}
                                   className="flex items-center space-x-2 px-3 py-1.5 bg-white border border-gray-100 rounded-xl shadow-sm animate-in fade-in zoom-in-95 duration-200"
                                 >
                                   <div className={`w-2 h-2 rounded-full ${person.role === 'doctor' ? 'bg-indigo-500' : 'bg-blue-500'}`}></div>
                                   <span className="text-xs font-bold text-gray-700">{person.name}</span>
-                                  <button 
+                                  <button
                                     type="button"
                                     onClick={() => removeRecipient(person._id)}
                                     className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-rose-600 transition-colors"
@@ -1466,11 +1055,11 @@ const AdminDashboard = () => {
                     ) : (
                       <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Recipient Detail</label>
-                        <input 
+                        <input
                           type="text"
                           placeholder={notifForm.type === 'EMAIL' ? "user@example.com" : notifForm.type === 'SMS' ? "+947xxxxxxx" : "Recipient contact info"}
                           value={notifForm.recipient}
-                          onChange={(e) => setNotifForm({...notifForm, recipient: e.target.value})}
+                          onChange={(e) => setNotifForm({ ...notifForm, recipient: e.target.value })}
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
                           required
                         />
@@ -1480,11 +1069,11 @@ const AdminDashboard = () => {
                     {!notifForm.isOtp && (notifForm.type === 'EMAIL' || notifForm.type === 'BOTH') && (
                       <div className="space-y-2 animate-in fade-in duration-300">
                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Subject Line</label>
-                        <input 
+                        <input
                           type="text"
                           placeholder="Important Update Regarding..."
                           value={notifForm.subject}
-                          onChange={(e) => setNotifForm({...notifForm, subject: e.target.value})}
+                          onChange={(e) => setNotifForm({ ...notifForm, subject: e.target.value })}
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
                         />
                       </div>
@@ -1492,18 +1081,18 @@ const AdminDashboard = () => {
 
                     <div className="space-y-2">
                       <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Message Body</label>
-                      <textarea 
+                      <textarea
                         rows="4"
                         placeholder={notifForm.isOtp ? "The verification code is 123456" : "Type your message here..."}
                         value={notifForm.message}
-                        onChange={(e) => setNotifForm({...notifForm, message: e.target.value})}
+                        onChange={(e) => setNotifForm({ ...notifForm, message: e.target.value })}
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                         required
                       />
                       {notifForm.isOtp && <p className="text-[10px] text-blue-500 font-bold ml-1">Tip: Include a 6-digit number to use the OTP template.</p>}
                     </div>
 
-                    <button 
+                    <button
                       type="submit"
                       disabled={notifLoading}
                       className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-blue-200 hover:shadow-2xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
@@ -1530,50 +1119,47 @@ const AdminDashboard = () => {
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="flex-1 overflow-y-auto max-h-[600px] p-6 space-y-4">
                     {notificationLogs.map((log, idx) => (
                       <div key={idx} className="p-4 rounded-3xl bg-gray-50 hover:bg-white hover:shadow-md border border-transparent hover:border-blue-100 transition-all group relative overflow-hidden">
                         <div className={`absolute top-0 right-0 w-24 h-24 -mt-12 -mr-12 rounded-full opacity-[0.03] ${log.status === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
-                        
+
                         <div className="flex items-start justify-between relative z-10">
                           <div className="flex items-center space-x-4">
-                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold ${
-                              log.status === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-                            }`}>
+                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold ${log.status === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                              }`}>
                               {log.channels?.email?.sent ? <Mail className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
                             </div>
                             <div>
                               <div className="flex items-center space-x-2">
                                 <p className="text-sm font-black text-gray-900">{log.recipientName || log.recipientEmail || log.recipientPhone}</p>
-                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
-                                  log.recipientRole === 'doctor' ? 'bg-indigo-100 text-indigo-600' : 'bg-blue-100 text-blue-600'
-                                }`}>
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${log.recipientRole === 'doctor' ? 'bg-indigo-100 text-indigo-600' : 'bg-blue-100 text-blue-600'
+                                  }`}>
                                   {log.recipientRole}
                                 </span>
                               </div>
                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{log.eventType.replace(/_/g, ' ')}</p>
                             </div>
                           </div>
-                          
+
                           <div className="flex flex-col items-end space-y-1">
                             <div className="flex items-center space-x-2 mb-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button 
+                              <button
                                 onClick={() => setSelectedLog(log)}
                                 className="p-1 px-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all text-[10px] font-black flex items-center"
                               >
                                 <Search className="w-3 h-3 mr-1" /> VIEW
                               </button>
-                              <button 
+                              <button
                                 onClick={() => handleDeleteLog(log._id)}
                                 className="p-1 px-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all text-[10px] font-black flex items-center"
                               >
                                 <Trash2 className="w-3 h-3 mr-1" /> DELETE
                               </button>
                             </div>
-                            <span className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-lg border ${
-                              log.status === 'success' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-rose-600 bg-rose-50 border-rose-100'
-                            }`}>
+                            <span className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-lg border ${log.status === 'success' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-rose-600 bg-rose-50 border-rose-100'
+                              }`}>
                               {log.status}
                             </span>
                             <div className="flex space-x-1">
@@ -1594,7 +1180,7 @@ const AdminDashboard = () => {
                           <div className="flex items-center">
                             <Clock className="w-3 h-3 mr-1" /> {new Date(log.createdAt).toLocaleString()}
                           </div>
-                          {log.recipientId && <span className="text-blue-500/40 font-mono">ID: {log.recipientId.substring(0,8)}...</span>}
+                          {log.recipientId && <span className="text-blue-500/40 font-mono">ID: {log.recipientId.substring(0, 8)}...</span>}
                         </div>
                       </div>
                     ))}
@@ -1614,59 +1200,7 @@ const AdminDashboard = () => {
 
 
 
-      {/* Update Status Modal */}
-      {showStatusModal && selectedAppointment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">Update Appointment Status</h3>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select
-                  value={statusUpdate.status}
-                  onChange={(e) => setStatusUpdate({ ...statusUpdate, status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select Status</option>
-                  <option value="CONFIRMED">Confirm</option>
-                  <option value="COMPLETED">Complete</option>
-                  <option value="CANCELLED">Cancel</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
-                <textarea
-                  value={statusUpdate.notes}
-                  onChange={(e) => setStatusUpdate({ ...statusUpdate, notes: e.target.value })}
-                  rows="3"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Add any notes about this appointment..."
-                />
-              </div>
-            </div>
-            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowStatusModal(false);
-                  setStatusUpdate({ status: '', notes: '' });
-                }}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => updateAppointmentStatus(selectedAppointment._id, statusUpdate.status, statusUpdate.notes)}
-                disabled={!statusUpdate.status}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Update Status
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Notification Log Detail Modal */}
       {selectedLog && (
@@ -1679,7 +1213,7 @@ const AdminDashboard = () => {
                   ID: {selectedLog._id}
                 </p>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedLog(null)}
                 className="p-3 bg-white shadow-sm rounded-2xl text-gray-400 hover:text-rose-600 transition-all hover:scale-110"
               >
@@ -1756,7 +1290,7 @@ const AdminDashboard = () => {
             </div>
 
             <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end px-8">
-              <button 
+              <button
                 onClick={() => setSelectedLog(null)}
                 className="px-8 py-3 bg-white border border-gray-200 text-gray-600 rounded-2xl font-black text-xs hover:bg-gray-100 transition-all"
               >

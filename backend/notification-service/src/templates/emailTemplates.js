@@ -57,7 +57,7 @@ const templates = {
     html: wrap('Payment Confirmed', `
       <h2>Payment Successful!</h2>
       <p>Hi <strong>${d.patientName || 'Patient'}</strong>,</p>
-      <p>Your consultation payment has been processed successfully. Here are the details:</p>
+      <p>Your consultation payment has been processed successfully. Your appointment is now waiting for approval by the doctor. Here are the details:</p>
       <div class="detail-box">
         <div class="detail-row"><span class="detail-label">Doctor</span><span class="detail-value">Dr. ${d.doctorName}</span></div>
         <div class="detail-row"><span class="detail-label">Appointment Date</span><span class="detail-value">${d.appointmentDate}</span></div>
@@ -253,6 +253,14 @@ const templates = {
       <h2>Account Status Update</h2>
       <p>${d.message}</p>
       <p>Thank you for using CareNet.</p>
+    `),
+  }),
+  MANUAL_MESSAGE: (d) => ({
+    subject: d.subject || 'Notification from CareNet',
+    html: wrap(d.subject || 'Notification', `
+      <h2>${d.subject || 'Message from Admin'}</h2>
+      <p>${d.message}</p>
+      <p>This message was sent to you by the CareNet Administrative team.</p>
     `),
   }),
 };

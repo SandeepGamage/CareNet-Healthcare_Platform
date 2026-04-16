@@ -114,6 +114,9 @@ const getSMSBody = (eventType, data) => {
     case 'VERIFICATION_CODE_SMS':
       return `🏥 CareNet Verification: ${data.code || data.message}. Valid for 10 minutes.`;
 
+    case 'MANUAL_MESSAGE':
+      return `🏥 CareNet: ${data.message}`;
+
     default:
       return `Healthcare Platform notification. Please check your email for details.`;
   }

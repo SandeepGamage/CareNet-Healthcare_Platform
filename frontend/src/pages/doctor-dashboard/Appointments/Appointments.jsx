@@ -12,7 +12,13 @@ import {
 	Loader2, 
 	AlertCircle,
 	Check,
-	History
+	History,
+	Video,
+	MapPin,
+	Activity,
+	FileText,
+	AlertTriangle,
+	ArrowRight
 } from "lucide-react";
 import axios from "axios";
 
@@ -44,6 +50,11 @@ export default function Appointments() {
 	const [sortField, setSortField] = useState("appointmentDate");
 	const [sortDirection, setSortDirection] = useState("asc");
 	const [searchQuery, setSearchQuery] = useState("");
+	
+	const [selectedAppointment, setSelectedAppointment] = useState(null);
+	const [isActionLoading, setIsActionLoading] = useState(false);
+	const [rejectionReason, setRejectionReason] = useState("");
+	const [showRejectionInput, setShowRejectionInput] = useState(false);
 
 	// --- Initialization ---
 	useEffect(() => {
@@ -64,11 +75,8 @@ export default function Appointments() {
 	const fetchDoctorProfile = async () => {
 		try {
 			const token = localStorage.getItem("token");
-			const userStr = localStorage.getItem("user");
-			if (!userStr) return;
-			const user = JSON.parse(userStr);
-
-			const response = await axios.get(`${API_BASE_URL}/doctors/profile/user/${user.id || user._id}`, {
+			// Using /me endpoint is more secure and doesn't rely on local user state
+			const response = await axios.get(`${API_BASE_URL}/doctors/profile/me`, {
 				headers: { Authorization: `Bearer ${token}` }
 			});
 
@@ -101,8 +109,8 @@ export default function Appointments() {
 	};
 
 	const handleSaveAvailableHours = async () => {
-		if (startTime === endTime) {
-			setHoursMessage("Start time and End time cannot be the same.");
+		if (startTime >= endTime) {
+			setHoursMessage("Start time must be strictly earlier than End time.");
 			return;
 		}
 
@@ -112,7 +120,8 @@ export default function Appointments() {
 			setSavingHours(true);
 			setHoursMessage("");
 			const token = localStorage.getItem("token");
-			const response = await axios.put(`${API_BASE_URL}/doctors/profile/${doctor._id}`, 
+			// Use the dedicated PATCH /me/available-hours endpoint
+			const response = await axios.patch(`${API_BASE_URL}/doctors/profile/me/available-hours`, 
 				{ availableHours: hoursString },
 				{ headers: { Authorization: `Bearer ${token}` } }
 			);
@@ -131,20 +140,36 @@ export default function Appointments() {
 		}
 	};
 
-	const handleStatusUpdate = async (id, status) => {
+	const handleStatusUpdate = async (id, status, cancelReason = "") => {
 		try {
+			setIsActionLoading(true);
 			const token = localStorage.getItem("token");
 			const response = await axios.patch(`${API_BASE_URL}/appointments/${id}/status`, 
-				{ status },
+				{ status, cancelReason },
 				{ headers: { Authorization: `Bearer ${token}` } }
 			);
 			
 			if (response.status === 200 || response.data?.success) {
-				fetchAppointments();
+				await fetchAppointments();
+				// If we updated the currently selected one, close modal or update it
+				if (selectedAppointment && selectedAppointment._id === id) {
+					// For completion/cancellation, closing is often cleaner
+					if (status === 'COMPLETED' || status === 'CANCELLED') {
+						setSelectedAppointment(null);
+						setShowRejectionInput(false);
+						setRejectionReason("");
+					} else {
+						// For acceptance, just update status
+						setSelectedAppointment({ ...selectedAppointment, status });
+					}
+				}
 			}
 		} catch (error) {
 			console.error(`Error updating appointment to ${status}:`, error);
-			alert("Failed to update appointment status.");
+			const msg = error.response?.data?.message || `Failed to update appointment status to ${status}.`;
+			alert(msg);
+		} finally {
+			setIsActionLoading(false);
 		}
 	};
 
@@ -294,8 +319,8 @@ export default function Appointments() {
 							</button>
 						</div>
 						{hoursMessage && (
-							<p className={`mt-3 text-xs font-semibold flex items-center gap-1 ${hoursMessage.includes("Error") ? "text-rose-500" : "text-emerald-600"}`}>
-								<AlertCircle size={14} />
+							<p className={`mt-3 text-xs font-semibold flex items-center gap-1 ${hoursMessage.includes("successfully") ? "text-emerald-600" : "text-rose-500"}`}>
+								{hoursMessage.includes("successfully") ? <Check size={14} /> : <AlertCircle size={14} />}
 								{hoursMessage}
 							</p>
 						)}
@@ -406,7 +431,11 @@ export default function Appointments() {
 						<tbody className="divide-y divide-slate-100">
 							{processedAppointments.length > 0 ? (
 								processedAppointments.map((appointment) => (
-									<tr key={appointment._id} className="hover:bg-slate-50/50 transition-all group">
+									<tr 
+										key={appointment._id} 
+										onClick={() => setSelectedAppointment(appointment)}
+										className="hover:bg-slate-50/50 transition-all group cursor-pointer"
+									>
 										<td className="px-6 py-5">
 											<div className="flex items-center gap-3">
 												<div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
@@ -438,20 +467,27 @@ export default function Appointments() {
 												</div>
 											</div>
 										</td>
-										<td className="px-6 py-5">
+										<td className="px-6 py-5" onClick={(e) => e.stopPropagation()}>
 											<div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
 												{appointment.status === 'PENDING' && (
 													<>
 														<button 
-															onClick={() => handleStatusUpdate(appointment._id, 'CONFIRMED')}
-															className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100 shadow-sm"
+															onClick={(e) => {
+																e.stopPropagation();
+																handleStatusUpdate(appointment._id, 'CONFIRMED');
+															}}
+															className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100 shadow-sm transition-all active:scale-90"
 															title="Accept"
 														>
 															<CheckCircle size={18} />
 														</button>
 														<button 
-															onClick={() => handleStatusUpdate(appointment._id, 'CANCELLED')}
-															className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100 shadow-sm"
+															onClick={(e) => {
+																e.stopPropagation();
+																setSelectedAppointment(appointment);
+																setShowRejectionInput(true);
+															}}
+															className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100 shadow-sm transition-all active:scale-90"
 															title="Reject"
 														>
 															<XCircle size={18} />
@@ -460,10 +496,13 @@ export default function Appointments() {
 												)}
 												{appointment.status === 'CONFIRMED' && (
 													<button 
-														onClick={() => handleStatusUpdate(appointment._id, 'COMPLETED')}
-														className="px-4 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 text-xs font-bold uppercase tracking-widest"
+														onClick={(e) => {
+															e.stopPropagation();
+															handleStatusUpdate(appointment._id, 'COMPLETED');
+														}}
+														className="px-4 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
 													>
-														Mark Complete
+														Complete
 													</button>
 												)}
 											</div>
@@ -484,6 +523,199 @@ export default function Appointments() {
 					</table>
 				</div>
 			</div>
+
+			{/* Appointment Details Modal */}
+			{selectedAppointment && (
+				<div 
+					className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300"
+					onClick={() => {
+						if (!isActionLoading) {
+							setSelectedAppointment(null);
+							setShowRejectionInput(false);
+							setRejectionReason("");
+						}
+					}}
+				>
+					<div 
+						className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-8 duration-500"
+						onClick={(e) => e.stopPropagation()}
+					>
+						{/* Modal Header */}
+						<div className="relative h-40 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 p-8">
+							<button 
+								onClick={() => {
+									setSelectedAppointment(null);
+									setShowRejectionInput(false);
+									setRejectionReason("");
+								}}
+								className="absolute top-6 right-6 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all active:scale-90"
+							>
+								<X size={20} />
+							</button>
+							
+							<div className="flex items-center gap-6 mt-4">
+								<div className="w-24 h-24 rounded-3xl bg-white shadow-2xl flex items-center justify-center text-blue-600 font-black text-3xl border-[6px] border-white/20 transition-transform hover:scale-105 duration-300">
+									{selectedAppointment.patientName?.charAt(0)}
+								</div>
+								<div className="text-white">
+									<h2 className="text-2xl font-black tracking-tight">{selectedAppointment.patientName}</h2>
+									<div className="flex flex-col gap-1 mt-1">
+										<p className="text-blue-100 text-xs font-bold opacity-80 flex items-center gap-2">
+											<Activity size={12} className="text-blue-300" />
+											ID: {selectedAppointment.appointmentId || selectedAppointment._id?.slice(-8).toUpperCase()}
+										</p>
+										<p className="text-blue-200 text-[10px] font-black uppercase tracking-widest">Patient Portal Linked</p>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						{/* Modal Content */}
+						<div className="px-8 pt-10 pb-8">
+							{!showRejectionInput ? (
+								<>
+									<div className="grid grid-cols-2 gap-8 mb-10">
+										<div className="space-y-2">
+											<p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Schedule</p>
+											<div className="flex items-center gap-3 text-slate-700 font-bold">
+												<div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+													<Calendar size={16} />
+												</div>
+												<span className="text-sm">{new Date(selectedAppointment.appointmentDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+											</div>
+										</div>
+										<div className="space-y-2">
+											<p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Time Slot</p>
+											<div className="flex items-center gap-3 text-slate-700 font-bold">
+												<div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+													<Clock3 size={16} />
+												</div>
+												<span className="text-sm tracking-tight">{selectedAppointment.timeSlot}</span>
+											</div>
+										</div>
+										<div className="space-y-2">
+											<p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Current Status</p>
+											<div className="flex items-center gap-2">
+												<span className={`inline-flex rounded-xl px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] shadow-sm ${statusStyles[selectedAppointment.status] || "bg-slate-100"}`}>
+													{selectedAppointment.status}
+												</span>
+											</div>
+										</div>
+										<div className="space-y-2">
+											<p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Symptom Type</p>
+											<div className="flex items-center gap-3 text-slate-700 font-bold">
+												<div className={`w-8 h-8 rounded-lg flex items-center justify-center ${selectedAppointment.type === 'TELEMEDICINE' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
+													{selectedAppointment.type === 'TELEMEDICINE' ? <Video size={16} /> : <MapPin size={16} />}
+												</div>
+												<span className="text-sm capitalize">{selectedAppointment.type?.toLowerCase().replace('_', ' ')}</span>
+											</div>
+										</div>
+									</div>
+
+									<div className="mb-10">
+										<div className="flex items-center gap-2 mb-3">
+											<FileText size={14} className="text-slate-400" />
+											<p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Reason & Clinical Notes</p>
+										</div>
+										<div className="bg-slate-50 rounded-[24px] p-6 border border-slate-100/80 relative group overflow-hidden">
+											<div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-20 group-hover:opacity-100 transition-opacity" />
+											<p className="italic text-slate-600 text-sm leading-relaxed relative z-10">
+												"{selectedAppointment.reason || "The patient is seeking a general health consultation and routine checkup for preventive care."}"
+											</p>
+										</div>
+									</div>
+
+									{/* Quick Actions */}
+									<div className="flex gap-4">
+										{selectedAppointment.status === 'PENDING' && (
+											<>
+												<button 
+													disabled={isActionLoading}
+													onClick={() => handleStatusUpdate(selectedAppointment._id, 'CONFIRMED')}
+													className="flex-1 h-14 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+												>
+													{isActionLoading ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
+													Accept Request
+												</button>
+												<button 
+													disabled={isActionLoading}
+													onClick={() => setShowRejectionInput(true)}
+													className="px-6 h-14 bg-rose-50 text-rose-600 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-rose-100 transition-all border border-rose-100 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+												>
+													<XCircle size={20} />
+													Reject
+												</button>
+											</>
+										)}
+										{selectedAppointment.status === 'CONFIRMED' && (
+											<button 
+												disabled={isActionLoading}
+												onClick={() => handleStatusUpdate(selectedAppointment._id, 'COMPLETED')}
+												className="w-full h-14 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+											>
+												{isActionLoading ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
+												Mark as Completed
+											</button>
+										)}
+										{(selectedAppointment.status === 'CANCELLED' || selectedAppointment.status === 'COMPLETED') && (
+											<button 
+												onClick={() => setSelectedAppointment(null)}
+												className="w-full h-14 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-[0.98]"
+											>
+												Close Profile
+											</button>
+										)}
+									</div>
+								</>
+							) : (
+								<div className="animate-in slide-in-from-right-4 duration-300">
+									<div className="flex items-center gap-3 mb-6">
+										<button 
+											onClick={() => setShowRejectionInput(false)}
+											className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors"
+										>
+											<ArrowRight size={20} className="rotate-180" />
+										</button>
+										<h3 className="text-lg font-black text-slate-800 tracking-tight">Reject Appointment</h3>
+									</div>
+
+									<div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-start gap-3 mb-6">
+										<AlertTriangle className="text-amber-600 shrink-0" size={20} />
+										<p className="text-[11px] text-amber-700 font-bold leading-relaxed">
+											Please provide a reason for the rejection. This message will be sent to the patient to help them understand the decision.
+										</p>
+									</div>
+
+									<textarea
+										placeholder="e.g. Unforeseen schedule conflict, please choose another slot..."
+										value={rejectionReason}
+										onChange={(e) => setRejectionReason(e.target.value)}
+										className="w-full h-32 rounded-[24px] border border-slate-200 bg-slate-50 p-6 text-sm text-slate-700 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 transition-all mb-6 placeholder:text-slate-300"
+									/>
+
+									<div className="flex gap-4">
+										<button 
+											disabled={isActionLoading || !rejectionReason.trim()}
+											onClick={() => handleStatusUpdate(selectedAppointment._id, 'CANCELLED', rejectionReason)}
+											className="flex-1 h-14 bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-rose-700 transition-all shadow-xl shadow-rose-200 active:scale-[0.98] disabled:opacity-50 disabled:grayscale disabled:active:scale-100"
+										>
+											{isActionLoading ? <Loader2 size={20} className="animate-spin" /> : <XCircle size={20} />}
+											Confirm Rejection
+										</button>
+										<button 
+											onClick={() => setShowRejectionInput(false)}
+											disabled={isActionLoading}
+											className="flex-1 h-14 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-[0.98] disabled:opacity-50"
+										>
+											Cancel
+										</button>
+									</div>
+								</div>
+							)}
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

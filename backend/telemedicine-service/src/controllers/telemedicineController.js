@@ -5,7 +5,6 @@ const {
   buildRoomName,
   buildRoomUrl,
   buildParticipantConfig,
-  signJitsiJwt,
 } = require("../services/jitsiService");
 
 const sessionToken = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
@@ -77,10 +76,11 @@ exports.createSessionForAppointment = async (req, res) => {
     }
 
     const role = normalizeRole(req.user.role);
-    if (!["doctor", "admin", "patient"].includes(role)) {
+    // Only doctor and admin can create telemedicine sessions
+    if (!["doctor", "admin"].includes(role)) {
       return res.status(403).json({
         success: false,
-        message: "Only doctor, patient, or admin can create/view telemedicine session.",
+        message: "Only doctor or admin can create telemedicine sessions.",
       });
     }
 
@@ -172,6 +172,38 @@ exports.joinSession = async (req, res) => {
       });
     }
 
+    // Check if appointment is CANCELLED and auto-cancel session
+    if (String(appointment.status || "").toUpperCase() === "CANCELLED") {
+      session.status = "CANCELLED";
+      await session.save();
+      return res.status(400).json({
+        success: false,
+        message: "This appointment has been cancelled. Cannot join session.",
+      });
+    }
+
+    // Check if appointment is COMPLETED and auto-end session
+    if (String(appointment.status || "").toUpperCase() === "COMPLETED") {
+      session.status = "ENDED";
+      await session.save();
+      return res.status(400).json({
+        success: false,
+        message: "This appointment is completed. Session has ended.",
+      });
+    }
+
+    // Patients can only join CONFIRMED appointments
+    const role = normalizeRole(req.user.role);
+    if (role === "patient") {
+      const appointmentStatus = String(appointment.status || "").toUpperCase();
+      if (appointmentStatus !== "CONFIRMED") {
+        return res.status(400).json({
+          success: false,
+          message: `Patients can only join confirmed appointments. Current status: ${appointmentStatus}`,
+        });
+      }
+    }
+
     if (session.status === "ENDED" || session.status === "CANCELLED") {
       return res.status(400).json({
         success: false,
@@ -187,33 +219,13 @@ exports.joinSession = async (req, res) => {
     addParticipantJoin(session, req.user);
     await session.save();
 
-    const userRole = normalizeRole(req.user.role);
-    const enforceJitsiJwt =
-      String(process.env.JITSI_ENFORCE_JWT || "false").toLowerCase() === "true";
-
-    const jitsiJwt = signJitsiJwt({
-      roomName: session.roomName,
-      userId: req.user.id,
-      role: userRole,
-      name: req.user.name,
-      email: req.user.email,
-    });
-
-    if (enforceJitsiJwt && !jitsiJwt) {
-      return res.status(500).json({
-        success: false,
-        message:
-          "Jitsi secure mode is enabled but JITSI_APP_ID/JITSI_APP_SECRET are not configured.",
-      });
-    }
-
     const joinPayload = {
       domain: process.env.JITSI_DOMAIN || "meet.jit.si",
       roomName: session.roomName,
       roomUrl: session.roomUrl,
-      jwt: jitsiJwt || null,
+      jwt: null,
       participant: buildParticipantConfig({
-        role: userRole,
+        role,
         name: req.user.name,
         email: req.user.email,
       }),

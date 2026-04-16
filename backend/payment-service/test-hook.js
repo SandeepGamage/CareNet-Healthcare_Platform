@@ -2,10 +2,10 @@ const crypto = require('crypto');
 const http = require('http');
 require('dotenv').config({ path: '.env' });
 
-const merchant_id = process.env.PAYHERE_MERCHANT_ID;
-const merchant_secret = process.env.PAYHERE_SECRET;
-const order_id = '69d2785bf71bd2550bfdcc34'; // Your specific order ID
-const payhere_amount = '100.00';
+const merchant_id = '1234825';
+const merchant_secret = 'Mzc5NTA2OTc3MDQ4NjgzMDYwODM3NDU1OTczOTMxNjI0MzU5MjY4';
+const order_id = '507f1f77bcf86cd799439011'; // Valid ObjectId
+const payhere_amount = '1500.00';
 const payhere_currency = 'LKR';
 const status_code = '2'; // 2 means success in PayHere
 
