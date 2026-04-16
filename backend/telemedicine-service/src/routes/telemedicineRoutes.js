@@ -8,7 +8,7 @@ const {
   getSessionByAppointmentId,
 } = require("../controllers/telemedicineController");
 
-router.post("/sessions", protect, authorize("doctor", "patient", "admin"), createSessionForAppointment);
+router.post("/sessions", protect, authorize("doctor", "admin"), createSessionForAppointment);
 router.get("/sessions/my", protect, authorize("doctor", "patient", "admin"), getMySessions);
 router.get(
   "/sessions/appointment/:appointmentId",
