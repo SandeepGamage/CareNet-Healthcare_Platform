@@ -609,7 +609,7 @@ const BookAppointment = () => {
                   key={option.value}
                   onClick={() => setFilters(prev => ({ ...prev, sortBy: option.value }))}
                   className={`px-3 py-1 text-sm rounded-full transition-colors ${filters.sortBy === option.value
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-gradient-to-r from-teal-600 to-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
@@ -649,7 +649,7 @@ const BookAppointment = () => {
                 >
                   <div className="flex items-start gap-4">
                     <div className="relative">
-                      <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold">
+                      <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white text-xl font-bold">
                         {doctor.name.charAt(0)}
                       </div>
                       {doctor.rating >= 4.5 && (
@@ -703,7 +703,7 @@ const BookAppointment = () => {
                           <Users className="w-4 h-4 text-gray-400" />
                           <span className="text-xs text-gray-500">{doctor.totalPatients}+ patients</span>
                         </div>
-                        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                        <button className="px-4 py-2 bg-gradient-to-r from-teal-600 to-blue-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
                           Select
                         </button>
                       </div>
@@ -776,7 +776,7 @@ const BookAppointment = () => {
                     w-12 h-12 rounded-full flex items-center justify-center mb-2
                     transition-all duration-300 z-10 relative
                     ${currentStep >= item.step
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                      ? 'bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-lg'
                       : 'bg-gray-200 text-gray-500'}
                     ${currentStep === item.step ? 'ring-4 ring-blue-200' : ''}
                   `}>
@@ -788,7 +788,7 @@ const BookAppointment = () => {
                   <div className={`
                     absolute top-6 left-1/2 w-full h-0.5
                     transition-all duration-300
-                    ${currentStep > item.step ? 'bg-gradient-to-r from-blue-600 to-purple-600' : 'bg-gray-200'}
+                    ${currentStep > item.step ? 'bg-gradient-to-r from-teal-600 to-blue-600' : 'bg-gray-200'}
                   `} />
                 )}
               </div>
@@ -811,7 +811,7 @@ const BookAppointment = () => {
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className="grid md:grid-cols-3">
             {/* Sidebar */}
-            <div className="md:col-span-1 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 p-6 text-white">
+              <div className="md:col-span-1 bg-gradient-to-br from-teal-600 via-blue-600 to-indigo-700 p-6 text-white">
               <div className="mb-8">
                 <h3 className="text-xl font-bold mb-2">Why Choose Us?</h3>
                 <p className="text-blue-100 text-sm">Experience the best healthcare services</p>
@@ -857,7 +857,7 @@ const BookAppointment = () => {
                       <button
                         onClick={() => handleBookingTypeChange(true)}
                         className={`px-4 py-2 rounded-lg transition-all ${bookingForSelf
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md'
+                          ? 'bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-md'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           }`}
                       >
@@ -866,7 +866,7 @@ const BookAppointment = () => {
                       <button
                         onClick={() => handleBookingTypeChange(false)}
                         className={`px-4 py-2 rounded-lg transition-all ${!bookingForSelf
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md'
+                          ? 'bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-md'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           }`}
                       >
@@ -980,7 +980,7 @@ const BookAppointment = () => {
                                 className="border border-gray-200 rounded-xl p-4 cursor-pointer hover:border-blue-300 hover:shadow-lg transition-all group"
                               >
                                 <div className="flex items-start gap-3">
-                                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white font-bold">
                                     {doctor.name.charAt(0)}
                                   </div>
                                   <div className="flex-1">
@@ -1025,7 +1025,7 @@ const BookAppointment = () => {
                       <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-5">
                         <div className="flex justify-between items-start">
                           <div className="flex gap-4">
-                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-teal-600 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
                               {selectedDoctor.name.charAt(0)}
                             </div>
                             <div>
@@ -1114,7 +1114,7 @@ const BookAppointment = () => {
                               className={`
                                 py-2 px-3 text-sm font-medium rounded-lg border transition-all
                                 ${formData.timeSlot === slot
-                                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                  ? 'bg-gradient-to-r from-teal-600 to-blue-600 text-white border-transparent shadow-sm'
                                   : 'bg-white text-gray-700 border-gray-200 hover:border-blue-400 hover:text-blue-600'
                                 }
                               `}
@@ -1174,7 +1174,7 @@ const BookAppointment = () => {
                             className={`
                               flex flex-col items-center gap-2 px-4 py-3 rounded-xl border transition-all
                               ${formData.type === type.value
-                                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-transparent shadow-md'
+                                ? 'bg-gradient-to-r from-teal-600 to-blue-600 text-white border-transparent shadow-md'
                                 : isDisabled
                                   ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
                                   : 'border-gray-300 text-gray-700 hover:border-blue-400 hover:shadow-sm'
@@ -1340,7 +1340,7 @@ const BookAppointment = () => {
                   </div>
                   <button
                     onClick={resetForm}
-                    className="mt-6 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl"
+                    className="mt-6 px-6 py-3 bg-gradient-to-r from-teal-600 to-blue-600 text-white rounded-lg hover:from-teal-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl"
                   >
                     Book Another Appointment
                   </button>
@@ -1365,7 +1365,7 @@ const BookAppointment = () => {
                   {currentStep < 3 ? (
                     <button
                       onClick={handleNext}
-                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg"
+                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-600 to-blue-600 text-white rounded-lg hover:from-teal-700 hover:to-blue-700 transition-all shadow-md hover:shadow-lg"
                     >
                       Next
                       <ArrowRight className="w-4 h-4" />
