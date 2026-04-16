@@ -8,6 +8,7 @@ const {
   handleAccountNotification,
   getLogs,
   getMyLogs,
+  deleteLog,
   handleManualNotification,
 } = require('../controllers/notificationController');
 
