@@ -19,6 +19,7 @@ import {
   X
 } from 'lucide-react';
 import axios from 'axios';
+import ConfirmationDialog from "../../../components/confirmationDialog";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -37,6 +38,9 @@ const AppointmentsView = () => {
   // Status Update state
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusUpdate, setStatusUpdate] = useState({ status: '', notes: '' });
+
+  // Delete Confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Get auth token from localStorage
   const getAuthToken = () => localStorage.getItem('token');
@@ -107,8 +111,8 @@ const AppointmentsView = () => {
   };
 
   // Permanent Delete (New Functionality)
-  const deleteAppointmentPermanently = async (id) => {
-    if (!window.confirm('Are you sure you want to PERMANENTLY delete this appointment from records? This action cannot be undone.')) return;
+  const deleteAppointmentPermanently = async () => {
+    const id = selectedAppointment._id;
     
     try {
       const token = getAuthToken();
@@ -119,7 +123,7 @@ const AppointmentsView = () => {
       setViewMode('list');
       setSelectedAppointment(null);
       setError(null);
-      alert('Appointment permanently deleted.');
+      setShowDeleteConfirm(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to delete appointment permanently');
     }
@@ -368,7 +372,7 @@ const AppointmentsView = () => {
                 
                 {selectedAppointment?.status === 'CANCELLED' && (
                   <button
-                    onClick={() => deleteAppointmentPermanently(selectedAppointment._id)}
+                    onClick={() => setShowDeleteConfirm(true)}
                     className="px-6 py-2.5 bg-rose-50 text-rose-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-600 hover:text-white border border-rose-100 hover:border-rose-600 transition-all active:scale-95 shadow-lg shadow-rose-100/50 flex items-center gap-2"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -569,6 +573,19 @@ const AppointmentsView = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={deleteAppointmentPermanently}
+        title="Permanently Delete Records?"
+        description="Are you sure you want to PERMANENTLY delete this appointment from secure medical records? This action cannot be undone and the data will be purged forever."
+        confirmText="Yes, Purge Record"
+        cancelText="Discard"
+        type="danger"
+        icon={Trash2}
+      />
     </div>
   );
 };

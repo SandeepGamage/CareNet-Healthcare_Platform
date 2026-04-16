@@ -44,13 +44,14 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   HeartPulse, Activity, ShieldCheck, Zap, Video, CreditCard,
   MessageSquare, Cpu, CheckCircle2, ChevronRight,
   Star, Quote, Menu, X, ArrowRight, Play
 } from "lucide-react";
+import Navbar from "../components/common/Navbar";
 
 // Utility: merge class names
 function cn(...classes) {
@@ -58,186 +59,34 @@ function cn(...classes) {
 }
 
 // ─────────────────────────────────────────────
-// NAVBAR
+// Universal Navbar imported at the top
+
 // ─────────────────────────────────────────────
-const Navbar = () => {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+// HERO
+// ─────────────────────────────────────────────
+const Hero = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
-        const parsedUser = JSON.parse(storedUser);
-        console.log("Navbar: User found in localStorage:", parsedUser);
-        setUser(parsedUser);
+        setUser(JSON.parse(storedUser));
       } catch (error) {
-        console.warn("Navbar: Invalid user data in localStorage, clearing it", error);
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        setUser(null);
+        console.warn("Hero: Invalid user data in localStorage", error);
       }
-    } else {
-      console.log("Navbar: No user found in localStorage");
     }
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setUser(null);
-    window.location.reload();
+  const handleBookingClick = () => {
+    if (user) {
+      navigate("/book-appointment");
+    } else {
+      navigate("/login");
+    }
   };
 
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const navLinks = [
-    { name: "Features", href: "#features" },
-    { name: "How it Works", href: "#how-it-works" },
-    { name: "FAQ", href: "#faq" },
-  ];
-
-  return (
-    <header
-      className={cn(
-        "fixed top-0 inset-x-0 z-50 transition-all duration-300 border-b border-transparent",
-        scrolled ? "glass-panel py-3" : "bg-transparent py-5"
-      )}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-blue-500 flex items-center justify-center shadow-lg">
-            <HeartPulse className="text-white w-6 h-6" />
-          </div>
-          <span className="font-bold text-2xl tracking-tight text-slate-900">
-            Care<span className="text-teal-500">Net</span>
-          </span>
-        </div>
-
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-8">
-          {navLinks.map((link) => (
-            <a
-              key={link.name}
-              href={link.href}
-              className="text-sm font-medium text-slate-500 hover:text-teal-500 transition-colors"
-            >
-              {link.name}
-            </a>
-          ))}
-        </nav>
-
-        <div className="hidden md:flex items-center gap-4">
-          {user ? (
-            <>
-              <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-slate-50 border border-slate-100">
-                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold text-xs">
-                  {(user?.name || "U").charAt(0)}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-slate-900">{user?.name || "User"}</span>
-                  <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">{user?.role || ""}</span>
-                </div>
-              </div>
-              <Link
-                to={user.role === 'admin' ? '/admin-dashboard' : (user.role === 'patient' ? '/patient-dashboard' : '/')}
-                className="text-sm font-semibold text-slate-700 hover:text-teal-600 transition-colors"
-              >
-                Dashboard
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="px-5 py-2.5 rounded-full border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-all"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="text-sm font-medium text-slate-800 hover:text-teal-500 transition-colors">
-                Log in
-              </Link>
-              <Link
-                to="/register"
-                className="px-5 py-2.5 rounded-full bg-teal-500 text-white text-sm font-semibold hover:bg-teal-600 shadow-lg hover:-translate-y-0.5 transition-all duration-200"
-              >
-                Get Started
-              </Link>
-            </>
-          )}
-        </div>
-
-        {/* Mobile Toggle */}
-        <button
-          className="md:hidden p-2 text-slate-800"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          {mobileMenuOpen ? <X /> : <Menu />}
-        </button>
-      </div>
-
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="absolute top-full left-0 w-full bg-white border-b border-slate-100 shadow-xl p-4 md:hidden flex flex-col gap-4"
-          >
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-base font-medium text-slate-800 p-2 rounded-lg hover:bg-slate-50"
-              >
-                {link.name}
-              </a>
-            ))}
-            <div className="h-px bg-slate-100 my-2" />
-            <div className="h-px bg-slate-100 my-2" />
-            {user ? (
-              <>
-                <div className="p-2 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold text-sm">
-                    {(user?.name || "U").charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-900">{user?.name || "User"}</p>
-                    <p className="text-xs text-slate-500 uppercase tracking-wider">{user?.role || ""}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="p-3 rounded-xl bg-slate-100 text-slate-600 text-center font-semibold"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link to="/login" className="text-base font-medium text-slate-800 p-2 text-center" onClick={() => setMobileMenuOpen(false)}>Log in</Link>
-                <Link to="/register" className="p-3 rounded-xl bg-teal-500 text-white text-center font-semibold" onClick={() => setMobileMenuOpen(false)}>Get Started</Link>
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </header>
-  );
-};
-
-// ─────────────────────────────────────────────
-// HERO
-// ─────────────────────────────────────────────
-const Hero = () => {
   return (
     <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden bg-gradient-to-br from-slate-50 via-teal-50/30 to-blue-50/30">
       <div className="absolute top-1/4 right-0 w-[800px] h-[800px] bg-teal-400/10 rounded-full blur-[120px] pointer-events-none -translate-y-1/2 translate-x-1/3" />
@@ -268,12 +117,12 @@ const Hero = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link 
-                to="/register" 
+              <button
+                onClick={handleBookingClick}
                 className="px-8 py-4 rounded-xl bg-teal-500 text-white text-base font-semibold shadow-lg shadow-teal-500/25 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-2"
               >
-                Start Free Trial <ArrowRight className="w-5 h-5" />
-              </Link>
+                Book Appointment <ArrowRight className="w-5 h-5" />
+              </button>
               <button className="px-8 py-4 rounded-xl bg-white text-slate-800 border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-300 transition-all duration-300 flex items-center justify-center gap-2 font-semibold group">
                 <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center group-hover:bg-teal-200 transition-colors">
                   <Play className="w-3 h-3 text-teal-600 ml-0.5" />

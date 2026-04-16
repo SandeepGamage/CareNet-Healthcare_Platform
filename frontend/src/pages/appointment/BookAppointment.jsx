@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import PayHereCheckout from '../../components/payment/PayHereCheckout';
+import NavBar from '../../components/common/Navbar'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -276,7 +277,7 @@ const BookAppointment = () => {
           reviewCount: doc.reviewCount || 50
         }));
 
-        
+
       console.log('--- Verified Doctors List ---');
       doctorList.forEach((doc, index) => {
         console.log(`${index + 1}. ${doc.name} | ${doc.availability} | ${doc.time} 
@@ -349,7 +350,7 @@ const BookAppointment = () => {
 
   const validateStep1 = () => {
     const errors = {};
-    
+
     // Name validation: Alphabetic and spaces only, min 3 chars
     if (!formData.patientName.trim()) {
       errors.patientName = 'Full name is required';
@@ -736,7 +737,19 @@ const BookAppointment = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <>
+      <NavBar 
+        title="Book Appointment"
+        userProfile={userData ? {
+          name: userData.name,
+          email: userData.email,
+          avatar: userData.profilePicture || userData.avatar,
+          role: userData.role || 'Patient',
+          id: userData._id || userData.id
+        } : null}
+      />
+
+      <div className="min-h-screen pt-24 bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header */}
         <div className="text-center mb-8">
@@ -825,7 +838,7 @@ const BookAppointment = () => {
 
               <div className="mt-8 pt-8 border-t border-white/20">
                 <p className="text-sm text-blue-100">Need help?</p>
-                <p className="font-semibold text-lg">+1 234 567 8900</p>
+                <p className="font-semibold text-lg">112 567 8900</p>
                 <p className="text-sm text-blue-100">support@healthcare.com</p>
               </div>
             </div>
@@ -1404,6 +1417,7 @@ const BookAppointment = () => {
       {/* Doctor Selection Modal */}
       {showDoctorModal && <DoctorModal />}
     </div>
+    </>
   );
 };
 
