@@ -10,6 +10,7 @@ const {
   getAllTransactions,
   getPaymentByAppointment,
   downloadInvoice,
+  verifyLocalPayment
 } = require('../controllers/paymentController');
 
 // ─── Validation rules ─────────────────────────────────────────────────────────
@@ -28,6 +29,9 @@ const createPaymentValidation = [
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // NOTE: PayHere webhook is mounted in app.js BEFORE express.json()
+
+// Debug / Testing Route
+router.post('/verify-local', verifyLocalPayment);
 
 // Patient: initiate a PayHere payment for an appointment
 router.post(

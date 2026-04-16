@@ -34,7 +34,7 @@ const sendPaymentConfirmation = async ({
           data: {
             patientName: transaction.metadata.patientName,
             doctorName: transaction.metadata.doctorName,
-            amount: (transaction.amount / 100).toFixed(2),
+            amount: parseFloat(transaction.amount).toFixed(2),
             currency: transaction.currency.toUpperCase(),
             appointmentDate: transaction.metadata.appointmentDate,
             transactionId: transaction._id,
@@ -49,7 +49,7 @@ const sendPaymentConfirmation = async ({
           data: {
             doctorName: transaction.metadata.doctorName,
             patientName: transaction.metadata.patientName,
-            amount: (transaction.amount / 100).toFixed(2),
+            amount: parseFloat(transaction.amount).toFixed(2),
             currency: transaction.currency.toUpperCase(),
             appointmentDate: transaction.metadata.appointmentDate,
           },
