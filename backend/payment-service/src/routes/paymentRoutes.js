@@ -10,6 +10,8 @@ const {
   getAllTransactions,
   getPaymentByAppointment,
   downloadInvoice,
+  verifyLocalPayment,
+  deleteTransaction
 } = require('../controllers/paymentController');
 
 // ─── Validation rules ─────────────────────────────────────────────────────────
@@ -28,6 +30,9 @@ const createPaymentValidation = [
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // NOTE: PayHere webhook is mounted in app.js BEFORE express.json()
+
+// Debug / Testing Route
+router.post('/verify-local', verifyLocalPayment);
 
 // Patient: initiate a PayHere payment for an appointment
 router.post(
@@ -68,6 +73,15 @@ router.get(
   authorize('patient', 'admin'),
   [param('id').isMongoId().withMessage('Invalid transaction ID')],
   getTransaction
+);
+
+// Patient / Admin: delete transaction
+router.delete(
+  '/:id',
+  protect,
+  authorize('patient', 'admin'),
+  [param('id').isMongoId().withMessage('Invalid transaction ID')],
+  deleteTransaction
 );
 
 module.exports = router;
