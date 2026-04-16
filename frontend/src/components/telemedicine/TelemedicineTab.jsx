@@ -23,6 +23,7 @@ const formatDateTime = (appointmentDate, timeSlot) => {
 
 export default function TelemedicineTab({ role = "patient" }) {
     const [appointments, setAppointments] = useState([]);
+    const [sessionStatusByAppointmentId, setSessionStatusByAppointmentId] = useState({});
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState("");
     const [selectedStatus, setSelectedStatus] = useState("PENDING");
@@ -70,8 +71,28 @@ export default function TelemedicineTab({ role = "patient" }) {
                 : [];
 
             setAppointments(items);
+
+            const sessionsResponse = await fetch(`${apiBase}/telemedicine/sessions/my`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            const sessionsPayload = await sessionsResponse.json().catch(() => ({}));
+            if (sessionsResponse.ok && Array.isArray(sessionsPayload?.data)) {
+                const statusMap = sessionsPayload.data.reduce((acc, session) => {
+                    if (session?.appointmentId) {
+                        acc[String(session.appointmentId)] = String(session.status || "SCHEDULED").toUpperCase();
+                    }
+                    return acc;
+                }, {});
+                setSessionStatusByAppointmentId(statusMap);
+            } else {
+                setSessionStatusByAppointmentId({});
+            }
         } catch {
             setAppointments([]);
+            setSessionStatusByAppointmentId({});
             setMessage("Unable to reach services. Please try again.");
         } finally {
             setLoading(false);
@@ -109,18 +130,23 @@ export default function TelemedicineTab({ role = "patient" }) {
         setMessage("");
 
         try {
-            const ensureSessionResponse = await fetch(`${apiBase}/telemedicine/sessions`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ appointmentId }),
-            });
+            const normalizedRole = String(role || "").toLowerCase();
 
-            if (!ensureSessionResponse.ok) {
-                const payload = await ensureSessionResponse.json().catch(() => ({}));
-                throw new Error(payload?.message || "Failed to prepare telemedicine session.");
+            // Session creation is doctor/admin-only. Patients join existing sessions.
+            if (["doctor", "admin"].includes(normalizedRole)) {
+                const ensureSessionResponse = await fetch(`${apiBase}/telemedicine/sessions`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ appointmentId }),
+                });
+
+                if (!ensureSessionResponse.ok) {
+                    const payload = await ensureSessionResponse.json().catch(() => ({}));
+                    throw new Error(payload?.message || "Failed to prepare telemedicine session.");
+                }
             }
 
             const joinResponse = await fetch(
@@ -135,6 +161,9 @@ export default function TelemedicineTab({ role = "patient" }) {
 
             const joinPayload = await joinResponse.json().catch(() => ({}));
             if (!joinResponse.ok) {
+                if (joinResponse.status === 404 && normalizedRole === "patient") {
+                    throw new Error("Session has not started yet. Please wait for the doctor to start the call.");
+                }
                 throw new Error(joinPayload?.message || "Failed to join telemedicine session.");
             }
 
@@ -145,7 +174,9 @@ export default function TelemedicineTab({ role = "patient" }) {
                 throw new Error("Room URL was not returned from telemedicine service.");
             }
 
-            const finalUrl = jwt ? `${roomUrl}#jwt=${encodeURIComponent(jwt)}` : roomUrl;
+            const finalUrl = jwt
+                ? `${roomUrl}${roomUrl.includes("?") ? "&" : "?"}jwt=${encodeURIComponent(jwt)}`
+                : roomUrl;
 
             if (mode === "new-tab") {
                 window.open(finalUrl, "_blank", "noopener,noreferrer");
@@ -301,6 +332,7 @@ export default function TelemedicineTab({ role = "patient" }) {
                             const appointmentId = appointment._id || appointment.id;
                             const canJoin = canJoinTelemedicine(appointment);
                             const joining = joiningAppointmentId === appointmentId;
+                            const sessionStatus = sessionStatusByAppointmentId[String(appointmentId)] || "NOT_CREATED";
 
                             return (
                                 <div
@@ -335,6 +367,9 @@ export default function TelemedicineTab({ role = "patient" }) {
                                             Status: {appointment.status || "Unknown"}
                                         </p>
                                     </div>
+                                    <p className="mt-1 text-sm text-slate-600">
+                                        Telemedicine Session: {sessionStatus}
+                                    </p>
 
                                     <div className="mt-4 flex flex-wrap items-center gap-3">
                                         <button
