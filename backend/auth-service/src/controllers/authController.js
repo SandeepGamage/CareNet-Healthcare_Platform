@@ -404,11 +404,13 @@ exports.approveDoctor = async (req, res) => {
     }
 
     doctorProfile.isVerified = true;
+    doctorProfile.isAvailable = true; // Make doctor available immediately upon verification
     await doctorProfile.save();
 
     const doctor = await User.findById(doctorId);
     if (doctor) {
       doctor.isVerified = true;
+      doctor.isAvailable = true; // Make doctor available immediately upon verification
       await doctor.save();
     }
 
