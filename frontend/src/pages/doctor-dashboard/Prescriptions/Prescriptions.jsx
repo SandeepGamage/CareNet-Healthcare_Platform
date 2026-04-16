@@ -18,7 +18,9 @@ export default function Prescriptions() {
       return;
     }
     try {
-      const response = await fetch(`${PRESCRIPTIONS_ENDPOINT}`, {
+      // Use doctor-profile prescriptions endpoint to get only this doctor's prescriptions
+      // (mounted at /api/doctors/profile/prescriptions on the doctor-service)
+      const response = await fetch(`${DOCTOR_API_BASE}/doctors/profile/prescriptions`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

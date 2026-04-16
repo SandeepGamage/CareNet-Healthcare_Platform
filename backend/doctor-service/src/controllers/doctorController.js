@@ -1,19 +1,20 @@
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
-const { 
-  createDoctor, 
-  getAllDoctors, 
-  getAvailableDoctorsByTime, 
-  getDoctorByUserId, 
-  getDoctorById, 
-  getDoctorAvailability, 
+const {
+  createDoctor,
+  getAllDoctors,
+  getAvailableDoctorsByTime,
+  getDoctorByUserId,
+  getDoctorById,
+  getDoctorAvailability,
   getDoctorByUser,
   updateMyAvailableHours,
-  updateDoctor, 
-  deleteDoctor, 
-  bookDoctorSlot, 
-  resetAllDoctorSlots, getDoctorByUser,
-  getDoctorProfileForFrontend 
+  updateDoctor,
+  deleteDoctor,
+  bookDoctorSlot,
+  resetAllDoctorSlots,
+  getDoctorProfileForFrontend,
+  getCurrentDoctorProfile
 } = require('../services/doctorService');
 
 const normalizeDoctorPayload = (req, _res, next) => {
@@ -32,8 +33,6 @@ const createProfile = asyncHandler(async (req, res) => {
     data: profile,
   });
 });
-
-const { getDoctorProfileForFrontend } = require('../services/doctorService');
 
 const getProfileMe = asyncHandler(async (req, res) => {
   // Use the service that populates user and formats for frontend
