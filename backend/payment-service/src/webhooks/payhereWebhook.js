@@ -23,9 +23,9 @@ const handlePayhereWebhook = async (req, res) => {
     } = req.body;
 
     // ── 1. Verify PayHere MD5 signature ───────────────────────────────────────
-    const merchant_secret = process.env.PAYHERE_SECRET;
+    const merchant_secret = process.env.PAYHERE_SECRET || process.env.PAYHERE_MERCHANT_SECRET;
     if (!merchant_secret) {
-      logger.error('PAYHERE_SECRET is not set in .env');
+      logger.error('PAYHERE_SECRET/PAYHERE_MERCHANT_SECRET is not set in environment');
       return res.status(500).send('Server configuration error');
     }
 

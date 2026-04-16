@@ -99,11 +99,19 @@ const dispatchNotification = async ({
 
   // ── SMS ───────────────────────────────────────────────────────────────────
   if (phone) {
-    const smsBody  = getSMSBody(eventType, data);
-    const result   = await sendSMS(phone, smsBody);
-    smsResult.sent       = result.success;
-    smsResult.messageSid = result.messageSid || null;
-    smsResult.error      = result.error || null;
+    // User requested: "sms send when only doctor approved the appointment"
+    const allowedSmsEvents = ['APPOINTMENT_CONFIRMED', 'VERIFICATION_CODE_SMS']; // VERIFICATION is needed for login if any
+    
+    if (allowedSmsEvents.includes(eventType)) {
+      const smsBody  = getSMSBody(eventType, data);
+      const result   = await sendSMS(phone, smsBody);
+      smsResult.sent       = result.success;
+      smsResult.messageSid = result.messageSid || null;
+      smsResult.error      = result.error || null;
+    } else {
+      smsResult.sent = false;
+      smsResult.error = 'SMS bypassed (only enabled for doctor approval)';
+    }
   }
 
   // ── Determine overall status ──────────────────────────────────────────────

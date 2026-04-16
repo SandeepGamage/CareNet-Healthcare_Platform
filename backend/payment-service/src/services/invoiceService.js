@@ -16,10 +16,13 @@ const generateInvoicePDF = (invoice) => {
     doc.on('error', reject);
 
     // ── Header ────────────────────────────────────────────────────────────────
+    const platformName = process.env.PLATFORM_NAME || 'Healthcare Telemedicine Platform';
+    const supportEmail = process.env.SUPPORT_EMAIL || 'support@yourhealthcare.com';
+
     doc.fontSize(26).font('Helvetica-Bold').fillColor('#1a73e8').text('INVOICE', 50, 50);
     doc.fontSize(10).font('Helvetica').fillColor('#666666');
-    doc.text('Healthcare Telemedicine Platform', 50, 84);
-    doc.text('support@yourhealthcare.com', 50, 98);
+    doc.text(platformName, 50, 84);
+    doc.text(supportEmail, 50, 98);
 
     // Invoice meta (top-right)
     doc.fontSize(10).fillColor('#333333');
@@ -42,9 +45,17 @@ const generateInvoicePDF = (invoice) => {
     // ── Service By ────────────────────────────────────────────────────────────
     doc.fontSize(11).font('Helvetica-Bold').fillColor('#333333').text('SERVICE BY', 300, 140);
     doc.fontSize(10).font('Helvetica');
-    doc.text(`Dr. ${invoice.doctorDetails?.name || 'N/A'}`,    300, 158);
+    
+    let doctorName = invoice.doctorDetails?.name || 'N/A';
+    if (doctorName !== 'N/A' && !doctorName.toLowerCase().startsWith('dr.')) {
+      doctorName = `Dr. ${doctorName}`;
+    }
+    
+    doc.text(doctorName,    300, 158);
     doc.text(invoice.doctorDetails?.specialty || '',           300, 173);
     doc.text(`Appointment: ${invoice.appointmentDate || 'N/A'}`, 300, 188);
+
+    const currencyLabel = (invoice.currency || 'LKR').toUpperCase();
 
     // ── Table Header ──────────────────────────────────────────────────────────
     const tableTop = 232;
@@ -66,8 +77,8 @@ const generateInvoicePDF = (invoice) => {
       doc.fillColor('#333333');
       doc.text(item.description,                        60,  y, { width: 260 });
       doc.text(String(item.quantity),                   330, y, { width: 50,  align: 'right' });
-      doc.text(`$${(item.unitPrice / 100).toFixed(2)}`, 380, y, { width: 80,  align: 'right' });
-      doc.text(`$${(item.total    / 100).toFixed(2)}`,  460, y, { width: 80,  align: 'right' });
+      doc.text(`${currencyLabel} ${item.unitPrice.toFixed(2)}`, 380, y, { width: 80,  align: 'right' });
+      doc.text(`${currencyLabel} ${item.total.toFixed(2)}`,  460, y, { width: 80,  align: 'right' });
       y += 26;
     });
 
@@ -78,12 +89,12 @@ const generateInvoicePDF = (invoice) => {
 
     doc.fontSize(10).font('Helvetica').fillColor('#333333');
     doc.text('Subtotal:',                                    380, y, { width: 80 });
-    doc.text(`$${(invoice.subtotal / 100).toFixed(2)}`,     460, y, { width: 80, align: 'right' });
+    doc.text(`${currencyLabel} ${invoice.subtotal.toFixed(2)}`,     460, y, { width: 80, align: 'right' });
     y += 18;
 
     if (invoice.tax > 0) {
       doc.text('Tax:',                                       380, y, { width: 80 });
-      doc.text(`$${(invoice.tax / 100).toFixed(2)}`,        460, y, { width: 80, align: 'right' });
+      doc.text(`${currencyLabel} ${invoice.tax.toFixed(2)}`,        460, y, { width: 80, align: 'right' });
       y += 18;
     }
 
@@ -93,7 +104,7 @@ const generateInvoicePDF = (invoice) => {
     doc.fontSize(13).font('Helvetica-Bold').fillColor('#1a73e8');
     doc.text('TOTAL:',                                                380, y, { width: 80 });
     doc.text(
-      `$${(invoice.totalAmount / 100).toFixed(2)} ${invoice.currency.toUpperCase()}`,
+      `${currencyLabel} ${invoice.totalAmount.toFixed(2)}`,
       460, y, { width: 80, align: 'right' }
     );
 
@@ -101,7 +112,7 @@ const generateInvoicePDF = (invoice) => {
     doc.moveTo(50, 720).lineTo(550, 720).strokeColor('#e0e0e0').stroke();
     doc.fontSize(9).font('Helvetica').fillColor('#999999');
     doc.text(
-      'Thank you for choosing our Healthcare Platform. Questions? Contact support@yourhealthcare.com',
+      `Thank you for choosing ${platformName}. Questions? Contact ${supportEmail}`,
       50, 728, { align: 'center', width: 500 }
     );
 
