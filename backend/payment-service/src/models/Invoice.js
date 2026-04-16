@@ -21,14 +21,14 @@ const invoiceSchema = new mongoose.Schema(
       {
         description: { type: String, required: true },
         quantity   : { type: Number, default: 1 },
-        unitPrice  : { type: Number, required: true },  // in cents
-        total      : { type: Number, required: true },  // in cents
+        unitPrice  : { type: Number, required: true },  // in LKR
+        total      : { type: Number, required: true },  // in LKR
       },
     ],
-    subtotal   : { type: Number, required: true },  // in cents
-    tax        : { type: Number, default: 0 },      // in cents
-    totalAmount: { type: Number, required: true },  // in cents
-    currency   : { type: String, default: 'usd' },
+    subtotal   : { type: Number, required: true },  // in LKR
+    tax        : { type: Number, default: 0 },      // in LKR
+    totalAmount: { type: Number, required: true },  // in LKR
+    currency   : { type: String, default: 'lkr' },
     status: {
       type   : String,
       enum   : ['draft', 'issued', 'paid', 'void'],

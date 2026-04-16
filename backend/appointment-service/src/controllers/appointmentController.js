@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
 const axios = require('axios');
+const paymentService = require('../services/paymentService');
+
 
 const DOCTOR_SERVICE_URL = process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003';
 const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3006';
@@ -287,6 +289,12 @@ exports.updateStatus = async (req, res) => {
         console.error('[Appointment Service] Failed to free slot on cancellation:', err.message);
       }
       await notificationService.notifyAppointmentCancelled(appointment, patientPhone, req.user.role, cancelReason);
+      
+      // NEW: Trigger refund request if cancelled by doctor
+      if (req.user.role === 'DOCTOR') {
+        const token = req.headers.authorization;
+        await paymentService.initiateRefund(appointment._id, token, 'appointment_cancelled');
+      }
     }
 
     res.json({ message: `Appointment ${status.toLowerCase()}`, appointment });
@@ -314,8 +322,10 @@ exports.cancelAppointment = async (req, res) => {
       return res.status(400).json({ message: 'Cannot cancel a completed appointment' });
     }
 
+    const wasPaid = appointment.isPaid === true;
+
     appointment.status = 'CANCELLED';
-    appointment.cancelledBy = 'PATIENT';
+    appointment.cancelledBy = 'patient';
     appointment.cancelReason = req.body.reason || 'Cancelled by patient';
     await appointment.save();
 
@@ -331,6 +341,18 @@ exports.cancelAppointment = async (req, res) => {
       console.error('[Appointment Service] Failed to free slot on patient cancellation:', err.message);
     }
 
+    // Trigger automatic refund if paid
+    let refundTriggered = false;
+    if (wasPaid) {
+      try {
+        const token = req.headers.authorization;
+        await paymentService.initiateRefund(appointment._id, token, 'appointment_cancelled_by_patient');
+        refundTriggered = true;
+      } catch (err) {
+        console.error('[Appointment Service] Auto-refund trigger failed:', err.message);
+      }
+    }
+
     sendNotification('/cancelled', {
       patientId: appointment.patientId,
       patientName: appointment.patientName,
@@ -343,12 +365,18 @@ exports.cancelAppointment = async (req, res) => {
       reason: appointment.cancelReason
     });
 
-    res.json({ message: 'Appointment cancelled successfully' });
+    res.json({ 
+      success: true, 
+      message: refundTriggered 
+        ? 'Appointment cancelled and refund initiated.' 
+        : 'Appointment cancelled successfully.' 
+    });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 // ─── GET /api/appointments/all ────────────────────────────
 // Admin sees all appointments
@@ -512,10 +540,12 @@ exports.deleteAppointmentByPatient = async (req, res) => {
       return res.status(403).json({ message: 'You can only delete your own appointments' });
     }
 
-    // Business Rule: Cannot delete if already confirmed
-    if (appointment.status === 'CONFIRMED') {
+    // Business Rule: Cannot delete if already confirmed or paid
+    if (appointment.status === 'CONFIRMED' || appointment.isPaid === true) {
       return res.status(400).json({ 
-        message: `Cannot delete a confirmed appointment. Please contact the doctor or cancel instead.` 
+        message: appointment.isPaid 
+          ? `Cannot delete a paid appointment. Please cancel it instead to trigger a refund.`
+          : `Cannot delete a confirmed appointment. Please contact the doctor or cancel instead.` 
       });
     }
 
@@ -559,3 +589,26 @@ exports.deleteAppointmentByPatient = async (req, res) => {
     res.status(500).json({ message: 'Server error while deleting appointment' });
   }
 };
+
+// ─── PATCH /api/appointments/:id/payment-sync ────────────
+// Called by Payment Service to confirm payment in Appointment Service
+exports.syncPaymentStatus = async (req, res) => {
+  try {
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    appointment.isPaid = true;
+    appointment.status = 'CONFIRMED'; // Auto-confirm on payment
+    await appointment.save();
+
+    console.log(`[Appointment Service] Payment synced for appointment: ${appointment._id}`);
+    res.json({ success: true, message: 'Payment status synced and appointment confirmed.', appointment });
+  } catch (err) {
+    console.error('syncPaymentStatus error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+

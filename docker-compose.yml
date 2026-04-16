@@ -135,8 +135,12 @@ services:
       MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
       APPOINTMENT_SERVICE_URL: http://appointment-service:3004
-      JITSI_DOMAIN: meet.jit.si
-      JITSI_ENFORCE_JWT: "false"
+      JITSI_PROVIDER: ${JITSI_PROVIDER:-jaas}
+      JITSI_DOMAIN: ${JITSI_DOMAIN:-8x8.vc}
+      JITSI_ENFORCE_JWT: ${JITSI_ENFORCE_JWT:-true}
+      JITSI_APP_ID: ${JITSI_APP_ID}
+      JITSI_KEY_ID: ${JITSI_KEY_ID}
+      JITSI_PRIVATE_KEY: ${JITSI_PRIVATE_KEY}
     depends_on:
       - appointment-service
     restart: unless-stopped
@@ -160,6 +164,7 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       PAYHERE_MERCHANT_ID: ${PAYHERE_MERCHANT_ID}
       PAYHERE_MERCHANT_SECRET: ${PAYHERE_MERCHANT_SECRET}
+      PAYHERE_SECRET: ${PAYHERE_SECRET}
       NOTIFICATION_SERVICE_URL: http://notification-service:3006
       NODE_ENV: ${NODE_ENV:-production}
     depends_on:

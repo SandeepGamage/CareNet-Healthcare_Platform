@@ -85,6 +85,10 @@ const PatientAppointments = () => {
   const [editLoading, setEditLoading] = useState(false);
   const [editErrors, setEditErrors] = useState({});
   
+  // Refund state
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundedAppointments, setRefundedAppointments] = useState(new Set());
+  
   // Statistics
   const [stats, setStats] = useState({
     total: 0,
@@ -216,22 +220,71 @@ const PatientAppointments = () => {
     }
   };
   
-  // Cancel appointment
+  // Request Refund for a cancelled appointment
+  const requestRefund = async (appointment) => {
+    setRefundLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Step 1: Find the transaction for the appointment
+      const txRes = await axios.get(
+        `http://localhost:3005/api/payments/appointment/${appointment._id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const transaction = txRes.data.data;
+
+      if (!transaction || transaction.status !== 'succeeded') {
+        setError('No completed payment found for this appointment to refund.');
+        setTimeout(() => setError(null), 4000);
+        return;
+      }
+
+      // Step 2: Submit refund request
+      await axios.post(
+        'http://localhost:3005/api/refunds',
+        {
+          transactionId: transaction._id,
+          reason: 'appointment_cancelled',
+          notes: 'Patient requested refund after appointment cancellation.',
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setRefundedAppointments(prev => new Set([...prev, appointment._id]));
+      setSuccess('Refund request submitted! You will receive an email confirmation shortly.');
+      setTimeout(() => setSuccess(null), 5000);
+      setShowDetailsModal(false);
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to submit refund request.';
+      setError(msg);
+      setTimeout(() => setError(null), 4000);
+    } finally {
+      setRefundLoading(false);
+    }
+  };
+
+  // Cancel appointment (backend handles auto-refund if paid)
   const cancelAppointment = async (id, reason) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${API_BASE_URL}/appointments/${id}`, {
+
+      // Cancel the appointment
+      const response = await axios.delete(`${API_BASE_URL}/appointments/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
         data: { reason: reason || 'Cancelled by patient' }
       });
+
       await fetchAppointments();
-      setSuccess('Appointment cancelled successfully');
-      setTimeout(() => setSuccess(null), 3000);
+      
+      // Use the success message from the backend if available
+      setSuccess(response.data?.message || '✅ Appointment cancelled successfully.');
+      setTimeout(() => setSuccess(null), 6000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to cancel appointment');
       setTimeout(() => setError(null), 3000);
     }
   };
+
   
   // Update appointment
   const updateAppointment = async () => {
@@ -670,11 +723,18 @@ const PatientAppointments = () => {
                           </button>
                           <button
                             onClick={() => openDeleteConfirm(appointment)}
-                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                            disabled={appointment.isPaid === true}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium border rounded-lg transition-colors ${
+                              appointment.isPaid === true
+                                ? 'text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50'
+                                : 'text-red-600 border-red-200 hover:bg-red-50'
+                            }`}
+                            title={appointment.isPaid ? "Paid appointments cannot be deleted. Please cancel instead." : "Cancel Appointment"}
                           >
                             <Trash2 className="w-4 h-4" />
                             Cancel
                           </button>
+
                         </>
                       )}
                     </div>
@@ -764,11 +824,17 @@ const PatientAppointments = () => {
                                 </button>
                                 <button
                                   onClick={() => openDeleteConfirm(appointment)}
-                                  className="p-1 text-red-600 hover:text-red-800 transition-colors"
-                                  title="Cancel"
+                                  disabled={appointment.isPaid === true}
+                                  className={`p-1 transition-colors ${
+                                    appointment.isPaid === true
+                                      ? 'text-gray-300 cursor-not-allowed'
+                                      : 'text-red-600 hover:text-red-800'
+                                  }`}
+                                  title={appointment.isPaid ? "Paid appointments cannot be deleted. Please cancel instead." : "Cancel"}
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
+
                               </>
                             )}
                           </div>
@@ -935,6 +1001,25 @@ const PatientAppointments = () => {
               >
                 Close
               </button>
+              {/* Request Refund button for CANCELLED appointments */}
+              {selectedAppointment.status === 'CANCELLED' && !refundedAppointments.has(selectedAppointment._id) && (
+                <button
+                  onClick={() => requestRefund(selectedAppointment)}
+                  disabled={refundLoading}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {refundLoading ? (
+                    <><Loader className="w-4 h-4 animate-spin" /> Processing...</>
+                  ) : (
+                    <><DollarSign className="w-4 h-4" /> Request Refund</>
+                  )}
+                </button>
+              )}
+              {selectedAppointment.status === 'CANCELLED' && refundedAppointments.has(selectedAppointment._id) && (
+                <span className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" /> Refund Requested
+                </span>
+              )}
               {selectedAppointment.status !== 'COMPLETED' && selectedAppointment.status !== 'CANCELLED' && (
                 <>
                   <button
@@ -1092,17 +1177,35 @@ const PatientAppointments = () => {
                 <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
                   <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900">Cancel Appointment</h3>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Cancel Appointment</h3>
+                  <p className="text-sm text-gray-500 mt-0.5">This action cannot be undone</p>
+                </div>
               </div>
             </div>
             
-            <div className="p-6">
-              <p className="text-gray-700 mb-4">
-                Are you sure you want to cancel your appointment with <strong>{selectedAppointment.doctorName}</strong> on <strong>{formatAppointmentDate(selectedAppointment.appointmentDate)}</strong> at <strong>{selectedAppointment.timeSlot}</strong>?
+            <div className="p-6 space-y-4">
+              <p className="text-gray-700">
+                Are you sure you want to cancel your appointment with <strong>{selectedAppointment.doctorName}</strong> on{' '}
+                <strong>{formatAppointmentDate(selectedAppointment.appointmentDate)}</strong> at{' '}
+                <strong>{selectedAppointment.timeSlot}</strong>?
               </p>
+
+              {/* Refund notice */}
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3">
+                <DollarSign className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-orange-800">Automatic Refund</p>
+                  <p className="text-xs text-orange-700 mt-0.5">
+                    If you've made a payment for this appointment, a refund request will be
+                    automatically submitted and you'll receive an email confirmation.
+                  </p>
+                </div>
+              </div>
+
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                 <p className="text-sm text-red-800">
-                  This action cannot be undone. If you cancel, this time slot will be made available to other patients.
+                  This time slot will be made available to other patients once cancelled.
                 </p>
               </div>
             </div>
@@ -1116,9 +1219,10 @@ const PatientAppointments = () => {
               </button>
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
               >
-                Yes, Cancel Appointment
+                <AlertTriangle className="w-4 h-4" />
+                Yes, Cancel & Refund
               </button>
             </div>
           </div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, CircleCheck, Clock3, ExternalLink, Loader2, PhoneOff, Video } from "lucide-react";
 
 const TELEMEDICINE_TYPE = "TELEMEDICINE";
+const TELEMEDICINE_STATUSES = ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"];
 
 const canJoinTelemedicine = (appointment) => {
     const type = String(appointment?.type || "").toUpperCase();
@@ -22,8 +23,10 @@ const formatDateTime = (appointmentDate, timeSlot) => {
 
 export default function TelemedicineTab({ role = "patient" }) {
     const [appointments, setAppointments] = useState([]);
+    const [sessionStatusByAppointmentId, setSessionStatusByAppointmentId] = useState({});
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState("");
+    const [selectedStatus, setSelectedStatus] = useState("PENDING");
     const [joiningAppointmentId, setJoiningAppointmentId] = useState("");
     const [embeddedRoomUrl, setEmbeddedRoomUrl] = useState("");
     const [embeddedAppointmentId, setEmbeddedAppointmentId] = useState("");
@@ -68,8 +71,28 @@ export default function TelemedicineTab({ role = "patient" }) {
                 : [];
 
             setAppointments(items);
+
+            const sessionsResponse = await fetch(`${apiBase}/telemedicine/sessions/my`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            const sessionsPayload = await sessionsResponse.json().catch(() => ({}));
+            if (sessionsResponse.ok && Array.isArray(sessionsPayload?.data)) {
+                const statusMap = sessionsPayload.data.reduce((acc, session) => {
+                    if (session?.appointmentId) {
+                        acc[String(session.appointmentId)] = String(session.status || "SCHEDULED").toUpperCase();
+                    }
+                    return acc;
+                }, {});
+                setSessionStatusByAppointmentId(statusMap);
+            } else {
+                setSessionStatusByAppointmentId({});
+            }
         } catch {
             setAppointments([]);
+            setSessionStatusByAppointmentId({});
             setMessage("Unable to reach services. Please try again.");
         } finally {
             setLoading(false);
@@ -85,6 +108,17 @@ export default function TelemedicineTab({ role = "patient" }) {
         [appointments]
     );
 
+    const visibleTelemedicineAppointments = useMemo(() => {
+        const normalizedRole = String(role || "").toLowerCase();
+        if (!["patient", "doctor"].includes(normalizedRole)) {
+            return telemedicineAppointments;
+        }
+
+        return telemedicineAppointments.filter(
+            (appointment) => String(appointment?.status || "").toUpperCase() === selectedStatus
+        );
+    }, [telemedicineAppointments, role, selectedStatus]);
+
     const handleJoin = async (appointmentId, mode = "embed") => {
         const token = localStorage.getItem("token");
         if (!token) {
@@ -96,18 +130,23 @@ export default function TelemedicineTab({ role = "patient" }) {
         setMessage("");
 
         try {
-            const ensureSessionResponse = await fetch(`${apiBase}/telemedicine/sessions`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ appointmentId }),
-            });
+            const normalizedRole = String(role || "").toLowerCase();
 
-            if (!ensureSessionResponse.ok) {
-                const payload = await ensureSessionResponse.json().catch(() => ({}));
-                throw new Error(payload?.message || "Failed to prepare telemedicine session.");
+            // Session creation is doctor/admin-only. Patients join existing sessions.
+            if (["doctor", "admin"].includes(normalizedRole)) {
+                const ensureSessionResponse = await fetch(`${apiBase}/telemedicine/sessions`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ appointmentId }),
+                });
+
+                if (!ensureSessionResponse.ok) {
+                    const payload = await ensureSessionResponse.json().catch(() => ({}));
+                    throw new Error(payload?.message || "Failed to prepare telemedicine session.");
+                }
             }
 
             const joinResponse = await fetch(
@@ -122,6 +161,9 @@ export default function TelemedicineTab({ role = "patient" }) {
 
             const joinPayload = await joinResponse.json().catch(() => ({}));
             if (!joinResponse.ok) {
+                if (joinResponse.status === 404 && normalizedRole === "patient") {
+                    throw new Error("Session has not started yet. Please wait for the doctor to start the call.");
+                }
                 throw new Error(joinPayload?.message || "Failed to join telemedicine session.");
             }
 
@@ -132,7 +174,9 @@ export default function TelemedicineTab({ role = "patient" }) {
                 throw new Error("Room URL was not returned from telemedicine service.");
             }
 
-            const finalUrl = jwt ? `${roomUrl}#jwt=${encodeURIComponent(jwt)}` : roomUrl;
+            const finalUrl = jwt
+                ? `${roomUrl}${roomUrl.includes("?") ? "&" : "?"}jwt=${encodeURIComponent(jwt)}`
+                : roomUrl;
 
             if (mode === "new-tab") {
                 window.open(finalUrl, "_blank", "noopener,noreferrer");
@@ -246,24 +290,49 @@ export default function TelemedicineTab({ role = "patient" }) {
                     </div>
                 )}
 
+                {!loading && ["patient", "doctor"].includes(String(role || "").toLowerCase()) && telemedicineAppointments.length > 0 && (
+                    <div className="mb-5 flex flex-wrap items-center gap-2">
+                        {TELEMEDICINE_STATUSES.map((status) => {
+                            const active = selectedStatus === status;
+                            return (
+                                <button
+                                    key={status}
+                                    type="button"
+                                    onClick={() => setSelectedStatus(status)}
+                                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                                        active
+                                            ? "border-blue-600 bg-blue-600 text-white"
+                                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                                    }`}
+                                >
+                                    {status}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
                 {loading ? (
                     <div className="flex items-center gap-2 text-sm text-slate-600">
                         <Loader2 size={16} className="animate-spin" />
                         Loading appointments...
                     </div>
-                ) : telemedicineAppointments.length === 0 ? (
+                ) : visibleTelemedicineAppointments.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
                         <p className="mb-2 text-4xl">📹</p>
                         <p className="text-sm text-slate-600">
-                            {message || "No telemedicine appointments found yet."}
+                            {message || (["patient", "doctor"].includes(String(role || "").toLowerCase())
+                                ? `No ${selectedStatus.toLowerCase()} telemedicine appointments found.`
+                                : "No telemedicine appointments found yet.")}
                         </p>
                     </div>
                 ) : (
                     <div className="grid gap-4">
-                        {telemedicineAppointments.map((appointment) => {
+                        {visibleTelemedicineAppointments.map((appointment) => {
                             const appointmentId = appointment._id || appointment.id;
                             const canJoin = canJoinTelemedicine(appointment);
                             const joining = joiningAppointmentId === appointmentId;
+                            const sessionStatus = sessionStatusByAppointmentId[String(appointmentId)] || "NOT_CREATED";
 
                             return (
                                 <div
@@ -298,6 +367,9 @@ export default function TelemedicineTab({ role = "patient" }) {
                                             Status: {appointment.status || "Unknown"}
                                         </p>
                                     </div>
+                                    <p className="mt-1 text-sm text-slate-600">
+                                        Telemedicine Session: {sessionStatus}
+                                    </p>
 
                                     <div className="mt-4 flex flex-wrap items-center gap-3">
                                         <button
@@ -333,7 +405,7 @@ export default function TelemedicineTab({ role = "patient" }) {
                     </div>
                 )}
 
-                {!loading && message && telemedicineAppointments.length > 0 && (
+                {!loading && message && visibleTelemedicineAppointments.length > 0 && (
                     <p className="mt-4 text-sm text-slate-600">{message}</p>
                 )}
             </div>

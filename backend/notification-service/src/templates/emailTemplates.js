@@ -102,6 +102,24 @@ const templates = {
     `),
   }),
 
+  // ── Refund requested (immediate patient confirmation) ────────────────────────
+  REFUND_REQUESTED: (d) => ({
+    subject: `🔄 Refund Request Received – ${d.currency} ${d.amount}`,
+    html: wrap('Refund Requested', `
+      <h2>We've Received Your Refund Request</h2>
+      <p>Hi <strong>${d.patientName || 'Patient'}</strong>,</p>
+      <p>Your refund request has been submitted and is currently being reviewed by our team. Here are the details:</p>
+      <div class="detail-box">
+        <div class="detail-row"><span class="detail-label">Amount</span><span class="detail-value">${d.currency} ${d.amount}</span></div>
+        <div class="detail-row"><span class="detail-label">Reason</span><span class="detail-value">Appointment Cancelled</span></div>
+        <div class="detail-row"><span class="detail-label">Refund ID</span><span class="detail-value">${d.refundId}</span></div>
+        <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value"><span class="badge-danger">Pending Review</span></span></div>
+      </div>
+      <p>Refunds are typically processed within 3–5 business days. You will receive another email once your refund has been fully processed.</p>
+      <p>Thank you for your patience.</p>
+    `),
+  }),
+
   // ── Appointment booked ────────────────────────────────────────────────────
   APPOINTMENT_BOOKED: (d) => ({
     subject: `📅 Appointment Booked – Dr. ${d.doctorName}`,

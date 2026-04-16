@@ -112,6 +112,8 @@ export default function DoctorDashboard() {
           </div>
         </div>
 
+
+
         
         {activeTab === "profile" && <Profile />}
         {activeTab === "appointments" && <Appointments />}
