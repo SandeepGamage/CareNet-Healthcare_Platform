@@ -14,6 +14,7 @@ const {
   getProfileByUserId,
   getProfileById,
   updateMyProfileAvailableHours,
+  updateMyProfile,
   updateProfile,
   deleteProfile,
   bookSlot,
@@ -32,6 +33,7 @@ router.get("/available", protect, authorizeDoctorAdminPatient, getAvailableProfi
 router.get("/user/:userId", protect, authorizeDoctorAdminPatient, getProfileByUserId);
 router.get("/details/:id", protect, authorizeDoctorAdminPatient, getProfileById);
 router.patch("/me/available-hours", protect, authorizeDoctor, updateMyProfileAvailableHours);
+router.put("/me", protect, authorizeDoctor, normalizeDoctorPayload, updateMyProfile);
 router.post("/", protect, authorizeDoctor, normalizeDoctorPayload, createProfile);
 router.put("/:id", protect, authorizeDoctor, normalizeDoctorPayload, updateProfile);
 router.patch("/book-slot/:id", protect, bookSlot); // Can be called by appointment service

@@ -131,6 +131,19 @@ const updateProfile = asyncHandler(async (req, res) => {
   });
 });
 
+// Convenience: update current authenticated doctor's profile using /me
+const updateMyProfile = asyncHandler(async (req, res) => {
+  // find the doctor's profile for this user
+  const doctor = await getDoctorByUser(req.user);
+  const profile = await updateDoctor(req.user, doctor._id, req.body);
+
+  res.status(200).json({
+    success: true,
+    message: 'Doctor profile updated successfully',
+    data: profile,
+  });
+});
+
 const deleteProfile = asyncHandler(async (req, res) => {
   await deleteDoctor(req.user, req.params.id);
 
@@ -218,6 +231,7 @@ module.exports = {
   getProfileByUserId,
   getProfileById,
   updateMyProfileAvailableHours,
+  updateMyProfile,
   updateProfile,
   deleteProfile,
   bookSlot,
