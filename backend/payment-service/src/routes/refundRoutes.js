@@ -8,6 +8,7 @@ const {
   getRefund,
   getRefundsByTransaction,
   getAllRefunds,
+  createAutomaticRefund,
 } = require('../controllers/refundController');
 
 // ─── Validation rules ─────────────────────────────────────────────────────────
@@ -40,6 +41,9 @@ const refundValidation = [
 
 // Patient / Admin: request a refund
 router.post('/', protect, authorize('patient', 'admin'), refundValidation, requestRefund);
+
+// Internal: automated refund request (called by other services)
+router.post('/auto-request', protect, authorize('doctor', 'admin'), createAutomaticRefund);
 
 // Admin: all refunds (paginated, filterable by status)
 router.get('/admin/all', protect, authorize('admin'), getAllRefunds);

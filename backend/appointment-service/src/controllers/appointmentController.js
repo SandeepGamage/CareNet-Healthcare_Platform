@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
 const axios = require('axios');
+const paymentService = require('../services/paymentService');
+
 
 const DOCTOR_SERVICE_URL = process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003';
 const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3006';
@@ -267,6 +269,12 @@ exports.updateStatus = async (req, res) => {
       }, patientPhone, doctorPhone);
     } else if (status === 'CANCELLED') {
       await notificationService.notifyAppointmentCancelled(appointment, patientPhone, req.user.role, cancelReason);
+      
+      // NEW: Trigger refund request if cancelled by doctor
+      if (req.user.role === 'DOCTOR') {
+        const token = req.headers.authorization;
+        await paymentService.initiateRefund(appointment._id, token, 'appointment_cancelled');
+      }
     }
 
     res.json({ message: `Appointment ${status.toLowerCase()}`, appointment });

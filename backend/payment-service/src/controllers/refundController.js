@@ -169,4 +169,67 @@ const getAllRefunds = async (req, res, next) => {
   }
 };
 
-module.exports = { requestRefund, getRefund, getRefundsByTransaction, getAllRefunds };
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/refunds/auto-request
+// Called by appointment-service when a doctor cancels/rejects an appointment
+// ─────────────────────────────────────────────────────────────────────────────
+const createAutomaticRefund = async (req, res, next) => {
+  try {
+    const { appointmentId, reason, notes } = req.body;
+
+    if (!appointmentId) {
+      return res.status(400).json({ success: false, message: 'appointmentId is required.' });
+    }
+
+    // ── 1. Find the transaction for this appointment ────────────────────────
+    const transaction = await Transaction.findOne({ 
+      appointmentId, 
+      status: { $in: ['succeeded', 'partially_refunded'] } 
+    });
+
+    if (!transaction) {
+      logger.warn(`Auto-refund failed: No successful transaction found for appointment ${appointmentId}`);
+      return res.status(404).json({ success: false, message: 'No successful transaction found for this appointment.' });
+    }
+
+    // ── 2. Check for duplicate pending refund ────────────────────────────────
+    const existingRefund = await Refund.findOne({ transactionId: transaction._id, status: 'pending' });
+    if (existingRefund) {
+      return res.status(200).json({ success: true, message: 'Refund request already exists.', data: existingRefund });
+    }
+
+    // ── 3. Create Refund record (pending) ───────────────────────────────────
+    const refund = await Refund.create({
+      transactionId: transaction._id,
+      amount       : transaction.amount,
+      reason       : reason || 'appointment_cancelled',
+      notes        : notes || 'Automatically requested due to appointment rejection.',
+      status       : 'pending',
+      requestedBy  : { userId: 'SYSTEM', role: 'admin' }, // Triggered by system call
+    });
+
+    // ── 4. Notify patient ────────────────────────────────────────────────────
+    try {
+      await sendRefundConfirmation({
+        refund,
+        transaction,
+        patientEmail: transaction.metadata.patientEmail,
+      });
+    } catch (err) {
+      logger.error(`Auto-refund notification failed: ${err.message}`);
+    }
+
+    logger.info(`Auto-refund created for appointment ${appointmentId} (Status: pending)`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Refund request initiated successfully.',
+      data   : refund,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { requestRefund, getRefund, getRefundsByTransaction, getAllRefunds, createAutomaticRefund };
+
