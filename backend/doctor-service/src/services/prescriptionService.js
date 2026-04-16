@@ -64,7 +64,7 @@ const updatePrescription = async (user, prescriptionId, payload) => {
     throw new ApiError(404, 'Prescription not found');
   }
 
-  if (existing.doctorId !== doctorId) {
+  if (existing.doctorId.toString() !== doctorId) {
     throw new ApiError(403, 'You can update only your own prescriptions');
   }
 
@@ -90,17 +90,36 @@ const deletePrescription = async (user, prescriptionId) => {
     throw new ApiError(404, 'Prescription not found');
   }
 
-  if (existing.doctorId !== doctorId) {
+  if (existing.doctorId.toString() !== doctorId) {
     throw new ApiError(403, 'You can delete only your own prescriptions');
   }
 
   await DigitalPrescription.findByIdAndDelete(prescriptionId);
 };
 
+
+// Get prescriptions by doctorId
+const getPrescriptionsByDoctorId = async (user, doctorId) => {
+  const role = (user?.role || '').toUpperCase();
+  const requesterId = resolveUserId(user);
+
+  if (!doctorId) {
+    throw new ApiError(400, 'doctor id is required');
+  }
+
+  // Only the doctor themselves or an admin can view their prescriptions
+  if (role === 'DOCTOR' && requesterId !== doctorId) {
+    throw new ApiError(403, 'Doctors can only view their own prescriptions');
+  }
+
+  return DigitalPrescription.find({ doctorId }).sort({ createdAt: -1 });
+};
+
 module.exports = {
   createPrescription,
   getAllPrescriptions,
   getPrescriptionsByPatientId,
+  getPrescriptionsByDoctorId,
   updatePrescription,
   deletePrescription,
 };
