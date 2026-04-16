@@ -73,7 +73,7 @@ exports.createAppointment = async (req, res) => {
     // 1. Fetch Doctor Config
     let doctorConfig;
     try {
-      const response = await axios.get(`${DOCTOR_SERVICE_URL}/api/doctors/profile/details/${doctorId}`, {
+      const response = await axios.get(`${DOCTOR_SERVICE_URL}/api/doctors/profile/user/${doctorId}`, {
         headers: { Authorization: req.headers.authorization }
       });
       doctorConfig = response.data.data;
@@ -342,10 +342,11 @@ exports.getAvailableSlots = async (req, res) => {
     // 1. Fetch Doctor Config
     let doctorConfig;
     try {
-      const response = await axios.get(`${DOCTOR_SERVICE_URL}/api/doctors/profile/details/${doctorId}`, {
+      const response = await axios.get(`${DOCTOR_SERVICE_URL}/api/doctors/profile/user/${doctorId}`, {
         headers: { Authorization: req.headers.authorization }
       });
       doctorConfig = response.data.data;
+      console.log("Doctor Config------>", doctorConfig);
     } catch (err) {
       console.error('Failed to fetch doctor config:', err.response?.data || err.message);
       const status = err.response?.status || 500;
@@ -353,12 +354,35 @@ exports.getAvailableSlots = async (req, res) => {
       return res.status(status).json({ message, details: err.message });
     }
 
-    // 3. Return available slots directly from Doctor Service
-    res.json({ 
-      date, 
-      doctorId, 
-      availableSlots: doctorConfig.availableSlots || [],
-      availableHours: doctorConfig.availableHours || ''
+    // 2. Fetch Existing Appointments for this doctor on this day
+    const searchDate = new Date(date);
+    const startOfDay = new Date(searchDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(searchDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingAppointments = await Appointment.find({
+      doctorId: doctorId,
+      appointmentDate: { $gte: startOfDay, $lte: endOfDay },
+      status: { $in: ['PENDING', 'CONFIRMED', 'COMPLETED'] }
+    });
+
+    const bookedSlots = existingAppointments.map(app => app.timeSlot);
+
+    // 3. Filter available slots
+    const templateSlots = doctorConfig.availableSlots || [];
+    const availableSlots = templateSlots.filter(slot => !bookedSlots.includes(slot));
+
+    console.log("Available slots---------->", availableSlots)
+
+    // 4. Return the filtered list
+    res.json({
+      date,
+      doctorId,
+      availableSlots,
+      availableHours: doctorConfig.availableHours || '',
+      slotDuration: doctorConfig.slotDuration || 30
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

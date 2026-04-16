@@ -276,6 +276,15 @@ const BookAppointment = () => {
           reviewCount: doc.reviewCount || 50
         }));
 
+        
+      console.log('--- Verified Doctors List ---');
+      doctorList.forEach((doc, index) => {
+        console.log(`${index + 1}. ${doc.name} | ${doc.availability} | ${doc.time} 
+|${doc.specialty} | Fee: $${doc.fee} | Exp: ${doc.experience}yrs | Hospital: ${doc.hospital} | Education: ${doc.education} | Rating: ${doc.rating} | Patients: ${doc.totalPatients}`);
+      });
+      console.log('-----------------------------');
+
+
       setDoctors(doctorList);
       setFilteredDoctors(doctorList);
       setError(null);
@@ -316,8 +325,8 @@ const BookAppointment = () => {
         patientPhone: ''
       }));
     }
-    // If switching to someone else, ensure "VIDEO" type is swapped out if it was selected
-    if (!forSelf && formData.type === 'VIDEO') {
+    // If switching to someone else, ensure "TELEMEDICINE" type is swapped out if it was selected
+    if (!forSelf && formData.type === 'TELEMEDICINE') {
       setFormData(prev => ({ ...prev, type: 'IN_PERSON' }));
     }
   };
@@ -450,7 +459,7 @@ const BookAppointment = () => {
     };
 
     fetchSlots();
-  }, [selectedDoctor, formData.appointmentDate]);
+  }, [selectedDoctor?.id, formData.appointmentDate]);
 
   const resetForm = () => {
     setCurrentStep(1);
@@ -1124,10 +1133,9 @@ const BookAppointment = () => {
                     <div className="grid grid-cols-3 gap-3">
                       {[
                         { value: 'IN_PERSON', icon: Building, label: 'In Person' },
-                        { value: 'VIDEO', icon: Video, label: 'Video Call' },
-                        { value: 'PHONE', icon: PhoneCall, label: 'Phone Call' }
+                        { value: 'TELEMEDICINE', icon: Video, label: 'Video Call' }
                       ].map(type => {
-                        const isDisabled = type.value === 'VIDEO' && !bookingForSelf;
+                        const isDisabled = type.value === 'TELEMEDICINE' && !bookingForSelf;
                         return (
                           <button
                             key={type.value}
