@@ -1,7 +1,7 @@
 const app = require('./app');
 const logger = require('./utils/logger');
 const { initSocket } = require('./socket');
-const { initRabbitMQ } = require('./rabbitmq');
+// const { initRabbitMQ } = require('./rabbitmq');
 
 // Entry point for the Notification Service
 const PORT = process.env.PORT || 3006;
@@ -14,7 +14,7 @@ const server = app.listen(PORT, () => {
 initSocket(server);
 
 // ─── Initialize RabbitMQ ─────────────────────────────────────────────────────
-initRabbitMQ().catch(err => logger.error(`RabbitMQ Init Error: ${err.message}`));
+// initRabbitMQ().catch(err => logger.error(`RabbitMQ Init Error: ${err.message}`));
 
 // Handle unhandled rejections
 process.on('unhandledRejection', (err) => {

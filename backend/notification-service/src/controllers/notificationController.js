@@ -40,7 +40,7 @@ const handlePaymentNotification = async (req, res, next) => {
           email         : r.email,
           phone         : r.phone,
           role          : r.role,
-          recipientId   : r.data?.recipientId,
+          recipientId   : r.recipientId || r.data?.recipientId,
           data          : r.data,
           referenceId,
           referenceType : 'transaction',
@@ -192,6 +192,99 @@ const handleVerificationNotification = async (req, res, next) => {
   }
 };
 
+/**
+ * POST /api/notifications/manual
+ * Admin: send manual email or SMS or Both (Bulk supported)
+ */
+const handleManualNotification = async (req, res, next) => {
+  try {
+    const { recipients, recipient, email, phone, type, message, subject, isOtp, role, recipientId } = req.body;
+
+    if (!message || !type) {
+      return res.status(400).json({ success: false, message: 'message and type (EMAIL/SMS/BOTH) are required' });
+    }
+
+    // Normalized list of targets
+    let targets = [];
+
+    if (Array.isArray(recipients) && recipients.length > 0) {
+      targets = recipients.map(r => ({
+        email: r.email,
+        phone: r.phone,
+        recipientId: r.recipientId || r._id,
+        role: r.role || role || 'user'
+      }));
+    } else {
+      // Fallback to single recipient logic
+      const targetEmail = email || (type === 'EMAIL' || type === 'BOTH' ? recipient : null);
+      const targetPhone = phone || (type === 'SMS' || type === 'BOTH' ? recipient : null);
+      
+      if (targetEmail || targetPhone) {
+        targets.push({
+          email: targetEmail,
+          phone: targetPhone,
+          recipientId: recipientId || null,
+          role: role || 'user'
+        });
+      }
+    }
+
+    if (targets.length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one valid recipient is required' });
+    }
+
+    let eventType = 'MANUAL_MESSAGE';
+    let data = { message, subject: subject || 'Notification from CareNet' };
+
+    if (isOtp) {
+      const codeMatch = message.match(/\d{6}/);
+      const code = codeMatch ? codeMatch[0] : '';
+      eventType = type === 'SMS' ? 'VERIFICATION_CODE_SMS' : 'VERIFICATION_CODE_EMAIL';
+      data = { message, code, subject: subject || 'Verification Code' };
+    }
+
+    // Dispatch all notifications (non-blocking)
+    const dispatcher = require('../services/notificationDispatcher');
+    Promise.all(
+      targets.map((t) => 
+        dispatcher.dispatchNotification({
+          eventType,
+          email: (type === 'EMAIL' || type === 'BOTH') ? t.email : null,
+          phone: (type === 'SMS' || type === 'BOTH') ? t.phone : null,
+          role: t.role,
+          recipientId: t.recipientId,
+          data,
+        })
+      )
+    ).catch((err) => logger.error(`Manual bulk notification dispatch error: ${err.message}`));
+
+    res.status(202).json({ 
+      success: true, 
+      message: targets.length > 1 ? `Manual bulk notifications queued for ${targets.length} recipients` : 'Manual notification queued' 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * DELETE /api/notifications/logs/:id
+ * Admin: delete a specific notification log
+ */
+const deleteLog = async (req, res, next) => {
+  try {
+    const log = await NotificationLog.findById(req.params.id);
+    if (!log) {
+      return res.status(404).json({ success: false, message: 'Log entry not found' });
+    }
+
+    await log.deleteOne();
+    res.status(200).json({ success: true, message: 'Log entry deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   handlePaymentNotification,
   handleRefundNotification,
@@ -199,4 +292,6 @@ module.exports = {
   handleAccountNotification,
   getLogs,
   getMyLogs,
+  handleManualNotification,
+  deleteLog,
 };

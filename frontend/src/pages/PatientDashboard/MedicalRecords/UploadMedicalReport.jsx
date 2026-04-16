@@ -132,7 +132,7 @@ export default function UploadMedicalReport({ embedded = false, onUploaded }) {
                             Report File
                             <input
                                 type="file"
-                                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                accept=".pdf,.jpg,.jpeg,.png"
                                 onChange={handleFileChange}
                                 className="rounded-xl border border-slate-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
                                 required

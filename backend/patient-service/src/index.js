@@ -3,7 +3,6 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const morgan = require("morgan");
-const path = require("path");
 
 const patientRoutes = require("./routes/PatientRoutes");
 const medicalReportRoutes = require("./routes/MedicalReportRoutes");
@@ -15,8 +14,6 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
-
 app.get("/health", (req, res) => {
 	return res.status(200).json({
 		status: "patient-service running",
@@ -27,15 +24,8 @@ app.get("/health", (req, res) => {
 app.use("/api/patients", patientRoutes);
 app.use("/api/patients", medicalReportRoutes);
 
-// Multer and other middleware errors
+// File upload and other middleware errors
 app.use((error, req, res, next) => {
-	if (error && error.name === "MulterError") {
-		return res.status(400).json({
-			success: false,
-			message: error.message,
-		});
-	}
-
 	if (error) {
 		return res.status(400).json({
 			success: false,

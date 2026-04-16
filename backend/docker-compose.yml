@@ -42,6 +42,10 @@ services:
       NODE_ENV: development
       MONGO_URI: mongodb://mongodb:27017/carenet_patients
       JWT_SECRET: ${JWT_SECRET}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_REPORTS_BUCKET: ${SUPABASE_REPORTS_BUCKET:-reports}
       DOCTOR_SERVICE_URL: http://doctor-service:3003
       DOCTOR_PRESCRIPTION_ENDPOINT_TEMPLATE: /api/doctors/prescriptions/patient/:patientUserId
     depends_on:
