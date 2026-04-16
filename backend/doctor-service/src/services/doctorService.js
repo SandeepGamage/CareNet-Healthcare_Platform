@@ -1,18 +1,47 @@
 // Get doctor by user (used by other service functions)
-const getDoctorByUser = async (user) => {
+// If populate=true, populate userId for name/email/phone/profileImage
+const getDoctorByUser = async (user, populate = false) => {
   const userId = resolveUserId(user);
   if (!userId) {
     throw new ApiError(401, 'Invalid token payload: missing user id');
   }
   ensureObjectId(userId, 'user id in token payload');
-  const doctor = await Doctor.findOne({ userId });
+  let query = Doctor.findOne({ userId });
+  if (populate) {
+    query = query.populate('userId', 'name email phone profileImage');
+  }
+  const doctor = await query;
   if (!doctor) {
     throw new ApiError(404, 'Doctor profile not found');
   }
   return doctor;
 };
+
+// Returns doctor profile fields for current user, including populated user details
+const getCurrentDoctorProfile = async (user) => {
+  const doctor = await getDoctorByUser(user, true); // populate userId
+  const userObj = doctor.userId;
+  return {
+    name: userObj && userObj.name ? userObj.name : undefined,
+    email: userObj && userObj.email ? userObj.email : undefined,
+    phone: userObj && userObj.phone ? userObj.phone : undefined,
+    profileImage: userObj && userObj.profileImage ? userObj.profileImage : undefined,
+    specialization: doctor.specialization,
+    bio: doctor.bio,
+    qualifications: doctor.qualifications,
+    experienceYears: doctor.experienceYears,
+    availableHours: doctor.availableHours,
+    isAvailable: doctor.isAvailable,
+    consultationFee: doctor.consultationFee,
+    rating: doctor.rating,
+    // Add more fields as needed
+  };
+};
+
 const mongoose = require('mongoose');
 const Doctor = require('../models/doctor');
+// Register User model for population
+require('../models/user');
 const ApiError = require('../utils/ApiError');
 
 const resolveUserId = (user = {}) => user.id || user.userId || user._id || null;
@@ -229,14 +258,14 @@ const getDoctorByUserId = async (userId) => {
 };
 
 
-// Returns doctor profile with populated user (name/email) and formatted for frontend
+// Returns doctor profile with populated user (name/email/phone) and formatted for frontend
 const getDoctorProfileForFrontend = async (user) => {
   const userId = resolveUserId(user);
   if (!userId) {
     throw new ApiError(401, 'Invalid token payload: missing user id');
   }
   ensureObjectId(userId, 'user id in token payload');
-  const doctor = await Doctor.findOne({ userId }).populate('userId', 'name email');
+  const doctor = await Doctor.findOne({ userId }).populate('userId', 'name email phone');
   if (!doctor) {
     throw new ApiError(404, 'Doctor profile not found');
   }
@@ -244,6 +273,7 @@ const getDoctorProfileForFrontend = async (user) => {
   return {
     name: userObj && userObj.name ? userObj.name : undefined,
     email: userObj && userObj.email ? userObj.email : undefined,
+    phone: userObj && userObj.phone ? userObj.phone : undefined,
     specialization: doctor.specialization,
     bio: doctor.bio,
     qualifications: doctor.qualifications,
@@ -411,6 +441,7 @@ module.exports = {
   getDoctorById,
   getDoctorAvailability,
   getDoctorByUser,
+  getCurrentDoctorProfile,
   getAvailableDoctorsByTime,
   updateMyAvailableHours,
   updateDoctor,

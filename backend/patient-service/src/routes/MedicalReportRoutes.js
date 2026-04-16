@@ -53,20 +53,20 @@ router.delete(
   medicalReportController.deleteMyReport
 );
 
-// Doctor/Admin: get all reports from all patients
-router.get(
-  "/reports/all",
-  protect,
-  authorize("doctor", "admin"),
-  medicalReportController.getAllMedicalReports
-);
-
 // Doctor/Admin: get patient reports by user id
 router.get(
   "/:patientUserId/reports",
   protect,
   authorize("doctor", "admin"),
   medicalReportController.getPatientReportsByUserId
+);
+
+// Doctor/Admin: get all reports from all patients
+router.get(
+  "/reports/all",
+  protect,
+  authorize("doctor", "admin"),
+  medicalReportController.getAllMedicalReports
 );
 
 module.exports = router;

@@ -1,6 +1,6 @@
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
-const { createDoctor, getAllDoctors, getAvailableDoctorsByTime, getDoctorByUserId, getDoctorById, getDoctorAvailability, updateDoctor, deleteDoctor, bookDoctorSlot, resetAllDoctorSlots } = require('../services/doctorService');
+const { createDoctor, getAllDoctors, getAvailableDoctorsByTime, getDoctorByUserId, getDoctorById, getDoctorAvailability, updateDoctor, deleteDoctor, bookDoctorSlot, resetAllDoctorSlots, getDoctorByUser } = require('../services/doctorService');
 
 const normalizeDoctorPayload = (req, _res, next) => {
   if (req.body && req.body.consultationFee !== undefined) {
@@ -19,8 +19,11 @@ const createProfile = asyncHandler(async (req, res) => {
   });
 });
 
+const { getDoctorProfileForFrontend } = require('../services/doctorService');
+
 const getProfileMe = asyncHandler(async (req, res) => {
-  const profile = await getDoctorByUserId(req.user.id);
+  // Use the service that populates user and formats for frontend
+  const profile = await getDoctorProfileForFrontend(req.user);
 
   res.status(200).json({
     success: true,
@@ -45,6 +48,7 @@ const formatDoctorProfile = (doctor, user) => {
   return {
     name: user && user.name ? user.name : undefined,
     email: user && user.email ? user.email : undefined,
+    phone: user && user.phone ? user.phone : undefined,
     specialization: doctor.specialization,
     bio: doctor.bio,
     qualifications: doctor.qualifications,
@@ -57,12 +61,25 @@ const formatDoctorProfile = (doctor, user) => {
 };
 
 const getMyProfile = asyncHandler(async (req, res) => {
-  // Populate userId to get name/email
-  const doctor = await getDoctorByUser(req.user);
-  await doctor.populate('userId', 'name email');
+  // Populate userId to get name, email, phone, profileImage
+  const doctor = await getDoctorByUser(req.user, true); // pass populate=true
   const user = doctor.userId;
-  const profile = formatDoctorProfile(doctor, user);
-
+  const profile = {
+    id: doctor._id,
+    name: user && user.name ? user.name : undefined,
+    email: user && user.email ? user.email : undefined,
+    phone: user && user.phone ? user.phone : undefined,
+    profileImage: user && user.profileImage ? user.profileImage : undefined,
+    specialization: doctor.specialization,
+    bio: doctor.bio,
+    qualifications: doctor.qualifications,
+    experienceYears: doctor.experienceYears,
+    availableHours: doctor.availableHours,
+    isAvailable: doctor.isAvailable,
+    consultationFee: doctor.consultationFee,
+    rating: doctor.rating,
+    // Add more fields as needed
+  };
   res.status(200).json({
     success: true,
     message: 'Doctor profile fetched successfully',
