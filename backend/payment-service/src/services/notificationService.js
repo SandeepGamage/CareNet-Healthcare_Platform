@@ -80,8 +80,8 @@ const sendRefundConfirmation = async ({
   patientPhone,
 }) => {
   try {
-    await axios.post(`${NOTIFICATION_URL}/api/notifications/refund`, {
-      type: 'REFUND_SUCCESS',
+    await axios.post(`${NOTIFICATION_URL}/api/notifications/payment`, {
+      type: 'REFUND_REQUESTED',
       recipients: [
         {
           email: patientEmail,
@@ -89,7 +89,7 @@ const sendRefundConfirmation = async ({
           role: 'patient',
           data: {
             patientName: transaction.metadata.patientName,
-            refundAmount: (refund.amount / 100).toFixed(2),
+            amount: parseFloat(transaction.amount).toFixed(2),
             currency: transaction.currency.toUpperCase(),
             refundId: refund._id,
             reason: refund.reason,

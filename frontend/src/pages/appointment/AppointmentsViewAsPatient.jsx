@@ -85,6 +85,10 @@ const PatientAppointments = () => {
   const [editLoading, setEditLoading] = useState(false);
   const [editErrors, setEditErrors] = useState({});
   
+  // Refund state
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundedAppointments, setRefundedAppointments] = useState(new Set());
+  
   // Statistics
   const [stats, setStats] = useState({
     total: 0,
@@ -216,6 +220,49 @@ const PatientAppointments = () => {
     }
   };
   
+  // Request Refund for a cancelled appointment
+  const requestRefund = async (appointment) => {
+    setRefundLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Step 1: Find the transaction for the appointment
+      const txRes = await axios.get(
+        `http://localhost:3005/api/payments/appointment/${appointment._id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const transaction = txRes.data.data;
+
+      if (!transaction || transaction.status !== 'succeeded') {
+        setError('No completed payment found for this appointment to refund.');
+        setTimeout(() => setError(null), 4000);
+        return;
+      }
+
+      // Step 2: Submit refund request
+      await axios.post(
+        'http://localhost:3005/api/refunds',
+        {
+          transactionId: transaction._id,
+          reason: 'appointment_cancelled',
+          notes: 'Patient requested refund after appointment cancellation.',
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setRefundedAppointments(prev => new Set([...prev, appointment._id]));
+      setSuccess('Refund request submitted! You will receive an email confirmation shortly.');
+      setTimeout(() => setSuccess(null), 5000);
+      setShowDetailsModal(false);
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to submit refund request.';
+      setError(msg);
+      setTimeout(() => setError(null), 4000);
+    } finally {
+      setRefundLoading(false);
+    }
+  };
+
   // Cancel appointment
   const cancelAppointment = async (id, reason) => {
     try {
@@ -935,6 +982,25 @@ const PatientAppointments = () => {
               >
                 Close
               </button>
+              {/* Request Refund button for CANCELLED appointments */}
+              {selectedAppointment.status === 'CANCELLED' && !refundedAppointments.has(selectedAppointment._id) && (
+                <button
+                  onClick={() => requestRefund(selectedAppointment)}
+                  disabled={refundLoading}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {refundLoading ? (
+                    <><Loader className="w-4 h-4 animate-spin" /> Processing...</>
+                  ) : (
+                    <><DollarSign className="w-4 h-4" /> Request Refund</>
+                  )}
+                </button>
+              )}
+              {selectedAppointment.status === 'CANCELLED' && refundedAppointments.has(selectedAppointment._id) && (
+                <span className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" /> Refund Requested
+                </span>
+              )}
               {selectedAppointment.status !== 'COMPLETED' && selectedAppointment.status !== 'CANCELLED' && (
                 <>
                   <button

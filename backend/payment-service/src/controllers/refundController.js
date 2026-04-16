@@ -24,7 +24,7 @@ const requestRefund = async (req, res, next) => {
     }
 
     // ── 2. Authorization ────────────────────────────────────────────────────
-    if (req.user.role === 'patient' && transaction.patientId !== req.user.userId) {
+    if (req.user.role === 'patient' && transaction.patientId !== (req.user.id || req.user.userId)) {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 
@@ -63,10 +63,14 @@ const requestRefund = async (req, res, next) => {
       reason,
       notes,
       status       : 'pending',
-      requestedBy  : { userId: req.user.userId, role: req.user.role },
+      requestedBy  : { userId: (req.user.id || req.user.userId), role: req.user.role },
     });
 
-    // ── 7. Notify patient (non-blocking) ────────────────────────────────────
+    // ── 7. Update transaction status to reflect pending refund ────────────────
+    transaction.status = 'pending_refund';
+    await transaction.save();
+
+    // ── 8. Notify patient (non-blocking) ────────────────────────────────────
     try {
       await sendRefundConfirmation({
         refund,
@@ -102,7 +106,7 @@ const getRefund = async (req, res, next) => {
     }
 
     const transaction = refund.transactionId;
-    if (req.user.role === 'patient' && transaction.patientId !== req.user.userId) {
+    if (req.user.role === 'patient' && transaction.patientId !== (req.user.id || req.user.userId)) {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 
@@ -123,7 +127,7 @@ const getRefundsByTransaction = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Transaction not found.' });
     }
 
-    if (req.user.role === 'patient' && transaction.patientId !== req.user.userId) {
+    if (req.user.role === 'patient' && transaction.patientId !== (req.user.id || req.user.userId)) {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 

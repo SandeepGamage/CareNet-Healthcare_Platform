@@ -55,6 +55,9 @@ export default function Appointments() {
 	const [isActionLoading, setIsActionLoading] = useState(false);
 	const [rejectionReason, setRejectionReason] = useState("");
 	const [showRejectionInput, setShowRejectionInput] = useState(false);
+	const [refundLoading, setRefundLoading] = useState(false);
+	const [refundedIds, setRefundedIds] = useState(new Set());
+	const [refundMessage, setRefundMessage] = useState("");
 
 	// --- Initialization ---
 	useEffect(() => {
@@ -170,6 +173,31 @@ export default function Appointments() {
 			alert(msg);
 		} finally {
 			setIsActionLoading(false);
+		}
+	};
+
+	// Process refund for a cancelled appointment
+	const processRefund = async (appointment) => {
+		setRefundLoading(true);
+		setRefundMessage("");
+		try {
+			const token = localStorage.getItem("token");
+			await axios.post(
+				`http://localhost:3005/api/refunds/auto-request`,
+				{
+					appointmentId: appointment._id,
+					reason: 'appointment_cancelled',
+					notes: `Refund processed by doctor for cancelled appointment.`,
+				},
+				{ headers: { Authorization: `Bearer ${token}` } }
+			);
+			setRefundedIds(prev => new Set([...prev, appointment._id]));
+			setRefundMessage("✅ Refund processed! Patient will receive an email confirmation.");
+		} catch (err) {
+			const msg = err.response?.data?.message || "Failed to process refund.";
+			setRefundMessage(`❌ ${msg}`);
+		} finally {
+			setRefundLoading(false);
 		}
 	};
 
@@ -658,13 +686,35 @@ export default function Appointments() {
 											</button>
 										)}
 										{(selectedAppointment.status === 'CANCELLED' || selectedAppointment.status === 'COMPLETED') && (
-											<button 
-												onClick={() => setSelectedAppointment(null)}
+										<div className="w-full flex flex-col gap-3">
+											{selectedAppointment.status === 'CANCELLED' && !refundedIds.has(selectedAppointment._id) && (
+												<button
+													disabled={refundLoading}
+													onClick={() => processRefund(selectedAppointment)}
+													className="w-full h-14 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-orange-600 transition-all shadow-xl shadow-orange-200 active:scale-[0.98] disabled:opacity-50"
+												>
+													{refundLoading ? <Loader2 size={20} className="animate-spin" /> : <ArrowRight size={20} />}
+													Process Refund
+												</button>
+											)}
+											{selectedAppointment.status === 'CANCELLED' && refundedIds.has(selectedAppointment._id) && (
+												<div className="w-full h-14 bg-green-50 text-green-700 border border-green-200 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3">
+													<CheckCircle size={20} /> Refund Sent
+												</div>
+											)}
+											{refundMessage && (
+												<p className={`text-xs font-bold text-center ${refundMessage.startsWith('✅') ? 'text-green-600' : 'text-rose-500'}`}>
+													{refundMessage}
+												</p>
+											)}
+											<button
+												onClick={() => { setSelectedAppointment(null); setRefundMessage(""); }}
 												className="w-full h-14 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-[0.98]"
 											>
 												Close Profile
 											</button>
-										)}
+										</div>
+									)}
 									</div>
 								</>
 							) : (
