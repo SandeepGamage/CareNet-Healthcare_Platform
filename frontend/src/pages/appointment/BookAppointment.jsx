@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import PayHereCheckout from '../../components/payment/PayHereCheckout';
+import NavBar from '../../components/common/Navbar'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -276,7 +277,7 @@ const BookAppointment = () => {
           reviewCount: doc.reviewCount || 50
         }));
 
-        
+
       console.log('--- Verified Doctors List ---');
       doctorList.forEach((doc, index) => {
         console.log(`${index + 1}. ${doc.name} | ${doc.availability} | ${doc.time} 
@@ -349,12 +350,29 @@ const BookAppointment = () => {
 
   const validateStep1 = () => {
     const errors = {};
-    if (!formData.patientName.trim()) errors.patientName = 'Full name is required';
-    if (!formData.patientEmail.trim()) errors.patientEmail = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.patientEmail)) errors.patientEmail = 'Email is invalid';
-    if (!formData.patientPhone.trim()) errors.patientPhone = 'Phone number is required';
-    else if (!/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/.test(formData.patientPhone))
-      errors.patientPhone = 'Phone number is invalid';
+
+    // Name validation: Alphabetic and spaces only, min 3 chars
+    if (!formData.patientName.trim()) {
+      errors.patientName = 'Full name is required';
+    } else if (!/^[a-zA-Z\s]{3,}$/.test(formData.patientName.trim())) {
+      errors.patientName = 'Name must be at least 3 characters and contain only letters';
+    }
+
+    // Email validation: Robust regex
+    if (!formData.patientEmail.trim()) {
+      errors.patientEmail = 'Email is required';
+    } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.patientEmail)) {
+      errors.patientEmail = 'Please enter a valid email address (e.g., alex@example.com)';
+    }
+
+    // Phone validation: Sri Lankan mobile format
+    // Matches 07XXXXXXXX, +947XXXXXXXX, or 947XXXXXXXX
+    const cleanedPhone = formData.patientPhone.replace(/\s+/g, '');
+    if (!formData.patientPhone.trim()) {
+      errors.patientPhone = 'Phone number is required';
+    } else if (!/^(?:\+94|94|0)?7[0-9]{8}$/.test(cleanedPhone)) {
+      errors.patientPhone = 'Invalid Sri Lankan mobile number (e.g., 07XXXXXXXX)';
+    }
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -719,7 +737,19 @@ const BookAppointment = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <>
+      <NavBar 
+        title="Book Appointment"
+        userProfile={userData ? {
+          name: userData.name,
+          email: userData.email,
+          avatar: userData.profilePicture || userData.avatar,
+          role: userData.role || 'Patient',
+          id: userData._id || userData.id
+        } : null}
+      />
+
+      <div className="min-h-screen pt-24 bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header */}
         <div className="text-center mb-8">
@@ -808,7 +838,7 @@ const BookAppointment = () => {
 
               <div className="mt-8 pt-8 border-t border-white/20">
                 <p className="text-sm text-blue-100">Need help?</p>
-                <p className="font-semibold text-lg">+1 234 567 8900</p>
+                <p className="font-semibold text-lg">112 567 8900</p>
                 <p className="text-sm text-blue-100">support@healthcare.com</p>
               </div>
             </div>
@@ -904,7 +934,7 @@ const BookAppointment = () => {
                           disabled={bookingForSelf}
                           className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${validationErrors.patientPhone ? 'border-red-500' : 'border-gray-300'
                             } ${bookingForSelf ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
-                          placeholder="+1 234 567 8900"
+                          placeholder="07XXXXXXXX"
                         />
                       </div>
                       {validationErrors.patientPhone && (
@@ -1387,6 +1417,7 @@ const BookAppointment = () => {
       {/* Doctor Selection Modal */}
       {showDoctorModal && <DoctorModal />}
     </div>
+    </>
   );
 };
 

@@ -462,6 +462,18 @@ const bookDoctorSlot = async (doctorId, slot) => {
   );
 };
 
+const freeDoctorSlot = async (doctorId, slot) => {
+  ensureObjectId(doctorId, 'doctor profile id');
+  const doctor = await Doctor.findById(doctorId);
+  if (!doctor) throw new ApiError(404, 'Doctor not found');
+
+  // Use $addToSet to add the slot only if it doesn't already exist
+  return Doctor.findByIdAndUpdate(doctorId,
+    { $addToSet: { availableSlots: slot } },
+    { new: true }
+  );
+};
+
 const resetAllDoctorSlots = async () => {
   const doctors = await Doctor.find();
   const results = await Promise.all(doctors.map(async (doc) => {
@@ -516,5 +528,6 @@ module.exports = {
   deleteDoctor,
   getDoctorProfileForFrontend,
   bookDoctorSlot,
+  freeDoctorSlot,
   resetAllDoctorSlots
 };

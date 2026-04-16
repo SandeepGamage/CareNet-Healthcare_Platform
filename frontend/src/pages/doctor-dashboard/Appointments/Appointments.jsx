@@ -50,6 +50,7 @@ export default function Appointments() {
 	const [sortField, setSortField] = useState("appointmentDate");
 	const [sortDirection, setSortDirection] = useState("asc");
 	const [searchQuery, setSearchQuery] = useState("");
+	const [statusFilter, setStatusFilter] = useState("ALL");
 	
 	const [selectedAppointment, setSelectedAppointment] = useState(null);
 	const [isActionLoading, setIsActionLoading] = useState(false);
@@ -213,7 +214,11 @@ export default function Appointments() {
 
 	const filteredAppointments = appointments.filter((item) => {
 		const query = searchQuery.toLowerCase().trim();
+		const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
+		
+		if (!matchesStatus) return false;
 		if (!query) return true;
+		
 		return (
 			item.patientName?.toLowerCase().includes(query) ||
 			item.appointmentId?.toLowerCase().includes(query) ||
@@ -398,18 +403,36 @@ export default function Appointments() {
 						</div>
 					</div>
 
-					<div className="relative flex-1 max-w-md">
-						<Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-						<input
-							type="text"
-							placeholder="Search patient, ID, or reason..."
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-700 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
-						/>
-						{searchQuery && (
-							<button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500"><X size={16} /></button>
-						)}
+					<div className="flex flex-col md:flex-row items-center gap-4 flex-1">
+						<div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+							{["ALL", "PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"].map((status) => (
+								<button
+									key={status}
+									onClick={() => setStatusFilter(status)}
+									className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+										statusFilter === status 
+											? "bg-white text-blue-600 shadow-sm" 
+											: "text-slate-500 hover:text-slate-700"
+									}`}
+								>
+									{status}
+								</button>
+							))}
+						</div>
+
+						<div className="relative flex-1 max-w-md ml-auto">
+							<Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+							<input
+								type="text"
+								placeholder="Search patient, ID, or reason..."
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-700 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
+							/>
+							{searchQuery && (
+								<button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500"><X size={16} /></button>
+							)}
+						</div>
 					</div>
 				</div>
 

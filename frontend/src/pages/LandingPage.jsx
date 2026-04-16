@@ -44,13 +44,14 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   HeartPulse, Activity, ShieldCheck, Zap, Video, CreditCard,
   MessageSquare, Cpu, CheckCircle2, ChevronRight,
   Star, Quote, Menu, X, ArrowRight, Play
 } from "lucide-react";
+import Navbar from "../components/common/Navbar";
 
 // Utility: merge class names
 function cn(...classes) {
@@ -58,200 +59,34 @@ function cn(...classes) {
 }
 
 // ─────────────────────────────────────────────
-// NAVBAR
+// Universal Navbar imported at the top
+
 // ─────────────────────────────────────────────
-const Navbar = () => {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+// HERO
+// ─────────────────────────────────────────────
+const Hero = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
-        const parsedUser = JSON.parse(storedUser);
-        console.log("Navbar: User found in localStorage:", parsedUser);
-        setUser(parsedUser);
+        setUser(JSON.parse(storedUser));
       } catch (error) {
-        console.warn("Navbar: Invalid user data in localStorage, clearing it", error);
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        setUser(null);
+        console.warn("Hero: Invalid user data in localStorage", error);
       }
-    } else {
-      console.log("Navbar: No user found in localStorage");
     }
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setUser(null);
-    window.location.reload();
+  const handleBookingClick = () => {
+    if (user) {
+      navigate("/book-appointment");
+    } else {
+      navigate("/login");
+    }
   };
 
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const navLinks = [
-    { name: "Features", href: "#features" },
-    { name: "How it Works", href: "#how-it-works" },
-    { name: "FAQ", href: "#faq" },
-  ];
-
-  return (
-    <header
-      className={cn(
-        "fixed top-0 inset-x-0 z-50 transition-all duration-300 border-b border-transparent backdrop-blur-sm bg-white/30",
-        scrolled ? "glass-panel py-3 shadow-md" : "py-5"
-      )}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-blue-500 flex items-center justify-center shadow-lg">
-            <HeartPulse className="text-white w-6 h-6" />
-          </div>
-          <span className="font-bold text-2xl tracking-tight text-slate-900">
-            Care<span className="text-teal-500">Net</span>
-          </span>
-        </div>
-
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-6">
-          {navLinks.map((link) => (
-            <a
-              key={link.name}
-              href={link.href}
-              className="text-sm font-medium text-slate-600 px-3 py-2 rounded-md hover:bg-teal-50 hover:text-teal-600 transition-colors transition-shadow"
-            >
-              {link.name}
-            </a>
-          ))}
-        </nav>
-
-        <div className="hidden md:flex items-center gap-4">
-          {user ? (
-            <>
-              <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/60 backdrop-blur-sm border border-slate-100 shadow-sm">
-                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold text-xs">
-                  {(user?.name || "U").charAt(0)}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold text-slate-900">{user?.name || "User"}</span>
-                </div>
-              </div>
-              <Link
-                to={
-                  user.role === 'admin'
-                    ? '/admin-dashboard'
-                    : user.role === 'patient'
-                      ? '/patient-dashboard'
-                      : user.role === 'doctor'
-                        ? '/doctor-dashboard'
-                        : '/'
-                }
-                className="px-4 py-2 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 text-white text-sm font-semibold hover:from-teal-600 hover:to-blue-600 shadow-md transition-all"
-              >
-                Dashboard
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 rounded-full bg-white/60 border border-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all shadow-sm"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="text-sm font-medium text-slate-800 hover:text-teal-500 transition-colors">
-                Log in
-              </Link>
-              <Link
-                to="/register"
-                className="px-5 py-2.5 rounded-full bg-teal-500 text-white text-sm font-semibold hover:bg-teal-600 shadow-lg hover:-translate-y-0.5 transition-all duration-200"
-              >
-                Get Started
-              </Link>
-            </>
-          )}
-        </div>
-
-        {/* Mobile Toggle */}
-        <button
-          className="md:hidden p-2 text-slate-800 bg-white/80 rounded-lg shadow-sm"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-label="Toggle menu"
-        >
-          {mobileMenuOpen ? <X /> : <Menu />}
-        </button>
-      </div>
-
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="absolute top-full left-0 w-full bg-white border-b border-slate-100 shadow-xl p-4 md:hidden flex flex-col gap-4"
-          >
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-base font-medium text-slate-800 p-2 rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                {link.name}
-              </a>
-            ))}
-            <div className="h-px bg-slate-100 my-2" />
-            <div className="h-px bg-slate-100 my-2" />
-            {user ? (
-              <>
-                <div className="p-2 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold text-sm">
-                    {(user?.name || "U").charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-900">{user?.name || "User"}</p>
-                  </div>
-                </div>
-                <Link
-                  to={user.role === 'doctor' ? '/doctor-dashboard' : '/'}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center px-4 py-2 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 text-white font-semibold mb-2"
-                >
-                  Dashboard
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-center px-4 py-2 rounded-full bg-white/60 border border-slate-100 text-slate-700 font-semibold"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link to="/login" className="text-base font-medium text-slate-800 p-2 text-center" onClick={() => setMobileMenuOpen(false)}>Log in</Link>
-                <Link to="/register" className="p-3 rounded-xl bg-teal-500 text-white text-center font-semibold" onClick={() => setMobileMenuOpen(false)}>Get Started</Link>
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </header>
-  );
-};
-
-// ─────────────────────────────────────────────
-// HERO
-// ─────────────────────────────────────────────
-const Hero = () => {
   return (
     <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden bg-gradient-to-br from-slate-50 via-teal-50/30 to-blue-50/30">
       <div className="absolute top-1/4 right-0 w-[800px] h-[800px] bg-teal-400/10 rounded-full blur-[120px] pointer-events-none -translate-y-1/2 translate-x-1/3" />
@@ -282,12 +117,12 @@ const Hero = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link 
-                to="/register" 
+              <button
+                onClick={handleBookingClick}
                 className="px-8 py-4 rounded-xl bg-teal-500 text-white text-base font-semibold shadow-lg shadow-teal-500/25 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-2"
               >
-                Start Free Trial <ArrowRight className="w-5 h-5" />
-              </Link>
+                Book Appointment <ArrowRight className="w-5 h-5" />
+              </button>
               <button className="px-8 py-4 rounded-xl bg-white text-slate-800 border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-300 transition-all duration-300 flex items-center justify-center gap-2 font-semibold group">
                 <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center group-hover:bg-teal-200 transition-colors">
                   <Play className="w-3 h-3 text-teal-600 ml-0.5" />
