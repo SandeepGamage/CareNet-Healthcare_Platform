@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowUpDown } from "lucide-react";
 import PrescriptionForm from "./PrescriptionForm";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 
 export default function Prescriptions() {
     // Prescription history state 
@@ -69,9 +70,23 @@ export default function Prescriptions() {
     }
   };
 
-  // Delete prescription handler (scoped inside component)
-  const handleDeletePrescription = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this prescription?')) return;
+  // Modal state for confirming deletes
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
+
+  // Request delete: opens modal
+  const handleDeletePrescription = (id) => {
+    if (!id) return;
+    setPendingDeleteId(id);
+    setConfirmVisible(true);
+  };
+
+  // Perform delete (called when modal Confirm is pressed)
+  const performDelete = async () => {
+    const id = pendingDeleteId;
+    setConfirmVisible(false);
+    setPendingDeleteId(null);
+    if (!id) return;
     const token = localStorage.getItem('token');
     try {
       const response = await fetch(`${PRESCRIPTIONS_ENDPOINT}/${id}`, {
@@ -637,6 +652,14 @@ export default function Prescriptions() {
           </div>
         </div>
       </div>
+      {/* ConfirmModal for delete confirmation */}
+      <ConfirmModal
+        visible={confirmVisible}
+        title="Delete prescription"
+        message="Are you sure you want to delete this prescription? This action cannot be undone."
+        onConfirm={performDelete}
+        onCancel={() => { setPendingDeleteId(null); setConfirmVisible(false); }}
+      />
     </div>
   );
 }

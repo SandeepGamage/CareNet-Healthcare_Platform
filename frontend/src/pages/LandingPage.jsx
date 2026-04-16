@@ -105,8 +105,8 @@ const Navbar = () => {
   return (
     <header
       className={cn(
-        "fixed top-0 inset-x-0 z-50 transition-all duration-300 border-b border-transparent",
-        scrolled ? "glass-panel py-3" : "bg-transparent py-5"
+        "fixed top-0 inset-x-0 z-50 transition-all duration-300 border-b border-transparent backdrop-blur-sm bg-white/30",
+        scrolled ? "glass-panel py-3 shadow-md" : "py-5"
       )}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
@@ -121,12 +121,12 @@ const Navbar = () => {
         </div>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-6">
           {navLinks.map((link) => (
             <a
               key={link.name}
               href={link.href}
-              className="text-sm font-medium text-slate-500 hover:text-teal-500 transition-colors"
+              className="text-sm font-medium text-slate-600 px-3 py-2 rounded-md hover:bg-teal-50 hover:text-teal-600 transition-colors transition-shadow"
             >
               {link.name}
             </a>
@@ -136,24 +136,31 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-4">
           {user ? (
             <>
-              <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-slate-50 border border-slate-100">
+              <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/60 backdrop-blur-sm border border-slate-100 shadow-sm">
                 <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold text-xs">
                   {(user?.name || "U").charAt(0)}
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold text-slate-900">{user?.name || "User"}</span>
-                  <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">{user?.role || ""}</span>
+                  <span className="text-sm font-semibold text-slate-900">{user?.name || "User"}</span>
                 </div>
               </div>
               <Link
-                to={user.role === 'admin' ? '/admin-dashboard' : (user.role === 'patient' ? '/patient-dashboard' : '/')}
-                className="text-sm font-semibold text-slate-700 hover:text-teal-600 transition-colors"
+                to={
+                  user.role === 'admin'
+                    ? '/admin-dashboard'
+                    : user.role === 'patient'
+                      ? '/patient-dashboard'
+                      : user.role === 'doctor'
+                        ? '/doctor-dashboard'
+                        : '/'
+                }
+                className="px-4 py-2 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 text-white text-sm font-semibold hover:from-teal-600 hover:to-blue-600 shadow-md transition-all"
               >
                 Dashboard
               </Link>
               <button
                 onClick={handleLogout}
-                className="px-5 py-2.5 rounded-full border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-all"
+                className="px-4 py-2 rounded-full bg-white/60 border border-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all shadow-sm"
               >
                 Logout
               </button>
@@ -175,8 +182,9 @@ const Navbar = () => {
 
         {/* Mobile Toggle */}
         <button
-          className="md:hidden p-2 text-slate-800"
+          className="md:hidden p-2 text-slate-800 bg-white/80 rounded-lg shadow-sm"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle menu"
         >
           {mobileMenuOpen ? <X /> : <Menu />}
         </button>
@@ -196,7 +204,7 @@ const Navbar = () => {
                 key={link.name}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-base font-medium text-slate-800 p-2 rounded-lg hover:bg-slate-50"
+                className="text-base font-medium text-slate-800 p-2 rounded-lg hover:bg-slate-50 transition-colors"
               >
                 {link.name}
               </a>
@@ -211,12 +219,18 @@ const Navbar = () => {
                   </div>
                   <div>
                     <p className="font-bold text-slate-900">{user?.name || "User"}</p>
-                    <p className="text-xs text-slate-500 uppercase tracking-wider">{user?.role || ""}</p>
                   </div>
                 </div>
+                <Link
+                  to={user.role === 'doctor' ? '/doctor-dashboard' : '/'}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full text-center px-4 py-2 rounded-full bg-gradient-to-r from-teal-500 to-blue-500 text-white font-semibold mb-2"
+                >
+                  Dashboard
+                </Link>
                 <button
                   onClick={handleLogout}
-                  className="p-3 rounded-xl bg-slate-100 text-slate-600 text-center font-semibold"
+                  className="w-full text-center px-4 py-2 rounded-full bg-white/60 border border-slate-100 text-slate-700 font-semibold"
                 >
                   Logout
                 </button>

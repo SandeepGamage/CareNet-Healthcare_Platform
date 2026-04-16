@@ -1,4 +1,6 @@
 import { Plus, Trash2, FileText, Calendar, ArrowLeft, X } from "lucide-react";
+import { useState } from "react";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 
 export default function PrescriptionForm({
   selectedPatient,
@@ -62,6 +64,10 @@ export default function PrescriptionForm({
     return errors;
   };
 
+  // Avoid ESLint no-unused-vars for props that may be used by parent components
+  void onAddMedicine;
+  void onRemoveMedicine;
+
 
   // New: Validate and submit prescription directly (single medicine)
   const handleCreatePrescriptionWithValidation = () => {
@@ -74,7 +80,11 @@ export default function PrescriptionForm({
     }
     onValidationErrorsChange?.({});
     onFormError?.("");
-    onSubmitPrescription();
+    if (editingPrescription) {
+      onEditPrescription?.();
+    } else {
+      onSubmitPrescription();
+    }
   };
 
   const handleSubmitWithValidation = () => {
@@ -88,6 +98,12 @@ export default function PrescriptionForm({
     onFormError?.("");
     onSubmitPrescription();
   };
+
+  // Reference function to avoid unused var lint (this handler may be wired elsewhere)
+  void handleSubmitWithValidation;
+
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
 
   return (
     <div className="p-8">
@@ -111,13 +127,26 @@ export default function PrescriptionForm({
               Patient id - {selectedPatient.patientUserId}
             </div>
             {editingPrescription && (
-              <button
-                onClick={onCancelEdit}
-                disabled={isSubmitting}
-                className="mt-3 inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <X size={14} /> Cancel Edit
-              </button>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  onClick={onCancelEdit}
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <X size={14} /> Cancel Edit
+                </button>
+
+                <button
+                  onClick={() => {
+                    setPendingAction('delete');
+                    setConfirmVisible(true);
+                  }}
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </div>
             )}
           </div>
 
@@ -250,13 +279,34 @@ export default function PrescriptionForm({
             </div>
 
             <button
-              onClick={handleCreatePrescriptionWithValidation}
+              onClick={() => {
+                setPendingAction(editingPrescription ? 'update' : 'create');
+                setConfirmVisible(true);
+              }}
               disabled={isSubmitting}
               className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <FileText size={18} /> {editingPrescription ? "Update Prescription" : "Create Prescription"}
             </button>
           </div>
+          <ConfirmModal
+            visible={confirmVisible}
+            title={pendingAction === 'delete' ? 'Confirm Delete' : (editingPrescription ? 'Confirm Update' : 'Confirm Create')}
+            message={pendingAction === 'delete' ? 'Delete this prescription? This action cannot be undone.' : (editingPrescription ? 'Update this prescription?' : 'Create prescription?')}
+            onConfirm={() => {
+              if (pendingAction === 'create' || pendingAction === 'update') {
+                handleCreatePrescriptionWithValidation();
+              } else if (pendingAction === 'delete') {
+                onDeletePrescription?.();
+              }
+              setConfirmVisible(false);
+              setPendingAction(null);
+            }}
+            onCancel={() => {
+              setConfirmVisible(false);
+              setPendingAction(null);
+            }}
+          />
         </div>
 
         {/* Right Side: Patient Info & Report */}

@@ -6,10 +6,10 @@ import {
   CheckCircle, 
   Clock, 
   DollarSign, 
-  Search, 
   Bell, 
   LogOut,
   Activity,
+  Home,
   Video,
   FileText,
   Menu,
@@ -18,21 +18,19 @@ import {
   MapPin
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar";
-import Dashboard from "./Dashboard/Dashboard";
 import Appointments from "./Appointments/Appointments";
 import Prescriptions from "./Prescriptions/Prescriptions";
 import Profile from "./Profile/Profile";
 import TelemedicineTab from "../../components/telemedicine/TelemedicineTab";
-
 // ── Mock Data ────────────────────────────────────────────────────────────────
 
 export default function DoctorDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("prescriptions");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Load user from localStorage
-  const user = JSON.parse(localStorage.getItem("userInfo")) || {
+  const user = JSON.parse(localStorage.getItem("user")) || {
     name: 'Doctor',
     role: 'Doctor'
   };
@@ -50,7 +48,6 @@ export default function DoctorDashboard() {
 
         <nav className="flex-1 p-4 space-y-2 mt-4">
           {[
-            { id: "overview", icon: Activity, label: "Dashboard" },
             { id: "profile", icon: Users, label: "Profile" },
             { id: "appointments", icon: Calendar, label: "Appointments" },
             { id: "telemedicine", icon: Video, label: "Telemedicine" },
@@ -88,21 +85,22 @@ export default function DoctorDashboard() {
         {/* Top Navbar */}
         <Navbar
           onMenuClick={() => setSidebarOpen(!sidebarOpen)}
-          title={<span className="text-xl font-bold text-slate-800">Welcome, {user.name}</span>}
+          title={<span className="text-xl font-bold text-slate-800">Welcome Dr. {user.name}</span>}
           userProfile={user}
         >
           <div className="hidden md:flex flex-1 justify-end pr-4">
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                type="text" placeholder="Search patients..." 
-                className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500/20 text-sm"
-              />
-            </div>
+            <button
+              onClick={() => navigate('/')}
+              title="Home"
+              className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-2 rounded-xl text-sm font-semibold hover:bg-slate-50 cursor-pointer"
+            >
+              <Home size={18} />
+              <span>Home</span>
+            </button>
           </div>
         </Navbar>
 
-        {activeTab === "overview" && <Dashboard />}
+        
         {activeTab === "profile" && <Profile />}
         {activeTab === "appointments" && <Appointments />}
         {activeTab === "telemedicine" && <TelemedicineTab role="doctor" />}
