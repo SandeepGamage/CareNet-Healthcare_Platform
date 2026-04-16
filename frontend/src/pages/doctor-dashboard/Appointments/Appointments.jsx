@@ -64,11 +64,8 @@ export default function Appointments() {
 	const fetchDoctorProfile = async () => {
 		try {
 			const token = localStorage.getItem("token");
-			const userStr = localStorage.getItem("user");
-			if (!userStr) return;
-			const user = JSON.parse(userStr);
-
-			const response = await axios.get(`${API_BASE_URL}/doctors/profile/user/${user.id || user._id}`, {
+			// Using /me endpoint is more secure and doesn't rely on local user state
+			const response = await axios.get(`${API_BASE_URL}/doctors/profile/me`, {
 				headers: { Authorization: `Bearer ${token}` }
 			});
 
@@ -112,7 +109,8 @@ export default function Appointments() {
 			setSavingHours(true);
 			setHoursMessage("");
 			const token = localStorage.getItem("token");
-			const response = await axios.put(`${API_BASE_URL}/doctors/profile/${doctor._id}`, 
+			// Use the dedicated PATCH /me/available-hours endpoint
+			const response = await axios.patch(`${API_BASE_URL}/doctors/profile/me/available-hours`, 
 				{ availableHours: hoursString },
 				{ headers: { Authorization: `Bearer ${token}` } }
 			);

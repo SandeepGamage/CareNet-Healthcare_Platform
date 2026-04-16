@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
+import axios from "axios";
 import { Mail, MapPin, Phone, Clock3, Loader2, Check } from "lucide-react";
 
-import axios from "axios";
 export default function DoctorProfile() {
-const API_BASE_URL = (import.meta.env.VITE_DOCTOR_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api").replace(/\/$/, "");
-const DOCTOR_PROFILE_ENDPOINT = `${API_BASE_URL}/doctors/profile`;
+
+	const API_BASE_URL = (import.meta.env.VITE_DOCTOR_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api").replace(/\/$/, "");
+	const DOCTOR_PROFILE_ENDPOINT = `${API_BASE_URL}/doctors/profile`;
 
 	const [user, setUser] = useState(null);
 	const [profile, setProfile] = useState(null);

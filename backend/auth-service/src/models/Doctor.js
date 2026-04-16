@@ -40,9 +40,21 @@ const doctorSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    availability: {
+    availableHours: {
       type: String,
       default: '',
+    },
+    isAvailable: {
+      type: Boolean,
+      default: false,
+    },
+    availableSlots: {
+      type: [String],
+      default: [],
+    },
+    slotDuration: {
+      type: Number,
+      default: 30, // in minutes
     },
   },
   {
