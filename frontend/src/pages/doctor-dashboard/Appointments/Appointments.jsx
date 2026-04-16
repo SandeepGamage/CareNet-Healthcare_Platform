@@ -59,6 +59,8 @@ export default function Appointments() {
 	const [refundLoading, setRefundLoading] = useState(false);
 	const [refundedIds, setRefundedIds] = useState(new Set());
 	const [refundMessage, setRefundMessage] = useState("");
+	const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
+	const [todaySlots, setTodaySlots] = useState([]);
 
 	// --- Initialization ---
 	useEffect(() => {
@@ -92,9 +94,30 @@ export default function Appointments() {
 					setStartTime(start);
 					setEndTime(end);
 				}
+				
+				// Fetch real-time availability from appointment service
+				if (doc.userId) {
+					fetchTodaySlots(doc.userId);
+				}
 			}
 		} catch (error) {
 			console.error("Error fetching doctor profile:", error);
+		}
+	};
+
+	const fetchTodaySlots = async (doctorId) => {
+		try {
+			const token = localStorage.getItem("token");
+			const today = new Date().toISOString().split('T')[0];
+			const response = await axios.get(`${API_BASE_URL}/appointments/slots?doctorId=${doctorId}&date=${today}`, {
+				headers: { Authorization: `Bearer ${token}` }
+			});
+			
+			if (response.data?.availableSlots) {
+				setTodaySlots(response.data.availableSlots);
+			}
+		} catch (error) {
+			console.error("Error fetching real-time slots:", error);
 		}
 	};
 
@@ -131,8 +154,15 @@ export default function Appointments() {
 			);
 
 			if (response.data.success) {
-				setDoctor(response.data.data);
+				const updatedDoctor = response.data.data;
+				setDoctor(updatedDoctor);
 				setHoursMessage("Available hours and slots updated successfully!");
+				
+				// Refresh real-time availability
+				if (updatedDoctor.userId) {
+					fetchTodaySlots(updatedDoctor.userId);
+				}
+				
 				setTimeout(() => setHoursMessage(""), 5000);
 			}
 		} catch (error) {
@@ -141,6 +171,38 @@ export default function Appointments() {
 			setHoursMessage(`Error: ${errorMsg}`);
 		} finally {
 			setSavingHours(false);
+		}
+	};
+
+	const handleToggleAvailability = async () => {
+		if (!doctor || !doctor.userId) {
+			alert("Doctor profile or user ID not found. Please refresh.");
+			return;
+		}
+
+		try {
+			setIsTogglingAvailability(true);
+			const token = localStorage.getItem("token");
+			const newAvailability = !doctor.isAvailable;
+			const updateUrl = `${API_BASE_URL}/auth/doctors/${doctor.userId}/availability`;
+			console.log(`[Frontend] Toggling availability at: ${updateUrl}`);
+			
+			// Using the specific auth-service endpoint as requested
+			const response = await axios.patch(
+				updateUrl, 
+				{ isAvailable: newAvailability },
+				{ headers: { Authorization: `Bearer ${token}` } }
+			);
+
+			if (response.data.success) {
+				setDoctor({ ...doctor, isAvailable: newAvailability });
+			}
+		} catch (error) {
+			console.error("Error toggling availability:", error);
+			const msg = error.response?.data?.message || "Failed to update availability.";
+			alert(`Error: ${msg}`);
+		} finally {
+			setIsTogglingAvailability(false);
 		}
 	};
 
@@ -289,12 +351,21 @@ export default function Appointments() {
 					</p>
 				</div>
 				<div className="flex items-center gap-3">
-					<div className="px-4 py-2 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center gap-2">
-						<div className={`w-2 h-2 rounded-full ${doctor?.isAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-						<span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+					<button 
+						onClick={handleToggleAvailability}
+						disabled={isTogglingAvailability}
+						className={`px-4 py-2 rounded-xl border shadow-sm flex items-center gap-2 transition-all active:scale-95 disabled:opacity-70 cursor-pointer ${doctor?.isAvailable ? 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100' : 'bg-rose-50 border-rose-200 hover:bg-rose-100'}`}
+						title={doctor?.userId ? `Toggle ${doctor.isAvailable ? 'Offline' : 'Active'}` : 'Profile loading...'}
+					>
+						{isTogglingAvailability ? (
+							<Loader2 size={12} className="animate-spin text-slate-500" />
+						) : (
+							<div className={`w-2 h-2 rounded-full ${doctor?.isAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+						)}
+						<span className={`text-xs font-bold uppercase tracking-wider ${doctor?.isAvailable ? 'text-emerald-700' : 'text-rose-700'}`}>
 							{doctor?.isAvailable ? 'Active' : 'Offline'}
 						</span>
-					</div>
+					</button>
 				</div>
 			</div>
 
@@ -345,7 +416,7 @@ export default function Appointments() {
 							<button
 								onClick={handleSaveAvailableHours}
 								disabled={savingHours}
-								className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white transition-all hover:bg-blue-700 disabled:bg-blue-300 shadow-md shadow-blue-100 flex items-center justify-center gap-2 active:scale-95 whitespace-nowrap"
+								className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white transition-all hover:bg-blue-700 disabled:bg-blue-300 shadow-md shadow-blue-100 flex items-center justify-center gap-2 active:scale-95 whitespace-nowrap cursor-pointer"
 							>
 								{savingHours ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
 								Apply Hours
@@ -365,14 +436,14 @@ export default function Appointments() {
 							<span className="text-[10px] text-slate-400 font-medium italic underline underline-offset-4 decoration-blue-200">Refreshed Daily at 00:00 AM</span>
 						</div>
 						<div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto pr-2 custom-scrollbar">
-							{doctor?.availableSlots?.length > 0 ? (
-								doctor.availableSlots.map((slot, idx) => (
+							{todaySlots && todaySlots.length > 0 ? (
+								todaySlots.map((slot, idx) => (
 									<span key={idx} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold border border-blue-100/50 hover:bg-blue-100 transition-colors">
 										{slot}
 									</span>
 								))
 							) : (
-								<p className="text-xs text-slate-400 italic">No available slots. Set your hours above to generate slots.</p>
+								<p className="text-xs text-slate-400 italic">No available slots for today. Set your hours above or check other dates.</p>
 							)}
 						</div>
 					</div>
@@ -437,7 +508,7 @@ export default function Appointments() {
 								<button
 									key={status}
 									onClick={() => setStatusFilter(status)}
-									className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+									className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${
 										statusFilter === status 
 											? "bg-white text-blue-600 shadow-sm" 
 											: "text-slate-500 hover:text-slate-700"
@@ -458,7 +529,7 @@ export default function Appointments() {
 								className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-700 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
 							/>
 							{searchQuery && (
-								<button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500"><X size={16} /></button>
+								<button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500 cursor-pointer"><X size={16} /></button>
 							)}
 						</div>
 					</div>
@@ -527,7 +598,7 @@ export default function Appointments() {
 																e.stopPropagation();
 																handleStatusUpdate(appointment._id, 'CONFIRMED');
 															}}
-															className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100 shadow-sm transition-all active:scale-90"
+															className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100 shadow-sm transition-all active:scale-90 cursor-pointer"
 															title="Accept"
 														>
 															<CheckCircle size={18} />
@@ -538,7 +609,7 @@ export default function Appointments() {
 																setSelectedAppointment(appointment);
 																setShowRejectionInput(true);
 															}}
-															className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100 shadow-sm transition-all active:scale-90"
+															className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100 shadow-sm transition-all active:scale-90 cursor-pointer"
 															title="Reject"
 														>
 															<XCircle size={18} />
@@ -551,7 +622,7 @@ export default function Appointments() {
 															e.stopPropagation();
 															handleStatusUpdate(appointment._id, 'COMPLETED');
 														}}
-														className="px-4 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+														className="px-4 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 cursor-pointer"
 													>
 														Complete
 													</button>
@@ -599,7 +670,7 @@ export default function Appointments() {
 									setShowRejectionInput(false);
 									setRejectionReason("");
 								}}
-								className="absolute top-6 right-6 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all active:scale-90"
+								className="absolute top-6 right-6 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all active:scale-90 cursor-pointer"
 							>
 								<X size={20} />
 							</button>
@@ -683,7 +754,7 @@ export default function Appointments() {
 												<button 
 													disabled={isActionLoading}
 													onClick={() => handleStatusUpdate(selectedAppointment._id, 'CONFIRMED')}
-													className="flex-1 h-14 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+													className="flex-1 h-14 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 cursor-pointer"
 												>
 													{isActionLoading ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
 													Accept Request
@@ -691,7 +762,7 @@ export default function Appointments() {
 												<button 
 													disabled={isActionLoading}
 													onClick={() => setShowRejectionInput(true)}
-													className="px-6 h-14 bg-rose-50 text-rose-600 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-rose-100 transition-all border border-rose-100 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+													className="px-6 h-14 bg-rose-50 text-rose-600 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-rose-100 transition-all border border-rose-100 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 cursor-pointer"
 												>
 													<XCircle size={20} />
 													Reject
@@ -702,7 +773,7 @@ export default function Appointments() {
 											<button 
 												disabled={isActionLoading}
 												onClick={() => handleStatusUpdate(selectedAppointment._id, 'COMPLETED')}
-												className="w-full h-14 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+												className="w-full h-14 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 cursor-pointer"
 											>
 												{isActionLoading ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
 												Mark as Completed
@@ -714,7 +785,7 @@ export default function Appointments() {
 												<button
 													disabled={refundLoading}
 													onClick={() => processRefund(selectedAppointment)}
-													className="w-full h-14 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-orange-600 transition-all shadow-xl shadow-orange-200 active:scale-[0.98] disabled:opacity-50"
+													className="w-full h-14 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-orange-600 transition-all shadow-xl shadow-orange-200 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
 												>
 													{refundLoading ? <Loader2 size={20} className="animate-spin" /> : <ArrowRight size={20} />}
 													Process Refund
@@ -732,7 +803,7 @@ export default function Appointments() {
 											)}
 											<button
 												onClick={() => { setSelectedAppointment(null); setRefundMessage(""); }}
-												className="w-full h-14 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-[0.98]"
+												className="w-full h-14 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-[0.98] cursor-pointer"
 											>
 												Close Profile
 											</button>
@@ -745,7 +816,7 @@ export default function Appointments() {
 									<div className="flex items-center gap-3 mb-6">
 										<button 
 											onClick={() => setShowRejectionInput(false)}
-											className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors"
+											className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
 										>
 											<ArrowRight size={20} className="rotate-180" />
 										</button>
@@ -770,7 +841,7 @@ export default function Appointments() {
 										<button 
 											disabled={isActionLoading || !rejectionReason.trim()}
 											onClick={() => handleStatusUpdate(selectedAppointment._id, 'CANCELLED', rejectionReason)}
-											className="flex-1 h-14 bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-rose-700 transition-all shadow-xl shadow-rose-200 active:scale-[0.98] disabled:opacity-50 disabled:grayscale disabled:active:scale-100"
+											className="flex-1 h-14 bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-rose-700 transition-all shadow-xl shadow-rose-200 active:scale-[0.98] disabled:opacity-50 disabled:grayscale disabled:active:scale-100 cursor-pointer"
 										>
 											{isActionLoading ? <Loader2 size={20} className="animate-spin" /> : <XCircle size={20} />}
 											Confirm Rejection
@@ -778,7 +849,7 @@ export default function Appointments() {
 										<button 
 											onClick={() => setShowRejectionInput(false)}
 											disabled={isActionLoading}
-											className="flex-1 h-14 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-[0.98] disabled:opacity-50"
+											className="flex-1 h-14 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
 										>
 											Cancel
 										</button>
