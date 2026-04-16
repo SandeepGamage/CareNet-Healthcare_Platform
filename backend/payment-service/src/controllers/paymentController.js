@@ -260,19 +260,28 @@ const downloadInvoice = async (req, res, next) => {
 
     const invoice = await Invoice.findOne({ transactionId: transaction._id });
 
-    if (!invoice || !invoice.pdfBuffer) {
+    if (!invoice) {
       return res.status(404).json({
         success: false,
-        message: 'Invoice PDF not available yet. Please try again shortly.',
+        message: 'Invoice not found. It might not be generated yet.',
       });
     }
+
+    // Always regenerate PDF on-the-fly to ensure correct currency (LKR) and formatting
+    // This fixes cases where old invoices occupied the buffer with legacy USD formatting.
+    const { generateInvoicePDF } = require('../services/invoiceService');
+    const updatedPdfBuffer = await generateInvoicePDF(invoice);
+
+    // Update stored buffer for future consistency
+    invoice.pdfBuffer = updatedPdfBuffer;
+    await invoice.save();
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${invoice.invoiceNumber}.pdf"`
     );
-    res.send(invoice.pdfBuffer);
+    res.send(updatedPdfBuffer);
   } catch (error) {
     next(error);
   }

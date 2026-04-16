@@ -251,64 +251,14 @@ export default function ModernPatientDashboard() {
             background: "linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%)",
             fontFamily: "'Segoe UI', 'Helvetica Neue', sans-serif",
         }}>
-            {/* ── TOP NAVIGATION ────────────────────────────────────────────────── */}
-            {/* ── TOP NAVIGATION ────────────────────────────────────────────────── */}
-            <Navbar
-                onMenuClick={() => setSidebarOpen(!sidebarOpen)}
-                title={
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{
-                            width: "40px",
-                            height: "40px",
-                            background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                            borderRadius: "10px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "white",
-                            fontSize: "20px",
-                        }}>
-                            💙
-                        </div>
-                        <span style={{ fontSize: "20px", fontWeight: 700, color: "#111827" }}>CareNet</span>
-                    </div>
-                }
-                userProfile={{
-                    name: userProfile.name,
-                    email: userProfile.email,
-                    avatar: userProfile.avatar,
-                    role: 'Patient',
-                    id: userProfile.patientId
-                }}
-            >
-                <div style={{ display: "flex", gap: "8px" }}>
-                    {["overview", "appointments", "telemedicine", "vitals", "prescriptions", "payments", "profile"].map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            style={{
-                                padding: "8px 16px",
-                                fontSize: "14px",
-                                fontWeight: 500,
-                                color: activeTab === tab ? "#3b82f6" : "#6b7280",
-                                background: "transparent",
-                                border: "none",
-                                cursor: "pointer",
-                                borderBottom: activeTab === tab ? "2px solid #3b82f6" : "none",
-                                transition: "all 0.2s",
-                            }}
-                        >
-                            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                        </button>
-                    ))}
-                </div>
-            </Navbar>
-
-            {/* ── SIDEBAR ───────────────────────────────────────────────────────── */}
+            {/* ── MAIN LAYOUT ───────────────────────────────────────────────────────── */}
             <div style={{
                 display: "flex",
-                minHeight: "calc(100vh - 72px)",
+                minHeight: "100vh",
+                paddingTop: "24px", // Added spacing from the top
             }}>
+
+
                 {/* Sidebar */}
                 <aside style={{
                     width: sidebarOpen ? "280px" : "0px",
@@ -725,8 +675,8 @@ export default function ModernPatientDashboard() {
                                                         </td>
                                                         <td style={{ padding: "16px" }}>
                                                             <span style={{
-                                                                background: payment.status === 'success' ? '#d1fae5' : payment.status === 'pending' ? '#fef3c7' : '#fee2e2',
-                                                                color: payment.status === 'success' ? '#065f46' : payment.status === 'pending' ? '#92400e' : '#991b1b',
+                                                                background: payment.status === 'succeeded' ? '#d1fae5' : payment.status === 'pending' ? '#fef3c7' : '#fee2e2',
+                                                                color: payment.status === 'succeeded' ? '#065f46' : payment.status === 'pending' ? '#92400e' : '#991b1b',
                                                                 padding: "4px 8px",
                                                                 borderRadius: "4px",
                                                                 fontSize: "12px",
@@ -737,7 +687,7 @@ export default function ModernPatientDashboard() {
                                                             </span>
                                                         </td>
                                                         <td style={{ padding: "16px" }}>
-                                                            {payment.status === 'success' && payment.invoiceId ? (
+                                                            {payment.status === 'succeeded' && payment.invoiceId ? (
                                                                 <button
                                                                     onClick={async () => {
                                                                         try {
@@ -894,8 +844,8 @@ export default function ModernPatientDashboard() {
                                             <p style={{ fontSize: "15px", fontWeight: 600, color: "#111827", margin: 0 }}>{selectedPayment.currency} {selectedPayment.amount.toFixed(2)}</p>
                                         </div>
                                         <div style={{
-                                            background: selectedPayment.status === 'success' ? '#d1fae5' : '#fef3c7',
-                                            color: selectedPayment.status === 'success' ? '#065f46' : '#92400e',
+                                            background: selectedPayment.status === 'succeeded' ? '#d1fae5' : '#fef3c7',
+                                            color: selectedPayment.status === 'succeeded' ? '#065f46' : '#92400e',
                                             padding: "4px 10px",
                                             borderRadius: "20px",
                                             fontSize: "12px",

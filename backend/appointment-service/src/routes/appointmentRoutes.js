@@ -11,7 +11,8 @@ const {
   getAvailableSlots,
   adminDeleteAppointment,
   updateAppointmentByPatient,
-  deleteAppointmentByPatient
+  deleteAppointmentByPatient,
+  syncPaymentStatus
 } = require('../controllers/appointmentController');
 
 // Public-ish (still needs JWT, but any role)
@@ -42,4 +43,4 @@ router.patch('/:id/status', protect, restrictTo('DOCTOR', 'ADMIN'), updateStatus
 router.patch('/:id/payment-sync', syncPaymentStatus);
 
 module.exports = router;
-
+

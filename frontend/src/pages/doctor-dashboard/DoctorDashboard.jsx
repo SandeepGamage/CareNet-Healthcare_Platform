@@ -102,6 +102,8 @@ export default function DoctorDashboard() {
           </div>
         </Navbar>
 
+
+
         {activeTab === "overview" && <Dashboard />}
         {activeTab === "profile" && <Profile />}
         {activeTab === "appointments" && <Appointments />}
