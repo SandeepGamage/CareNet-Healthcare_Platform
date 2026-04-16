@@ -55,9 +55,7 @@ const generateSlots = (startMinutes, endMinutes, duration) => {
   const slots = [];
   let current = startMinutes;
   while (current + duration <= endMinutes) {
-    const slotStart = formatMinutesToTime(current);
-    const slotEnd = formatMinutesToTime(current + duration);
-    slots.push(`${slotStart} - ${slotEnd}`);
+    slots.push(formatMinutesToTime(current));
     current += duration;
   }
   return slots;
@@ -263,11 +261,33 @@ exports.updateStatus = async (req, res) => {
     if (status === 'CONFIRMED') {
       await notificationService.notifyAppointmentConfirmed(appointment, patientPhone);
     } else if (status === 'COMPLETED') {
+      // Release slot when completed
+      try {
+        await axios.patch(`${DOCTOR_SERVICE_URL}/api/doctors/profile/free-slot/${appointment.doctorId}`, {
+          slot: appointment.timeSlot
+        }, {
+          headers: { Authorization: req.headers.authorization }
+        });
+        console.log(`[Appointment Service] Slot released for completed appointment: ${appointment._id}`);
+      } catch (err) {
+        console.error('[Appointment Service] Failed to free slot on completion:', err.message);
+      }
       await notificationService.notifyConsultationCompleted({
         ...appointment.toObject(),
         doctorEmail
       }, patientPhone, doctorPhone);
     } else if (status === 'CANCELLED') {
+      // Release slot when cancelled
+      try {
+        await axios.patch(`${DOCTOR_SERVICE_URL}/api/doctors/profile/free-slot/${appointment.doctorId}`, {
+          slot: appointment.timeSlot
+        }, {
+          headers: { Authorization: req.headers.authorization }
+        });
+        console.log(`[Appointment Service] Slot released for cancelled appointment: ${appointment._id}`);
+      } catch (err) {
+        console.error('[Appointment Service] Failed to free slot on cancellation:', err.message);
+      }
       await notificationService.notifyAppointmentCancelled(appointment, patientPhone, req.user.role, cancelReason);
       
       // NEW: Trigger refund request if cancelled by doctor
@@ -306,6 +326,18 @@ exports.cancelAppointment = async (req, res) => {
     appointment.cancelledBy = 'PATIENT';
     appointment.cancelReason = req.body.reason || 'Cancelled by patient';
     await appointment.save();
+
+    // Release the slot in Doctor Service
+    try {
+      await axios.patch(`${DOCTOR_SERVICE_URL}/api/doctors/profile/free-slot/${appointment.doctorId}`, {
+        slot: appointment.timeSlot
+      }, {
+        headers: { Authorization: req.headers.authorization }
+      });
+      console.log(`[Appointment Service] Slot released on patient cancellation: ${appointment._id}`);
+    } catch (err) {
+      console.error('[Appointment Service] Failed to free slot on patient cancellation:', err.message);
+    }
 
     sendNotification('/cancelled', {
       patientId: appointment.patientId,
@@ -431,5 +463,107 @@ exports.adminDeleteAppointment = async (req, res) => {
     res.json({ message: 'Appointment permanently deleted from records' });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// ─── PATCH /api/appointments/update/:id ──────────────────
+// Patient updates their own appointment details (e.g., reason or type)
+exports.updateAppointmentByPatient = async (req, res) => {
+  try {
+    const { type, reason } = req.body;
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    // Check ownership
+    if (appointment.patientId !== req.user.id) {
+      return res.status(403).json({ message: 'You can only update your own appointments' });
+    }
+
+    // Prevent updates if already processed
+    if (['CONFIRMED', 'COMPLETED', 'CANCELLED'].includes(appointment.status)) {
+      return res.status(400).json({
+        message: `Cannot update an appointment that is already ${appointment.status.toLowerCase()}`
+      });
+    }
+
+    if (type) appointment.type = type;
+    if (reason) appointment.reason = reason;
+
+    await appointment.save();
+
+    res.json({
+      success: true,
+      message: 'Appointment updated successfully',
+      appointment
+    });
+  } catch (err) {
+    console.error('updateAppointmentByPatient error:', err.message);
+    res.status(500).json({ message: 'Server error while updating appointment' });
+  }
+};
+
+// ─── DELETE /api/appointments/:id/patient ────────────────
+// Patient deletes their own appointment (only if PENDING)
+exports.deleteAppointmentByPatient = async (req, res) => {
+  try {
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    // Check ownership
+    if (appointment.patientId !== req.user.id) {
+      return res.status(403).json({ message: 'You can only delete your own appointments' });
+    }
+
+    // Business Rule: Cannot delete if already confirmed
+    if (appointment.status === 'CONFIRMED') {
+      return res.status(400).json({ 
+        message: `Cannot delete a confirmed appointment. Please contact the doctor or cancel instead.` 
+      });
+    }
+
+    const { doctorId, timeSlot } = appointment;
+
+    // 1. Free the booked slot in the Doctor Service (Only if PENDING)
+    if (appointment.status === 'PENDING') {
+      try {
+        await axios.patch(`${DOCTOR_SERVICE_URL}/api/doctors/profile/free-slot/${doctorId}`, {
+          slot: timeSlot
+        }, {
+          headers: { Authorization: req.headers.authorization }
+        });
+        console.log(`[Appointment Service] Slot ${timeSlot} freed for doctor ${doctorId}`);
+      } catch (err) {
+        console.error('[Appointment Service] Failed to free slot in Doctor Service:', err.response?.data || err.message);
+        // We continue with deletion even if sync fails to ensure patient can manage their list
+      }
+    }
+
+    // 2. Delete the record
+    await Appointment.findByIdAndDelete(req.params.id);
+
+    // 3. Notify (Optional: Send a cancellation/deletion notification)
+    sendNotification('/cancelled', {
+      patientId: appointment.patientId,
+      patientName: appointment.patientName,
+      patientEmail: appointment.patientEmail,
+      doctorId: appointment.doctorId,
+      doctorName: appointment.doctorName,
+      appointmentDate: appointment.appointmentDate,
+      appointmentId: appointment._id,
+      cancelledBy: 'patient',
+      reason: 'Appointment deleted by patient'
+    });
+
+    res.json({ success: true, message: 'Appointment deleted and slot freed successfully' });
+
+  } catch (err) {
+    console.error('deleteAppointmentByPatient error:', err.message);
+    res.status(500).json({ message: 'Server error while deleting appointment' });
   }
 };
