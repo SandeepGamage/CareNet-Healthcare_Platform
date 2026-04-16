@@ -10,7 +10,8 @@ const {
   getAllTransactions,
   getPaymentByAppointment,
   downloadInvoice,
-  verifyLocalPayment
+  verifyLocalPayment,
+  deleteTransaction
 } = require('../controllers/paymentController');
 
 // ─── Validation rules ─────────────────────────────────────────────────────────
@@ -72,6 +73,15 @@ router.get(
   authorize('patient', 'admin'),
   [param('id').isMongoId().withMessage('Invalid transaction ID')],
   getTransaction
+);
+
+// Patient / Admin: delete transaction
+router.delete(
+  '/:id',
+  protect,
+  authorize('patient', 'admin'),
+  [param('id').isMongoId().withMessage('Invalid transaction ID')],
+  deleteTransaction
 );
 
 module.exports = router;

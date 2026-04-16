@@ -323,6 +323,35 @@ const verifyLocalPayment = async (req, res, next) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/payments/:id
+// Role: patient (own only), admin (any)
+// ─────────────────────────────────────────────────────────────────────────────
+const deleteTransaction = async (req, res, next) => {
+  try {
+    const transaction = await Transaction.findById(req.params.id);
+
+    if (!transaction) {
+      return res.status(404).json({ success: false, message: 'Transaction not found.' });
+    }
+
+    if (req.user.role === 'patient' && transaction.patientId !== (req.user.id || req.user.userId)) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+
+    await Transaction.findByIdAndDelete(req.params.id);
+
+    // Optionally delete the associated invoice
+    if (transaction.invoiceId) {
+      await Invoice.findByIdAndDelete(transaction.invoiceId);
+    }
+
+    res.status(200).json({ success: true, message: 'Transaction deleted successfully.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createPayment,
   getTransaction,
@@ -331,4 +360,5 @@ module.exports = {
   getPaymentByAppointment,
   downloadInvoice,
   verifyLocalPayment,
+  deleteTransaction,
 };

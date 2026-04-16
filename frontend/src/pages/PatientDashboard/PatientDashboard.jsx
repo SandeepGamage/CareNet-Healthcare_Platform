@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Eye, Trash2, X, Download, ShieldCheck, Calendar, User, DollarSign, Info } from "lucide-react";
 import Navbar from "../../components/common/Navbar";
 import PatientProfile from "./PatientProfile/PatientProfile";
 import MedicalRecordsTab from "./MedicalRecords/MedicalRecordsTab";
@@ -103,6 +104,9 @@ export default function ModernPatientDashboard() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [appointmentsData, setAppointmentsData] = useState([]);
     const [paymentsData, setPaymentsData] = useState([]);
+    const [selectedPayment, setSelectedPayment] = useState(null);
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const [userProfile, setUserProfile] = useState(() => {
         const stored = localStorage.getItem("user");
@@ -210,6 +214,36 @@ export default function ModernPatientDashboard() {
         fetchAppointments();
         fetchPayments();
     }, []);
+
+    const handleDeletePayment = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this payment record from your history? This action cannot be undone.")) return;
+        
+        try {
+            setIsDeleting(true);
+            const token = localStorage.getItem("token");
+            const response = await fetch(`http://localhost:3005/api/payments/${id}`, {
+                method: "DELETE",
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                setPaymentsData(prev => prev.filter(p => p._id !== id));
+            } else {
+                alert("Failed to delete record.");
+            }
+        } catch (err) {
+            alert("Error connecting to payment service.");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const openViewModal = (payment) => {
+        setSelectedPayment(payment);
+        setIsViewModalOpen(true);
+    };
 
     return (
         <div style={{
@@ -667,6 +701,7 @@ export default function ModernPatientDashboard() {
                                                 <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Amount</th>
                                                 <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Status</th>
                                                 <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb" }}>Invoice</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #e5e7eb", textAlign: "right" }}>Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -732,7 +767,10 @@ export default function ModernPatientDashboard() {
                                                                         fontSize: "12px",
                                                                         fontWeight: 600,
                                                                         cursor: "pointer",
-                                                                        transition: "all 0.2s"
+                                                                        transition: "all 0.2s",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        gap: "4px"
                                                                     }}
                                                                     onMouseEnter={(e) => {
                                                                         e.currentTarget.style.background = "#eff6ff";
@@ -741,11 +779,47 @@ export default function ModernPatientDashboard() {
                                                                         e.currentTarget.style.background = "transparent";
                                                                     }}
                                                                 >
-                                                                    ⬇ Download
+                                                                    <Download size={14} /> Invoice
                                                                 </button>
                                                             ) : (
                                                                 <span style={{ fontSize: "12px", color: "#9ca3af" }}>-</span>
                                                             )}
+                                                        </td>
+                                                        <td style={{ padding: "16px", textAlign: "right" }}>
+                                                            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+                                                                <button
+                                                                    onClick={() => openViewModal(payment)}
+                                                                    style={{
+                                                                        background: "#f3f4f6",
+                                                                        border: "none",
+                                                                        color: "#374151",
+                                                                        padding: "8px",
+                                                                        borderRadius: "8px",
+                                                                        cursor: "pointer",
+                                                                        transition: "all 0.2s"
+                                                                    }}
+                                                                    title="View Details"
+                                                                >
+                                                                    <Eye size={18} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeletePayment(payment._id)}
+                                                                    disabled={isDeleting}
+                                                                    style={{
+                                                                        background: "#fee2e2",
+                                                                        border: "none",
+                                                                        color: "#ef4444",
+                                                                        padding: "8px",
+                                                                        borderRadius: "8px",
+                                                                        cursor: "pointer",
+                                                                        transition: "all 0.2s",
+                                                                        opacity: isDeleting ? 0.5 : 1
+                                                                    }}
+                                                                    title="Delete Record"
+                                                                >
+                                                                    <Trash2 size={18} />
+                                                                </button>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))
@@ -753,6 +827,115 @@ export default function ModernPatientDashboard() {
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+                        </div>
+                    {/* ── TRANSACTION VIEW MODAL ─────────────────────────────────────── */}
+                    {isViewModalOpen && selectedPayment && (
+                        <div style={{
+                            position: "fixed",
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: "rgba(0, 0, 0, 0.5)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            zIndex: 1000,
+                            backdropFilter: "blur(4px)"
+                        }}>
+                            <div style={{
+                                background: "white",
+                                borderRadius: "20px",
+                                width: "90%",
+                                maxWidth: "500px",
+                                padding: "32px",
+                                boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+                            }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+                                    <h3 style={{ fontSize: "20px", fontWeight: 700, color: "#111827", margin: 0 }}>Transaction Details</h3>
+                                    <button
+                                        onClick={() => setIsViewModalOpen(false)}
+                                        style={{ background: "transparent", border: "none", cursor: "pointer", color: "#9ca3af" }}
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                </div>
+
+                                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", background: "#f9fafb", borderRadius: "12px" }}>
+                                        <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
+                                            <Calendar size={20} />
+                                        </div>
+                                        <div>
+                                            <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>Date & Time</p>
+                                            <p style={{ fontSize: "15px", fontWeight: 600, color: "#111827", margin: 0 }}>{new Date(selectedPayment.createdAt).toLocaleString()}</p>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", background: "#f9fafb", borderRadius: "12px" }}>
+                                        <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: "#10b981", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
+                                            <User size={20} />
+                                        </div>
+                                        <div>
+                                            <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>Consultation with</p>
+                                            <p style={{ fontSize: "15px", fontWeight: 600, color: "#111827", margin: 0 }}>{selectedPayment.metadata?.doctorName || 'General Consultation'}</p>
+                                            <p style={{ fontSize: "13px", color: "#6b7280", margin: "2px 0 0 0" }}>{selectedPayment.metadata?.specialty || '-'}</p>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", background: "#f9fafb", borderRadius: "12px" }}>
+                                        <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
+                                            <DollarSign size={20} />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>Amount Paid</p>
+                                            <p style={{ fontSize: "15px", fontWeight: 600, color: "#111827", margin: 0 }}>{selectedPayment.currency} {selectedPayment.amount.toFixed(2)}</p>
+                                        </div>
+                                        <div style={{
+                                            background: selectedPayment.status === 'success' ? '#d1fae5' : '#fef3c7',
+                                            color: selectedPayment.status === 'success' ? '#065f46' : '#92400e',
+                                            padding: "4px 10px",
+                                            borderRadius: "20px",
+                                            fontSize: "12px",
+                                            fontWeight: 700,
+                                            textTransform: "uppercase"
+                                        }}>
+                                            {selectedPayment.status}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", background: "#f9fafb", borderRadius: "12px" }}>
+                                        <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
+                                            <Info size={20} />
+                                        </div>
+                                        <div>
+                                            <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>Reference ID</p>
+                                            <p style={{ fontSize: "13px", fontFamily: "monospace", color: "#111827", margin: 0 }}>{selectedPayment._id}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => setIsViewModalOpen(false)}
+                                    style={{
+                                        width: "100%",
+                                        marginTop: "24px",
+                                        padding: "12px",
+                                        background: "#3b82f6",
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "12px",
+                                        fontSize: "16px",
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                        transition: "all 0.2s"
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = "#2563eb"}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = "#3b82f6"}
+                                >
+                                    Close
+                                </button>
                             </div>
                         </div>
                     )}
