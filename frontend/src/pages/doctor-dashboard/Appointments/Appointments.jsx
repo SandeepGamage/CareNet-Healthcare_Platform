@@ -50,11 +50,15 @@ export default function Appointments() {
 	const [sortField, setSortField] = useState("appointmentDate");
 	const [sortDirection, setSortDirection] = useState("asc");
 	const [searchQuery, setSearchQuery] = useState("");
+	const [statusFilter, setStatusFilter] = useState("ALL");
 	
 	const [selectedAppointment, setSelectedAppointment] = useState(null);
 	const [isActionLoading, setIsActionLoading] = useState(false);
 	const [rejectionReason, setRejectionReason] = useState("");
 	const [showRejectionInput, setShowRejectionInput] = useState(false);
+	const [refundLoading, setRefundLoading] = useState(false);
+	const [refundedIds, setRefundedIds] = useState(new Set());
+	const [refundMessage, setRefundMessage] = useState("");
 
 	// --- Initialization ---
 	useEffect(() => {
@@ -173,6 +177,31 @@ export default function Appointments() {
 		}
 	};
 
+	// Process refund for a cancelled appointment
+	const processRefund = async (appointment) => {
+		setRefundLoading(true);
+		setRefundMessage("");
+		try {
+			const token = localStorage.getItem("token");
+			await axios.post(
+				`http://localhost:3005/api/refunds/auto-request`,
+				{
+					appointmentId: appointment._id,
+					reason: 'appointment_cancelled',
+					notes: `Refund processed by doctor for cancelled appointment.`,
+				},
+				{ headers: { Authorization: `Bearer ${token}` } }
+			);
+			setRefundedIds(prev => new Set([...prev, appointment._id]));
+			setRefundMessage("✅ Refund processed! Patient will receive an email confirmation.");
+		} catch (err) {
+			const msg = err.response?.data?.message || "Failed to process refund.";
+			setRefundMessage(`❌ ${msg}`);
+		} finally {
+			setRefundLoading(false);
+		}
+	};
+
 	// --- Filtering & Sorting ---
 	const handleSort = (field) => {
 		if (sortField === field) {
@@ -213,7 +242,11 @@ export default function Appointments() {
 
 	const filteredAppointments = appointments.filter((item) => {
 		const query = searchQuery.toLowerCase().trim();
+		const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
+		
+		if (!matchesStatus) return false;
 		if (!query) return true;
+		
 		return (
 			item.patientName?.toLowerCase().includes(query) ||
 			item.appointmentId?.toLowerCase().includes(query) ||
@@ -398,18 +431,36 @@ export default function Appointments() {
 						</div>
 					</div>
 
-					<div className="relative flex-1 max-w-md">
-						<Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-						<input
-							type="text"
-							placeholder="Search patient, ID, or reason..."
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-700 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
-						/>
-						{searchQuery && (
-							<button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500"><X size={16} /></button>
-						)}
+					<div className="flex flex-col md:flex-row items-center gap-4 flex-1">
+						<div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+							{["ALL", "PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"].map((status) => (
+								<button
+									key={status}
+									onClick={() => setStatusFilter(status)}
+									className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+										statusFilter === status 
+											? "bg-white text-blue-600 shadow-sm" 
+											: "text-slate-500 hover:text-slate-700"
+									}`}
+								>
+									{status}
+								</button>
+							))}
+						</div>
+
+						<div className="relative flex-1 max-w-md ml-auto">
+							<Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+							<input
+								type="text"
+								placeholder="Search patient, ID, or reason..."
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-700 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
+							/>
+							{searchQuery && (
+								<button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500"><X size={16} /></button>
+							)}
+						</div>
 					</div>
 				</div>
 
@@ -658,13 +709,35 @@ export default function Appointments() {
 											</button>
 										)}
 										{(selectedAppointment.status === 'CANCELLED' || selectedAppointment.status === 'COMPLETED') && (
-											<button 
-												onClick={() => setSelectedAppointment(null)}
+										<div className="w-full flex flex-col gap-3">
+											{selectedAppointment.status === 'CANCELLED' && !refundedIds.has(selectedAppointment._id) && (
+												<button
+													disabled={refundLoading}
+													onClick={() => processRefund(selectedAppointment)}
+													className="w-full h-14 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-orange-600 transition-all shadow-xl shadow-orange-200 active:scale-[0.98] disabled:opacity-50"
+												>
+													{refundLoading ? <Loader2 size={20} className="animate-spin" /> : <ArrowRight size={20} />}
+													Process Refund
+												</button>
+											)}
+											{selectedAppointment.status === 'CANCELLED' && refundedIds.has(selectedAppointment._id) && (
+												<div className="w-full h-14 bg-green-50 text-green-700 border border-green-200 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3">
+													<CheckCircle size={20} /> Refund Sent
+												</div>
+											)}
+											{refundMessage && (
+												<p className={`text-xs font-bold text-center ${refundMessage.startsWith('✅') ? 'text-green-600' : 'text-rose-500'}`}>
+													{refundMessage}
+												</p>
+											)}
+											<button
+												onClick={() => { setSelectedAppointment(null); setRefundMessage(""); }}
 												className="w-full h-14 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-[0.98]"
 											>
 												Close Profile
 											</button>
-										)}
+										</div>
+									)}
 									</div>
 								</>
 							) : (

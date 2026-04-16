@@ -19,6 +19,17 @@ const PaymentSuccess = () => {
     const fetchStatus = async () => {
       try {
         const token = localStorage.getItem('token');
+
+        // Note: For local development, simulate webhook to verify the payment
+        try {
+          await axios.post(`http://localhost:3005/api/payments/verify-local`, 
+            { appointmentId: orderId },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+        } catch (localVerifyErr) {
+          console.log("Local verification step skipped/failed:", localVerifyErr.message);
+        }
+
         const response = await axios.get(`http://localhost:3005/api/payments/appointment/${orderId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });

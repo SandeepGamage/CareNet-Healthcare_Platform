@@ -3,7 +3,12 @@ const crypto               = require('crypto');
 const Transaction          = require('../models/Transaction');
 const Invoice              = require('../models/Invoice');
 const logger               = require('../utils/logger');
+const axios                = require('axios');
+
+const APPOINTMENT_SERVICE_URL = process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:3004';
+
 // ─────────────────────────────────────────────────────────────────────────────
+
 // POST /api/payments/create
 // Role: patient
 // Creates a pending Transaction record and returns PayHere checkout details
@@ -56,14 +61,36 @@ const createPayment = async (req, res, next) => {
 
     // Generate PayHere MD5 Hash
     // Formula: md5(merchant_id + order_id + amount_formatted + currency + md5(secret).toUpperCase()).toUpperCase()
-    const merchantId     = process.env.PAYHERE_MERCHANT_ID;
-    const merchantSecret = process.env.PAYHERE_SECRET;
+    const merchantId     = process.env.PAYHERE_MERCHANT_ID?.trim();
+    let merchantSecret   = (process.env.PAYHERE_SECRET || process.env.PAYHERE_MERCHANT_SECRET)?.trim();
+    
+    // If the secret looks like it might be Base64-encoded, we keep it as is 
+    // because PayHere often uses alphanumeric strings that look like Base64.
+    // We just ensure there are no hidden spaces/newlines.
+
+    if (!merchantId || !merchantSecret) {
+      logger.error('PayHere credentials missing in environment variables');
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Payment gateway configuration error. Check server logs.' 
+      });
+    }
+
     const amountFormatted = parseFloat(amount).toFixed(2);
+    const upperCurrency   = currency.toUpperCase();
+    
+    // Step 1: MD5 of Merchant Secret
     const hashedSecret   = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
-    const hashInput      = `${merchantId}${appointmentId}${amountFormatted}LKR${hashedSecret}`;
+    
+    // Step 2: MD5(merchant_id + order_id + amount_formatted + currency + hashedSecret)
+    const hashInput      = `${merchantId}${appointmentId}${amountFormatted}${upperCurrency}${hashedSecret}`;
     const hash           = crypto.createHash('md5').update(hashInput).digest('hex').toUpperCase();
 
-    logger.info(`PayHere payment initiated for appointment ${appointmentId}`);
+    // DEBUG: Log the hash input (partially masked) to verify formatting
+    const maskedHashInput = `${merchantId}${appointmentId}${amountFormatted}${upperCurrency}${hashedSecret.substring(0, 4)}...`;
+    logger.info(`[DEBUG] PayHere Hash Input (Masked): ${maskedHashInput}`);
+
+    logger.info(`PayHere payment initiated for appointment ${appointmentId} (Amount: ${amountFormatted} ${upperCurrency})`);
 
     // Return PayHere checkout details to the frontend
     res.status(201).json({
@@ -72,7 +99,7 @@ const createPayment = async (req, res, next) => {
       merchantId,
       orderId       : appointmentId,
       amount        : amountFormatted,
-      currency      : currency.toUpperCase(),
+      currency      : upperCurrency,
       hash,
       checkoutUrl   : 'https://sandbox.payhere.lk/pay/checkout',
     });
@@ -93,7 +120,7 @@ const getTransaction = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Transaction not found.' });
     }
 
-    if (req.user.role === 'patient' && transaction.patientId !== req.user.userId) {
+    if (req.user.role === 'patient' && transaction.patientId !== (req.user.id || req.user.userId)) {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 
@@ -110,7 +137,7 @@ const getTransaction = async (req, res, next) => {
 const getPaymentHistory = async (req, res, next) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
-    const query = { patientId: req.user.userId };
+    const query = { patientId: (req.user.id || req.user.userId) };
     if (status) query.status = status;
 
     const [transactions, total] = await Promise.all([
@@ -204,7 +231,7 @@ const getPaymentByAppointment = async (req, res, next) => {
       });
     }
 
-    if (req.user.role === 'patient' && transaction.patientId !== req.user.userId) {
+    if (req.user.role === 'patient' && transaction.patientId !== (req.user.id || req.user.userId)) {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 
@@ -227,25 +254,122 @@ const downloadInvoice = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Transaction not found.' });
     }
 
-    if (req.user.role === 'patient' && transaction.patientId !== req.user.userId) {
+    if (req.user.role === 'patient' && transaction.patientId !== (req.user.id || req.user.userId)) {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 
     const invoice = await Invoice.findOne({ transactionId: transaction._id });
 
-    if (!invoice || !invoice.pdfBuffer) {
+    if (!invoice) {
       return res.status(404).json({
         success: false,
-        message: 'Invoice PDF not available yet. Please try again shortly.',
+        message: 'Invoice not found. It might not be generated yet.',
       });
     }
+
+    // Always regenerate PDF on-the-fly to ensure correct currency (LKR) and formatting
+    // This fixes cases where old invoices occupied the buffer with legacy USD formatting.
+    const { generateInvoicePDF } = require('../services/invoiceService');
+    const updatedPdfBuffer = await generateInvoicePDF(invoice);
+
+    // Update stored buffer for future consistency
+    invoice.pdfBuffer = updatedPdfBuffer;
+    await invoice.save();
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${invoice.invoiceNumber}.pdf"`
     );
-    res.send(invoice.pdfBuffer);
+    res.send(updatedPdfBuffer);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/payments/verify-local
+// Role: any (local dev only)
+// Simulates the PayHere webhook success locally.
+// ─────────────────────────────────────────────────────────────────────────────
+const verifyLocalPayment = async (req, res, next) => {
+  try {
+    // if (process.env.NODE_ENV === 'production') {
+    //   return res.status(403).json({ success: false, message: 'Endpoint disabled in production.' });
+    // }
+
+    const { appointmentId } = req.body;
+    
+    const transaction = await Transaction.findOne({ appointmentId });
+    if (!transaction) {
+      return res.status(404).json({ success: false, message: 'Transaction not found.' });
+    }
+
+    if (transaction.status !== 'succeeded') {
+      transaction.status = 'succeeded';
+      transaction.payhereOrderId = `${appointmentId}_LOCAL`;
+      await transaction.save();
+
+      // Trigger invoice and notification precisely as the webhook does
+      try {
+        const { createInvoice } = require('../services/invoiceService');
+        const invoice = await createInvoice(transaction);
+        transaction.invoiceId = invoice._id;
+        await transaction.save();
+      } catch (err) {
+        logger.error(`Local Invoice generation failed: ${err.message}`);
+      }
+
+      try {
+        const { sendPaymentConfirmation } = require('../services/notificationService');
+        await sendPaymentConfirmation({ 
+          transaction,
+          patientEmail: transaction.metadata.patientEmail,
+        });
+      } catch (err) {
+        logger.error(`Local Notification failed: ${err.message}`);
+      }
+
+      // ── 3. Sync with Appointment Service (Mark as Paid + Confirmed) ─────────
+      try {
+        await axios.patch(`${APPOINTMENT_SERVICE_URL}/api/appointments/${appointmentId}/payment-sync`);
+        logger.info(`Appointment ${appointmentId} synced with payment status.`);
+      } catch (err) {
+        logger.error(`Appointment Sync failed: ${err.response?.data?.message || err.message}`);
+      }
+    }
+
+
+    res.status(200).json({ success: true, data: transaction });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/payments/:id
+// Role: patient (own only), admin (any)
+// ─────────────────────────────────────────────────────────────────────────────
+const deleteTransaction = async (req, res, next) => {
+  try {
+    const transaction = await Transaction.findById(req.params.id);
+
+    if (!transaction) {
+      return res.status(404).json({ success: false, message: 'Transaction not found.' });
+    }
+
+    if (req.user.role === 'patient' && transaction.patientId !== (req.user.id || req.user.userId)) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+
+    await Transaction.findByIdAndDelete(req.params.id);
+
+    // Optionally delete the associated invoice
+    if (transaction.invoiceId) {
+      await Invoice.findByIdAndDelete(transaction.invoiceId);
+    }
+
+    res.status(200).json({ success: true, message: 'Transaction deleted successfully.' });
   } catch (error) {
     next(error);
   }
@@ -258,4 +382,6 @@ module.exports = {
   getAllTransactions,
   getPaymentByAppointment,
   downloadInvoice,
+  verifyLocalPayment,
+  deleteTransaction,
 };

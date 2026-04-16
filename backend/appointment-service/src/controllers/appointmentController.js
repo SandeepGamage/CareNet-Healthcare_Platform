@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
 const axios = require('axios');
+const paymentService = require('../services/paymentService');
+
 
 const DOCTOR_SERVICE_URL = process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003';
 const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3006';
@@ -53,9 +55,7 @@ const generateSlots = (startMinutes, endMinutes, duration) => {
   const slots = [];
   let current = startMinutes;
   while (current + duration <= endMinutes) {
-    const slotStart = formatMinutesToTime(current);
-    const slotEnd = formatMinutesToTime(current + duration);
-    slots.push(`${slotStart} - ${slotEnd}`);
+    slots.push(formatMinutesToTime(current));
     current += duration;
   }
   return slots;
@@ -286,12 +286,40 @@ exports.updateStatus = async (req, res) => {
     if (status === 'CONFIRMED') {
       await notificationService.notifyAppointmentConfirmed(appointment, patientPhone);
     } else if (status === 'COMPLETED') {
+      // Release slot when completed
+      try {
+        await axios.patch(`${DOCTOR_SERVICE_URL}/api/doctors/profile/free-slot/${appointment.doctorId}`, {
+          slot: appointment.timeSlot
+        }, {
+          headers: { Authorization: req.headers.authorization }
+        });
+        console.log(`[Appointment Service] Slot released for completed appointment: ${appointment._id}`);
+      } catch (err) {
+        console.error('[Appointment Service] Failed to free slot on completion:', err.message);
+      }
       await notificationService.notifyConsultationCompleted({
         ...appointment.toObject(),
         doctorEmail
       }, patientPhone, doctorPhone);
     } else if (status === 'CANCELLED') {
+      // Release slot when cancelled
+      try {
+        await axios.patch(`${DOCTOR_SERVICE_URL}/api/doctors/profile/free-slot/${appointment.doctorId}`, {
+          slot: appointment.timeSlot
+        }, {
+          headers: { Authorization: req.headers.authorization }
+        });
+        console.log(`[Appointment Service] Slot released for cancelled appointment: ${appointment._id}`);
+      } catch (err) {
+        console.error('[Appointment Service] Failed to free slot on cancellation:', err.message);
+      }
       await notificationService.notifyAppointmentCancelled(appointment, patientPhone, req.user.role, cancelReason);
+      
+      // NEW: Trigger refund request if cancelled by doctor
+      if (req.user.role === 'DOCTOR') {
+        const token = req.headers.authorization;
+        await paymentService.initiateRefund(appointment._id, token, 'appointment_cancelled');
+      }
     }
 
     res.json({ message: `Appointment ${status.toLowerCase()}`, appointment });
@@ -319,10 +347,36 @@ exports.cancelAppointment = async (req, res) => {
       return res.status(400).json({ message: 'Cannot cancel a completed appointment' });
     }
 
+    const wasPaid = appointment.isPaid === true;
+
     appointment.status = 'CANCELLED';
-    appointment.cancelledBy = 'PATIENT';
+    appointment.cancelledBy = 'patient';
     appointment.cancelReason = req.body.reason || 'Cancelled by patient';
     await appointment.save();
+
+    // Release the slot in Doctor Service
+    try {
+      await axios.patch(`${DOCTOR_SERVICE_URL}/api/doctors/profile/free-slot/${appointment.doctorId}`, {
+        slot: appointment.timeSlot
+      }, {
+        headers: { Authorization: req.headers.authorization }
+      });
+      console.log(`[Appointment Service] Slot released on patient cancellation: ${appointment._id}`);
+    } catch (err) {
+      console.error('[Appointment Service] Failed to free slot on patient cancellation:', err.message);
+    }
+
+    // Trigger automatic refund if paid
+    let refundTriggered = false;
+    if (wasPaid) {
+      try {
+        const token = req.headers.authorization;
+        await paymentService.initiateRefund(appointment._id, token, 'appointment_cancelled_by_patient');
+        refundTriggered = true;
+      } catch (err) {
+        console.error('[Appointment Service] Auto-refund trigger failed:', err.message);
+      }
+    }
 
     sendNotification('/cancelled', {
       patientId: appointment.patientId,
@@ -336,12 +390,18 @@ exports.cancelAppointment = async (req, res) => {
       reason: appointment.cancelReason
     });
 
-    res.json({ message: 'Appointment cancelled successfully' });
+    res.json({ 
+      success: true, 
+      message: refundTriggered 
+        ? 'Appointment cancelled and refund initiated.' 
+        : 'Appointment cancelled successfully.' 
+    });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 // ─── GET /api/appointments/all ────────────────────────────
 // Admin sees all appointments
@@ -450,3 +510,130 @@ exports.adminDeleteAppointment = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// ─── PATCH /api/appointments/update/:id ──────────────────
+// Patient updates their own appointment details (e.g., reason or type)
+exports.updateAppointmentByPatient = async (req, res) => {
+  try {
+    const { type, reason } = req.body;
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    // Check ownership
+    if (appointment.patientId !== req.user.id) {
+      return res.status(403).json({ message: 'You can only update your own appointments' });
+    }
+
+    // Prevent updates if already processed
+    if (['CONFIRMED', 'COMPLETED', 'CANCELLED'].includes(appointment.status)) {
+      return res.status(400).json({
+        message: `Cannot update an appointment that is already ${appointment.status.toLowerCase()}`
+      });
+    }
+
+    if (type) appointment.type = type;
+    if (reason) appointment.reason = reason;
+
+    await appointment.save();
+
+    res.json({
+      success: true,
+      message: 'Appointment updated successfully',
+      appointment
+    });
+  } catch (err) {
+    console.error('updateAppointmentByPatient error:', err.message);
+    res.status(500).json({ message: 'Server error while updating appointment' });
+  }
+};
+
+// ─── DELETE /api/appointments/:id/patient ────────────────
+// Patient deletes their own appointment (only if PENDING)
+exports.deleteAppointmentByPatient = async (req, res) => {
+  try {
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    // Check ownership
+    if (appointment.patientId !== req.user.id) {
+      return res.status(403).json({ message: 'You can only delete your own appointments' });
+    }
+
+    // Business Rule: Cannot delete if already confirmed or paid
+    if (appointment.status === 'CONFIRMED' || appointment.isPaid === true) {
+      return res.status(400).json({ 
+        message: appointment.isPaid 
+          ? `Cannot delete a paid appointment. Please cancel it instead to trigger a refund.`
+          : `Cannot delete a confirmed appointment. Please contact the doctor or cancel instead.` 
+      });
+    }
+
+    const { doctorId, timeSlot } = appointment;
+
+    // 1. Free the booked slot in the Doctor Service (Only if PENDING)
+    if (appointment.status === 'PENDING') {
+      try {
+        await axios.patch(`${DOCTOR_SERVICE_URL}/api/doctors/profile/free-slot/${doctorId}`, {
+          slot: timeSlot
+        }, {
+          headers: { Authorization: req.headers.authorization }
+        });
+        console.log(`[Appointment Service] Slot ${timeSlot} freed for doctor ${doctorId}`);
+      } catch (err) {
+        console.error('[Appointment Service] Failed to free slot in Doctor Service:', err.response?.data || err.message);
+        // We continue with deletion even if sync fails to ensure patient can manage their list
+      }
+    }
+
+    // 2. Delete the record
+    await Appointment.findByIdAndDelete(req.params.id);
+
+    // 3. Notify (Optional: Send a cancellation/deletion notification)
+    sendNotification('/cancelled', {
+      patientId: appointment.patientId,
+      patientName: appointment.patientName,
+      patientEmail: appointment.patientEmail,
+      doctorId: appointment.doctorId,
+      doctorName: appointment.doctorName,
+      appointmentDate: appointment.appointmentDate,
+      appointmentId: appointment._id,
+      cancelledBy: 'patient',
+      reason: 'Appointment deleted by patient'
+    });
+
+    res.json({ success: true, message: 'Appointment deleted and slot freed successfully' });
+
+  } catch (err) {
+    console.error('deleteAppointmentByPatient error:', err.message);
+    res.status(500).json({ message: 'Server error while deleting appointment' });
+  }
+};
+
+// ─── PATCH /api/appointments/:id/payment-sync ────────────
+// Called by Payment Service to confirm payment in Appointment Service
+exports.syncPaymentStatus = async (req, res) => {
+  try {
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    appointment.isPaid = true;
+    appointment.status = 'CONFIRMED'; // Auto-confirm on payment
+    await appointment.save();
+
+    console.log(`[Appointment Service] Payment synced for appointment: ${appointment._id}`);
+    res.json({ success: true, message: 'Payment status synced and appointment confirmed.', appointment });
+  } catch (err) {
+    console.error('syncPaymentStatus error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+

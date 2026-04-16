@@ -8,6 +8,8 @@ const PayHereCheckout = ({ appointmentId, doctorId, amount, patientDetails, doct
 
   const returnUrl  = `${window.location.origin}/payment/success`;
   const cancelUrl  = `${window.location.origin}/payment/cancel`;
+  // NOTE: PayHere cannot reach 'localhost'. To receive payment notifications locally, 
+  // you must use a service like Ngrok or Cloudflare Tunnel to expose this port.
   const notifyUrl  = "http://localhost:3005/api/payments/payhere/notify";
 
   useEffect(() => {
