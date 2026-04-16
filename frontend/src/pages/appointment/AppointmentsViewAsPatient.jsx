@@ -263,17 +263,49 @@ const PatientAppointments = () => {
     }
   };
 
-  // Cancel appointment
+  // Cancel appointment (with automatic refund if payment exists)
   const cancelAppointment = async (id, reason) => {
     try {
       const token = localStorage.getItem('token');
+
+      // Step 1: Cancel the appointment
       await axios.delete(`${API_BASE_URL}/appointments/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
         data: { reason: reason || 'Cancelled by patient' }
       });
+
+      // Step 2: Silently try to auto-refund if payment exists
+      let refundTriggered = false;
+      try {
+        const txRes = await axios.get(
+          `http://localhost:3005/api/payments/appointment/${id}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const transaction = txRes.data?.data;
+        if (transaction && transaction.status === 'succeeded') {
+          await axios.post(
+            'http://localhost:3005/api/refunds',
+            {
+              transactionId: transaction._id,
+              reason: 'appointment_cancelled',
+              notes: 'Automatically requested — patient cancelled appointment.',
+            },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          refundTriggered = true;
+          setRefundedAppointments(prev => new Set([...prev, id]));
+        }
+      } catch (_) {
+        // Refund not available or already requested — silently ignore
+      }
+
       await fetchAppointments();
-      setSuccess('Appointment cancelled successfully');
-      setTimeout(() => setSuccess(null), 3000);
+      setSuccess(
+        refundTriggered
+          ? '✅ Appointment cancelled. A refund request has been submitted — check your email for confirmation!'
+          : '✅ Appointment cancelled successfully.'
+      );
+      setTimeout(() => setSuccess(null), 6000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to cancel appointment');
       setTimeout(() => setError(null), 3000);
@@ -1158,17 +1190,35 @@ const PatientAppointments = () => {
                 <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
                   <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900">Cancel Appointment</h3>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Cancel Appointment</h3>
+                  <p className="text-sm text-gray-500 mt-0.5">This action cannot be undone</p>
+                </div>
               </div>
             </div>
             
-            <div className="p-6">
-              <p className="text-gray-700 mb-4">
-                Are you sure you want to cancel your appointment with <strong>{selectedAppointment.doctorName}</strong> on <strong>{formatAppointmentDate(selectedAppointment.appointmentDate)}</strong> at <strong>{selectedAppointment.timeSlot}</strong>?
+            <div className="p-6 space-y-4">
+              <p className="text-gray-700">
+                Are you sure you want to cancel your appointment with <strong>{selectedAppointment.doctorName}</strong> on{' '}
+                <strong>{formatAppointmentDate(selectedAppointment.appointmentDate)}</strong> at{' '}
+                <strong>{selectedAppointment.timeSlot}</strong>?
               </p>
+
+              {/* Refund notice */}
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3">
+                <DollarSign className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-orange-800">Automatic Refund</p>
+                  <p className="text-xs text-orange-700 mt-0.5">
+                    If you've made a payment for this appointment, a refund request will be
+                    automatically submitted and you'll receive an email confirmation.
+                  </p>
+                </div>
+              </div>
+
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                 <p className="text-sm text-red-800">
-                  This action cannot be undone. If you cancel, this time slot will be made available to other patients.
+                  This time slot will be made available to other patients once cancelled.
                 </p>
               </div>
             </div>
@@ -1182,9 +1232,10 @@ const PatientAppointments = () => {
               </button>
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
               >
-                Yes, Cancel Appointment
+                <AlertTriangle className="w-4 h-4" />
+                Yes, Cancel & Refund
               </button>
             </div>
           </div>
