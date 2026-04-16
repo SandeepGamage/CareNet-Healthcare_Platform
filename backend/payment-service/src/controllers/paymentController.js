@@ -3,7 +3,12 @@ const crypto               = require('crypto');
 const Transaction          = require('../models/Transaction');
 const Invoice              = require('../models/Invoice');
 const logger               = require('../utils/logger');
+const axios                = require('axios');
+
+const APPOINTMENT_SERVICE_URL = process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:3004';
+
 // ─────────────────────────────────────────────────────────────────────────────
+
 // POST /api/payments/create
 // Role: patient
 // Creates a pending Transaction record and returns PayHere checkout details
@@ -315,7 +320,16 @@ const verifyLocalPayment = async (req, res, next) => {
       } catch (err) {
         logger.error(`Local Notification failed: ${err.message}`);
       }
+
+      // ── 3. Sync with Appointment Service (Mark as Paid + Confirmed) ─────────
+      try {
+        await axios.patch(`${APPOINTMENT_SERVICE_URL}/api/appointments/${appointmentId}/payment-sync`);
+        logger.info(`Appointment ${appointmentId} synced with payment status.`);
+      } catch (err) {
+        logger.error(`Appointment Sync failed: ${err.response?.data?.message || err.message}`);
+      }
     }
+
 
     res.status(200).json({ success: true, data: transaction });
   } catch (error) {

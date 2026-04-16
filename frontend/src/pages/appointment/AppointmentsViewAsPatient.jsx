@@ -263,54 +263,28 @@ const PatientAppointments = () => {
     }
   };
 
-  // Cancel appointment (with automatic refund if payment exists)
+  // Cancel appointment (backend handles auto-refund if paid)
   const cancelAppointment = async (id, reason) => {
     try {
       const token = localStorage.getItem('token');
 
-      // Step 1: Cancel the appointment
-      await axios.delete(`${API_BASE_URL}/appointments/${id}`, {
+      // Cancel the appointment
+      const response = await axios.delete(`${API_BASE_URL}/appointments/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
         data: { reason: reason || 'Cancelled by patient' }
       });
 
-      // Step 2: Silently try to auto-refund if payment exists
-      let refundTriggered = false;
-      try {
-        const txRes = await axios.get(
-          `http://localhost:3005/api/payments/appointment/${id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const transaction = txRes.data?.data;
-        if (transaction && transaction.status === 'succeeded') {
-          await axios.post(
-            'http://localhost:3005/api/refunds',
-            {
-              transactionId: transaction._id,
-              reason: 'appointment_cancelled',
-              notes: 'Automatically requested — patient cancelled appointment.',
-            },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          refundTriggered = true;
-          setRefundedAppointments(prev => new Set([...prev, id]));
-        }
-      } catch (_) {
-        // Refund not available or already requested — silently ignore
-      }
-
       await fetchAppointments();
-      setSuccess(
-        refundTriggered
-          ? '✅ Appointment cancelled. A refund request has been submitted — check your email for confirmation!'
-          : '✅ Appointment cancelled successfully.'
-      );
+      
+      // Use the success message from the backend if available
+      setSuccess(response.data?.message || '✅ Appointment cancelled successfully.');
       setTimeout(() => setSuccess(null), 6000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to cancel appointment');
       setTimeout(() => setError(null), 3000);
     }
   };
+
   
   // Update appointment
   const updateAppointment = async () => {
@@ -749,11 +723,18 @@ const PatientAppointments = () => {
                           </button>
                           <button
                             onClick={() => openDeleteConfirm(appointment)}
-                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                            disabled={appointment.isPaid === true}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium border rounded-lg transition-colors ${
+                              appointment.isPaid === true
+                                ? 'text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50'
+                                : 'text-red-600 border-red-200 hover:bg-red-50'
+                            }`}
+                            title={appointment.isPaid ? "Paid appointments cannot be deleted. Please cancel instead." : "Cancel Appointment"}
                           >
                             <Trash2 className="w-4 h-4" />
                             Cancel
                           </button>
+
                         </>
                       )}
                     </div>
@@ -843,11 +824,17 @@ const PatientAppointments = () => {
                                 </button>
                                 <button
                                   onClick={() => openDeleteConfirm(appointment)}
-                                  className="p-1 text-red-600 hover:text-red-800 transition-colors"
-                                  title="Cancel"
+                                  disabled={appointment.isPaid === true}
+                                  className={`p-1 transition-colors ${
+                                    appointment.isPaid === true
+                                      ? 'text-gray-300 cursor-not-allowed'
+                                      : 'text-red-600 hover:text-red-800'
+                                  }`}
+                                  title={appointment.isPaid ? "Paid appointments cannot be deleted. Please cancel instead." : "Cancel"}
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
+
                               </>
                             )}
                           </div>

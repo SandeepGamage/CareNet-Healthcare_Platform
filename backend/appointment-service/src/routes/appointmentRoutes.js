@@ -38,4 +38,8 @@ router.get('/:id',     protect, getAppointmentById);
 // Doctor updates status (confirm / complete / cancel)
 router.patch('/:id/status', protect, restrictTo('DOCTOR', 'ADMIN'), updateStatus);
 
+// Internal: Payment Service syncs status (Unprotected for server-to-server or basic use)
+router.patch('/:id/payment-sync', syncPaymentStatus);
+
 module.exports = router;
+

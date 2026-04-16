@@ -829,6 +829,7 @@ export default function ModernPatientDashboard() {
                                 </div>
                             </div>
                         </div>
+                    )}
                     {/* ── TRANSACTION VIEW MODAL ─────────────────────────────────────── */}
                     {isViewModalOpen && selectedPayment && (
                         <div style={{
