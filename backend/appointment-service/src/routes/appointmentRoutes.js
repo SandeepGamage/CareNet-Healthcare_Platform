@@ -8,7 +8,8 @@ const {
   updateStatus,
   cancelAppointment,
   getAllAppointments,
-  getAvailableSlots
+  getAvailableSlots,
+  adminDeleteAppointment
 } = require('../controllers/appointmentController');
 
 // Public-ish (still needs JWT, but any role)
@@ -16,6 +17,7 @@ router.get('/slots',   protect, getAvailableSlots);
 
 // Admin only
 router.get('/all',     protect, restrictTo('ADMIN'),   getAllAppointments);
+router.delete('/admin/:id', protect, restrictTo('ADMIN'), adminDeleteAppointment);
 
 
 // Doctor routes

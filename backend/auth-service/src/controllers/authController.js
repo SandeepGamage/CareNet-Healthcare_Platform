@@ -477,11 +477,18 @@ exports.verifyOTP = async (req, res) => {
 
     let user;
     if (record.registrationData) {
-      // Finish registration: Create the user now
+      // Finish registration: Create the user now with only core fields
+      const { name, email, password, role, phone, profileImage } = record.registrationData;
+      
       user = await User.create({
-        ...record.registrationData,
+        name,
+        email,
+        password,
+        role,
+        phone,
+        profileImage,
         isOtpVerified: true,
-        isVerified: record.registrationData.role !== 'doctor' // Patients/Admins are verified by default
+        isVerified: role !== 'doctor' // Patients/Admins are verified by default
       });
 
       // Create linked profile based on role

@@ -229,10 +229,10 @@ exports.updateStatus = async (req, res) => {
     }
 
     // Role-based status rules
-    if (status === 'CONFIRMED' && req.user.role !== 'DOCTOR') {
+    if (status === 'CONFIRMED' && req.user.role !== 'doctor') {
       return res.status(403).json({ message: 'Only doctors can confirm appointments' });
     }
-    if (status === 'COMPLETED' && req.user.role !== 'DOCTOR') {
+    if (status === 'COMPLETED' && req.user.role !== 'doctor') {
       return res.status(403).json({ message: 'Only doctors can mark as completed' });
     }
 
@@ -247,17 +247,17 @@ exports.updateStatus = async (req, res) => {
 
     // Fetch patient & doctor phone from profiles for notifications
     const [patientUser, doctorUser] = await Promise.all([
-      mongoose.connection.db.collection('users').findOne({ 
-        _id: new mongoose.Types.ObjectId(appointment.patientId) 
+      mongoose.connection.db.collection('users').findOne({
+        _id: new mongoose.Types.ObjectId(appointment.patientId)
       }),
-      mongoose.connection.db.collection('users').findOne({ 
-        _id: new mongoose.Types.ObjectId(appointment.doctorId) 
+      mongoose.connection.db.collection('users').findOne({
+        _id: new mongoose.Types.ObjectId(appointment.doctorId)
       })
     ]);
 
     const patientPhone = patientUser?.phone || null;
-    const doctorPhone  = doctorUser?.phone || null;
-    const doctorEmail  = doctorUser?.email || null;
+    const doctorPhone = doctorUser?.phone || null;
+    const doctorEmail = doctorUser?.email || null;
 
     // Trigger specific notifications based on status
     if (status === 'CONFIRMED') {
@@ -407,6 +407,28 @@ exports.getAvailableSlots = async (req, res) => {
       availableHours: doctorConfig.availableHours || '',
       slotDuration: doctorConfig.slotDuration || 30
     });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ─── DELETE /api/appointments/admin/:id ───────────────────
+// Admin permanently deletes an appointment
+exports.adminDeleteAppointment = async (req, res) => {
+  try {
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    // Optional: Only allow deletion if already cancelled or completed?
+    // Based on user request, it's enforced on frontend, but backend can be flexible or strict.
+    // For now, let's keep it flexible to Admin since they are highly trusted.
+
+    await Appointment.findByIdAndDelete(req.params.id);
+
+    res.json({ message: 'Appointment permanently deleted from records' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
