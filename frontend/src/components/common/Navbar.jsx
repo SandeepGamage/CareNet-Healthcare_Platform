@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Menu, Bell, LogOut, Settings, User, HeartPulse, ChevronDown, Brain, Activity } from 'lucide-react';
+import { Menu, Bell, LogOut, Settings, User, HeartPulse, ChevronDown, Brain, Activity, Home, Info } from 'lucide-react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 
@@ -101,9 +101,10 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
   const user = userProfile || localUser;
 
   const navLinks = [
-    { name: 'Features', href: '/#features' },
-    { name: 'How it Works', href: '/#how-it-works' },
-    { name: 'FAQ', href: '/#faq' },
+    { name: 'Home', href: '/', icon: Home },
+    { name: 'Appointments', href: '/book-appointment', icon: Activity },
+    { name: 'Symptom Checker', href: '/ai-symptom', icon: Brain },
+    { name: 'About Us', href: '/about', icon: Info },
   ];
 
   const handleNavClick = (href) => {
@@ -118,8 +119,39 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
     navigate(href);
   };
 
+  // Determine whether a nav link is active.
+  const isLinkActive = (href) => {
+    if (!href) return false;
+    // Handle hash links like '/#features' or '#features'
+    if (href.startsWith('/#') || href.startsWith('#')) {
+      const targetHash = href.startsWith('/') ? href.substring(1) : href; // '/#features' -> '#features'
+      return location.pathname === '/' && location.hash === targetHash;
+    }
+    // Exact pathname match for normal routes
+    return location.pathname === href;
+  };
+
+  // Navigate to the appropriate dashboard/profile based on user role
+  const goToProfileDashboard = () => {
+    try {
+      const role = (user && user.role && String(user.role).toLowerCase()) || '';
+      if (role === 'doctor') {
+        navigate('/doctor-dashboard');
+      } else if (role === 'patient') {
+        navigate('/patient-dashboard');
+      } else {
+        navigate('/profile');
+      }
+    } finally {
+      setShowProfileDropdown(false);
+    }
+  };
+
+  // If no other nav link is active, treat Home ('/') as active by default
+  const anyOtherActive = navLinks.some(l => l.href !== '/' && isLinkActive(l.href));
+
   return (
-    <header className="fixed top-4 inset-x-0 z-50 px-4 sm:px-6 pointer-events-none transition-all duration-300">
+    <header className="fixed top-0 inset-x-0 z-50 px-4 sm:px-6 pointer-events-none transition-all duration-300">
       <div className="max-w-7xl mx-auto pointer-events-auto">
         <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-full h-[64px] px-4 sm:px-6 shadow-[0_8px_32px_rgba(0,0,0,0.06)] flex items-center justify-between transition-all duration-300 hover:bg-white/80">
           {/* Left Area: Logo + Title */}
@@ -139,7 +171,7 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
               className="flex items-center gap-2 cursor-pointer group"
               onClick={() => navigate('/')}
             >
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shadow-md group-hover:shadow-teal-200 transition-all group-hover:-rotate-6">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center shadow-md group-hover:shadow-blue-200 transition-all group-hover:-rotate-6">
                 <HeartPulse className="text-white w-5 h-5" />
               </div>
               <div className="hidden sm:flex flex-col">
@@ -161,28 +193,33 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
           </div>
 
           {/* Center Area: Navigation Links */}
-          <div className="hidden lg:flex items-center gap-6 pointer-events-auto">
-            {navLinks.map((link) => (
-              <button
-                key={link.name}
-                onClick={() => handleNavClick(link.href)}
-                className="text-sm font-bold text-slate-500 hover:text-teal-600 transition-colors cursor-pointer"
-              >
-                {link.name}
-              </button>
+          <div className="hidden lg:flex items-center gap-4 pointer-events-auto">
+            {navLinks.map((link, idx) => (
+              <React.Fragment key={link.name}>
+                {(() => {
+                  const active = isLinkActive(link.href) || (link.href === '/' && !anyOtherActive);
+                  const hasIcon = !!link.icon;
+                  return (
+                    <button
+                      onClick={() => handleNavClick(link.href)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                          hasIcon ? 'flex items-center gap-1.5' : ''
+                        } ${
+                          active ? 'bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-md' : 'text-teal-600 hover:bg-teal-50'
+                        }`}
+                    >
+                      {hasIcon && (
+                        <link.icon className={`w-3.5 h-3.5 ${active ? 'text-white' : 'text-teal-600'}`} />
+                      )}
+                      {link.name}
+                    </button>
+                  );
+                })()}
+                {idx < navLinks.length - 1 && (
+                  <div className="w-px h-4 bg-slate-200 mx-1" />
+                )}
+              </React.Fragment>
             ))}
-            <div className="w-px h-4 bg-slate-200"></div>
-            <button
-              onClick={() => navigate('/ai-symptom')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                location.pathname === '/ai-symptom'
-                  ? 'bg-teal-500 text-white shadow-md'
-                  : 'text-teal-600 hover:bg-teal-50'
-              }`}
-            >
-              <Brain className="w-3.5 h-3.5" />
-              Symptom Checker
-            </button>
           </div>
 
           {/* Right Area: Notification + Profile or Login */}
@@ -219,7 +256,7 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
                         <h3 className="text-sm font-bold text-slate-800">Notifications</h3>
                         <button 
                           onClick={handleMarkAllRead}
-                          className="text-[11px] font-bold text-teal-600 hover:text-teal-700 transition-colors uppercase tracking-wider"
+                          className="px-3 py-1 rounded-full bg-gradient-to-r from-teal-600 to-blue-600 text-white text-[11px] font-bold hover:from-teal-700 hover:to-blue-700 transition-all uppercase tracking-wider"
                         >
                           Mark all as read
                         </button>
@@ -264,7 +301,7 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
                     }}
                     className={`flex items-center gap-2 p-1 rounded-full transition-all border outline-none active:scale-95 ${
                       showProfileDropdown 
-                        ? 'bg-slate-900 border-slate-900 text-white' 
+                        ? 'bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-md' 
                         : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 shadow-sm'
                     }`}
                   >
@@ -283,28 +320,22 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
 
                   {showProfileDropdown && (
                     <div className="absolute right-0 mt-4 w-64 bg-white rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-                      <div className="p-5 border-b border-slate-50 bg-gradient-to-br from-slate-50 to-white">
+                      <div className="p-5 border-b border-slate-50 bg-gradient-to-r from-teal-50 to-blue-50">
                         <p className="text-sm font-bold text-slate-900 truncate">{user.name}</p>
                         <p className="text-xs text-slate-500 truncate mt-0.5 font-medium">{user.email}</p>
-                        <div className="mt-3 inline-flex px-2 py-0.5 bg-teal-50 text-teal-700 rounded-full">
+                        <div className="mt-3 inline-flex px-2 py-0.5 bg-gradient-to-r from-teal-600 to-blue-600 text-white rounded-full">
                           <span className="text-[10px] font-bold uppercase tracking-wider">{user.role || 'Patient'}</span>
                         </div>
                       </div>
                       
                       <div className="p-2">
-                        {[
-                          { icon: User, label: 'My Profile', onClick: () => navigate('/profile') },
-                          { icon: Settings, label: 'Settings', onClick: () => {} },
-                        ].map((item, idx) => (
-                          <button
-                            key={idx}
-                            onClick={item.onClick}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 rounded-2xl hover:bg-slate-50 hover:text-slate-900 transition-all group"
-                          >
-                            <item.icon className="w-4 h-4 text-slate-400 group-hover:text-teal-500 transition-colors" />
-                            {item.label}
-                          </button>
-                        ))}
+                        <button
+                          onClick={goToProfileDashboard}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 rounded-2xl hover:bg-slate-50 hover:text-slate-900 transition-all"
+                        >
+                          <User className="w-4 h-4 text-slate-400 transition-colors" />
+                          My Dashboard
+                        </button>
                       </div>
 
                       <div className="p-2 border-t border-slate-50 bg-slate-50/30">
@@ -330,7 +361,7 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
                 </button>
                 <button
                   onClick={() => navigate('/register')}
-                  className="px-5 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-full hover:bg-teal-600 transition-all shadow-md active:scale-95"
+                  className="px-5 py-2.5 bg-gradient-to-r from-teal-600 to-blue-600 text-white text-sm font-bold rounded-full hover:from-teal-700 hover:to-blue-700 transition-all shadow-md active:scale-95"
                 >
                   Sign Up
                 </button>
