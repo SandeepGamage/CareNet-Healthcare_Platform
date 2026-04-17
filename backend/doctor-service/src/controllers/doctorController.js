@@ -1,4 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
+const axios = require('axios');
 const ApiError = require('../utils/ApiError');
 const {
   createDoctor,
@@ -133,6 +134,36 @@ const updateProfile = asyncHandler(async (req, res) => {
   });
 });
 
+// Enhanced update: update user fields in auth-service when provided
+const updateProfileWithUser = asyncHandler(async (req, res) => {
+  const profile = await updateDoctor(req.user, req.params.id, req.body);
+
+  // If payload includes user-level fields, forward them to auth-service
+  const userFields = {};
+  ['name', 'email', 'phone', 'profileImage'].forEach((k) => {
+    if (req.body[k] !== undefined) userFields[k] = req.body[k];
+  });
+
+  if (Object.keys(userFields).length > 0) {
+    try {
+      const authUrl = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
+      await axios.put(`${authUrl}/api/auth/me`, userFields, {
+        headers: { Authorization: req.headers.authorization || '' },
+        timeout: 5000,
+      });
+    } catch (err) {
+      console.warn('Failed to update user in auth-service:', err.message);
+      // Do not fail the whole request — doctor profile update already applied
+    }
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Doctor profile updated successfully',
+    data: profile,
+  });
+});
+
 // Convenience: update current authenticated doctor's profile using /me
 const updateMyProfile = asyncHandler(async (req, res) => {
   // find the doctor's profile for this user
@@ -143,6 +174,16 @@ const updateMyProfile = asyncHandler(async (req, res) => {
     success: true,
     message: 'Doctor profile updated successfully',
     data: profile,
+  });
+});
+
+const deleteMyProfile = asyncHandler(async (req, res) => {
+  const doctor = await getDoctorByUser(req.user);
+  await deleteDoctor(req.user, doctor._id);
+
+  res.status(200).json({
+    success: true,
+    message: 'Doctor profile deleted successfully',
   });
 });
 
@@ -234,6 +275,8 @@ module.exports = {
   getProfileById,
   updateMyProfileAvailableHours,
   updateMyProfile,
+  deleteMyProfile,
+  updateProfileWithUser,
   updateProfile,
   deleteProfile,
   bookSlot,

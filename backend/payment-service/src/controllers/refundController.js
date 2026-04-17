@@ -2,6 +2,7 @@ const { validationResult }          = require('express-validator');
 const Transaction                   = require('../models/Transaction');
 const Refund                        = require('../models/Refund');
 const { sendRefundConfirmation }    = require('../services/notificationService');
+const payhereService                = require('../services/payhereService');
 const logger                        = require('../utils/logger');
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -202,32 +203,63 @@ const createAutomaticRefund = async (req, res, next) => {
       return res.status(200).json({ success: true, message: 'Refund request already exists.', data: existingRefund });
     }
 
-    // ── 3. Create Refund record (pending) ───────────────────────────────────
+    // ── 3. Create Refund record ─────────────────────────────────────────────
+    // Initial status is pending, we will update it if API call succeeds
     const refund = await Refund.create({
       transactionId: transaction._id,
       amount       : transaction.amount,
       reason       : reason || 'appointment_cancelled',
       notes        : notes || 'Automatically requested due to appointment rejection.',
       status       : 'pending',
-      requestedBy  : { userId: 'SYSTEM', role: 'admin' }, // Triggered by system call
+      requestedBy  : { userId: 'SYSTEM', role: 'admin' },
     });
 
-    // ── 4. Notify patient ────────────────────────────────────────────────────
+    // ── 4. Execute Real-Time Refund via PayHere API ──────────────────────────
+    let apiSuccess = false;
+    // PayHere needs the original payment_id to process a refund
+    const payherePaymentId = transaction.paymentId;
+
+    if (payherePaymentId && !payherePaymentId.includes('_LOCAL')) {
+      logger.info(`Attempting automatic PayHere refund for payment: ${payherePaymentId}`);
+      const result = await payhereService.refundPayment(payherePaymentId, transaction.amount, reason || 'Appointment Cancelled');
+      
+      if (result.success) {
+        refund.status = 'succeeded';
+        refund.payhereRefundId = result.refundId;
+        refund.processedAt = new Date();
+        await refund.save();
+        
+        transaction.status = 'refunded';
+        await transaction.save();
+        apiSuccess = true;
+        logger.info(`Automatic refund SUCCEEDED for appointment ${appointmentId}`);
+      } else {
+        logger.warn(`Automatic refund API call failed: ${result.message}. Falling back to pending.`);
+        // Keep as pending and update transaction to pending_refund
+        transaction.status = 'pending_refund';
+        await transaction.save();
+      }
+    } else {
+      logger.warn(`Cannot automate refund: Missing PayHere Payment ID for transaction ${transaction._id}`);
+      transaction.status = 'pending_refund';
+      await transaction.save();
+    }
+
+    // ── 5. Notify patient ────────────────────────────────────────────────────
     try {
       await sendRefundConfirmation({
         refund,
         transaction,
         patientEmail: transaction.metadata.patientEmail,
+        type: apiSuccess ? 'REFUND_SUCCESS' : 'REFUND_REQUESTED'
       });
     } catch (err) {
       logger.error(`Auto-refund notification failed: ${err.message}`);
     }
 
-    logger.info(`Auto-refund created for appointment ${appointmentId} (Status: pending)`);
-
-    res.status(201).json({
+    res.status(apiSuccess ? 200 : 201).json({
       success: true,
-      message: 'Refund request initiated successfully.',
+      message: apiSuccess ? 'Refund processed automatically.' : 'Refund initiated (pending manual review).',
       data   : refund,
     });
   } catch (error) {

@@ -306,6 +306,108 @@ exports.getMe = async (req, res) => {
   }
 };
 
+// ── PUT /api/auth/me (Protected) ─────────────────────────────────────────────
+exports.updateMe = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const allowed = ['name', 'email', 'phone', 'profileImage'];
+    const updates = {};
+    allowed.forEach((k) => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: 'No updatable fields provided.' });
+    }
+
+    const user = await User.findByIdAndUpdate(userId, updates, { new: true, runValidators: true });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    res.status(200).json({ success: true, message: 'Profile updated successfully.', user });
+  } catch (error) {
+    console.error('updateMe error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error updating profile.' });
+  }
+};
+
+// ── POST /api/auth/me/avatar (Protected) ───────────────────────────────────
+exports.uploadAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded.' });
+    }
+
+    const userId = req.user.id;
+    const file = req.file;
+    const fileExt = path.extname(file.originalname);
+    const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}${fileExt}`;
+    const filePath = `profiles/${fileName}`;
+    const bucket = process.env.SUPABASE_BUCKET || 'profiles';
+
+    // Attempt Supabase upload if configured; otherwise or on failure, fallback to local storage
+    const hasSupabase = process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
+    let publicUrl = null;
+    let uploadError = null;
+
+    if (hasSupabase) {
+      const which = process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SERVICE_ROLE_KEY' : 'ANON_KEY';
+      console.log(`[Auth Service] Uploading avatar for user ${userId} to bucket ${bucket} at ${filePath} using ${which}`);
+      const result = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file.buffer, {
+          contentType: file.mimetype,
+          upsert: false,
+        });
+
+      uploadError = result.error;
+      if (!uploadError) {
+        const { data: { publicUrl: supaUrl } } = supabase.storage.from(bucket).getPublicUrl(filePath);
+        publicUrl = supaUrl;
+      } else {
+        console.error('[Auth Service] Supabase upload error:', uploadError);
+      }
+    }
+
+    // Fallback to local filesystem if Supabase not configured or upload failed
+    if (!publicUrl) {
+      try {
+        const fs = require('fs');
+        const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+        const localPath = path.join(uploadsDir, fileName);
+        fs.writeFileSync(localPath, file.buffer);
+        const host = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+        publicUrl = `${host}/uploads/${fileName}`;
+        console.log(`[Auth Service] Saved avatar locally for user ${userId} at ${publicUrl}`);
+      } catch (err) {
+        console.error('[Auth Service] Local fallback failed:', err.message);
+        return res.status(500).json({ success: false, message: 'Failed to upload image.' });
+      }
+    }
+
+    // Update user record
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    user.profileImage = publicUrl;
+    await user.save();
+
+    // Update linked profile documents for consistency
+    try {
+      if (user.role === 'doctor') {
+        await Doctor.findOneAndUpdate({ userId: user._id }, { profilePicture: publicUrl });
+      } else if (user.role === 'patient') {
+        await Patient.findOneAndUpdate({ userId: user._id }, { profileImage: publicUrl });
+      }
+    } catch (err) {
+      console.warn('[Auth Service] Could not update linked profile image:', err.message);
+    }
+
+    res.status(200).json({ success: true, message: 'Avatar uploaded successfully.', url: publicUrl, user });
+  } catch (error) {
+    console.error('uploadAvatar error:', error.stack || error.message);
+    res.status(500).json({ success: false, message: 'Server error uploading avatar.' });
+  }
+};
+
 // ── ADMIN: GET /api/auth/doctors/pending ────────────────────────────────────
 exports.getPendingDoctors = async (req, res) => {
   try {

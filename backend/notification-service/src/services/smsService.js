@@ -82,7 +82,10 @@ const getSMSBody = (eventType, data) => {
       return `✅ Payment confirmed! ${data.currency} ${data.amount} for appointment with Dr. ${data.doctorName} on ${data.appointmentDate}. Ref: ${data.transactionId}`;
 
     case 'REFUND_SUCCESS':
-      return `✅ Refund processed! ${data.currency} ${data.refundAmount} refunded to your account. Ref: ${data.refundId}`;
+      return `✅ Refund processed! ${data.currency} ${data.amount} refunded to your account. Ref: ${data.refundId}`;
+
+    case 'REFUND_REQUESTED':
+      return `🏥 Refund Initiated: A refund of ${data.currency} ${data.amount} for your appointment has been requested.`;
 
     case 'APPOINTMENT_BOOKED':
       return `📅 Appointment booked with Dr. ${data.doctorName} (${data.specialty}) on ${data.appointmentDate} at ${data.appointmentTime}. Ref: ${data.appointmentId}`;

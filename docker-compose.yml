@@ -120,6 +120,7 @@ services:
       DOCTOR_SERVICE_URL: http://doctor-service:3003
       PATIENT_SERVICE_URL: http://patient-service:3002
       NOTIFICATION_SERVICE_URL: http://notification-service:3006
+      PAYMENT_SERVICE_URL: http://payment-service:3005
     restart: unless-stopped
     networks:
       - healthcare-network
@@ -169,6 +170,7 @@ services:
       PAYHERE_MERCHANT_SECRET: ${PAYHERE_MERCHANT_SECRET}
       PAYHERE_SECRET: ${PAYHERE_SECRET}
       NOTIFICATION_SERVICE_URL: http://notification-service:3006
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
       NODE_ENV: ${NODE_ENV:-production}
     depends_on:
       - notification-service
