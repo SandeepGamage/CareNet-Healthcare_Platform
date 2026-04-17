@@ -353,18 +353,18 @@ export default function DoctorProfile() {
 						<p className="mt-1 text-sm text-slate-600">Short introduction and professional details</p>
 					</div>
 					<div className="grid gap-6 p-6 md:grid-cols-2">
-						<div>
-							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Biography</p>
-							<p className="mt-2 text-base font-semibold text-slate-800">{profile?.bio || 'No biography provided yet.'}</p>
-						</div>
-						<div>
-							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Experience</p>
-							<p className="mt-2 text-base font-semibold text-slate-800">{profile?.experienceYears ? `${profile.experienceYears} years` : 'Not specified'}</p>
-							<p className="mt-3 text-xs text-slate-500">{profile?.isAvailable ? 'Currently accepting patients' : 'Not accepting patients'}</p>
-						</div>
 						<div className="md:col-span-2">
-							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Qualifications</p>
-							<p className="mt-2 text-base font-semibold text-slate-800">{profile?.qualifications || 'No qualifications listed.'}</p>
+							<p className="text-xs font-bold uppercase tracking-wide text-slate-500">Biography</p>
+							<p className="mt-2 text-base font-normal text-slate-800">{profile?.bio || 'No biography provided yet.'}</p>
+						</div>
+						<div className="md:col-span-1">
+							<p className="text-xs font-bold uppercase tracking-wide text-slate-500">Qualifications</p>
+							<p className="mt-2 text-base font-normal text-slate-800">{profile?.qualifications || 'No qualifications listed.'}</p>
+						</div>
+						<div className="md:col-span-1">
+							<p className="text-xs font-bold uppercase tracking-wide text-slate-500">Experience</p>
+							<p className="mt-2 text-base font-normal text-slate-800">{profile?.experienceYears ? `${profile.experienceYears} years` : 'Not specified'}</p>
+							<p className="mt-3 text-xs text-slate-500">{profile?.isAvailable ? 'Currently accepting patients' : 'Not accepting patients'}</p>
 						</div>
 					</div>
 				</div>
