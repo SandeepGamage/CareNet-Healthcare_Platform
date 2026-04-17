@@ -272,6 +272,7 @@ const BookAppointment = () => {
           about: doc.about || 'Experienced healthcare professional',
           availability: doc.availability || {},
           time: doc.availableHours || '09:00 AM - 05:00 PM', // Fallback
+          isAvailable: doc.isAvailable ?? doc.availability ?? true, // Correctly capture status from backend 'availability' field
           profileImage: doc.profileImage || null,
           totalPatients: doc.totalPatients || 500,
           reviewCount: doc.reviewCount || 50
@@ -1085,7 +1086,7 @@ const BookAppointment = () => {
                   )}
 
                   {/* Time Slot Selection */}
-                  {selectedDoctor && formData.appointmentDate && (
+                  {selectedDoctor && formData.appointmentDate && selectedDoctor.isAvailable && (
                     <div className="space-y-4">
                       <div className="flex justify-between items-center">
                         <label className="block text-sm font-medium text-gray-700">
@@ -1133,6 +1134,31 @@ const BookAppointment = () => {
                       {validationErrors.timeSlot && (
                         <p className="mt-1 text-sm text-red-600">{validationErrors.timeSlot}</p>
                       )}
+                    </div>
+                  )}
+
+                  {/* Doctor Offline Message */}
+                  {selectedDoctor && formData.appointmentDate && !selectedDoctor.isAvailable && (
+                    <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-4 transition-all animate-in fade-in slide-in-from-top-2">
+                      <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
+                        <AlertCircle className="w-6 h-6 text-rose-600" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-bold text-rose-900">Physician Currently Offline</p>
+                        <p className="text-sm text-rose-700 leading-relaxed">
+                          This doctor is not currently accepting new appointments. Their schedule is hidden to prevent overlap. Please select a different date or another specialist.
+                        </p>
+                        <button 
+                          onClick={() => {
+                            setSelectedDoctor(null);
+                            setShowDoctorModal(true);
+                          }}
+                          className="mt-2 text-sm font-bold text-rose-800 hover:text-rose-950 underline underline-offset-4 flex items-center gap-1 group"
+                        >
+                          Find another available doctor
+                          <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                        </button>
+                      </div>
                     </div>
                   )}
 

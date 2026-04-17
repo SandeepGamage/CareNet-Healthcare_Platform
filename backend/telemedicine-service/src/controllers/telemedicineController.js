@@ -5,6 +5,7 @@ const {
   buildRoomName,
   buildRoomUrl,
   buildParticipantConfig,
+  getJitsiDomain,
   signJitsiJwt,
 } = require("../services/jitsiService");
 
@@ -239,7 +240,7 @@ exports.joinSession = async (req, res) => {
     }
 
     const joinPayload = {
-      domain: process.env.JITSI_DOMAIN || "meet.jit.si",
+      domain: getJitsiDomain(),
       roomName: session.roomName,
       roomUrl: session.roomUrl,
       jwt: jitsiJwt || null,

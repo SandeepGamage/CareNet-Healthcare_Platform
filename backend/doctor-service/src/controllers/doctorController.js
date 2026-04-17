@@ -80,6 +80,7 @@ const getMyProfile = asyncHandler(async (req, res) => {
   const user = doctor.userId;
   const profile = {
     id: doctor._id,
+    userId: user?._id || doctor.userId?._id || doctor.userId,
     name: user && user.name ? user.name : undefined,
     email: user && user.email ? user.email : undefined,
     phone: user && user.phone ? user.phone : undefined,
@@ -90,6 +91,7 @@ const getMyProfile = asyncHandler(async (req, res) => {
     experienceYears: doctor.experienceYears,
     availableHours: doctor.availableHours,
     isAvailable: doctor.isAvailable,
+    availableSlots: doctor.availableSlots,
     consultationFee: doctor.consultationFee,
     rating: doctor.rating,
     // Add more fields as needed

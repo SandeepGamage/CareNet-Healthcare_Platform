@@ -35,7 +35,7 @@ async function verify() {
       timeSlot: '11:00 - 11:30',
       appointmentId: 'VERIFY-ACCEPT',
       type: 'TELEMEDICINE',
-      meetingLink: 'https://meet.jit.si/carenet-test'
+      meetingLink: 'https://8x8.vc/carenet-test'
     };
 
     console.log('Triggering notification via REST...');
