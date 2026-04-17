@@ -246,7 +246,7 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
                                     />
                                 </label>
 
-                                <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                {/* <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
                                     <p className="mb-3 text-sm font-semibold text-slate-700">Profile Image</p>
 
                                     <label className="flex flex-col gap-2 text-sm text-slate-700">
@@ -289,7 +289,7 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
                                             Remove Image
                                         </button>
                                     </div>
-                                </div>
+                                </div> */}
 
                                 <label className="flex flex-col gap-2 text-sm text-slate-700">
                                     Date of Birth
