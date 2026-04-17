@@ -203,7 +203,7 @@ exports.getAppointmentById = async (req, res) => {
     const isOwner =
       appointment.patientId === req.user.id ||
       appointment.doctorId === req.user.id ||
-      req.user.role === 'ADMIN';
+      req.user.role === 'admin';
 
     if (!isOwner) {
       return res.status(403).json({ message: 'Access denied' });
@@ -291,7 +291,7 @@ exports.updateStatus = async (req, res) => {
       await notificationService.notifyAppointmentCancelled(appointment, patientPhone, req.user.role, cancelReason);
       
       // NEW: Trigger refund request if cancelled by doctor
-      if (req.user.role === 'DOCTOR') {
+      if (req.user.role === 'doctor' && appointment.isPaid) {
         const token = req.headers.authorization;
         await paymentService.initiateRefund(appointment._id, token, 'appointment_cancelled');
       }
@@ -601,7 +601,7 @@ exports.syncPaymentStatus = async (req, res) => {
     }
 
     appointment.isPaid = true;
-    appointment.status = 'CONFIRMED'; // Auto-confirm on payment
+    appointment.status = 'PENDING'; // Stay pending after payment, wait for doctor approval
     await appointment.save();
 
     console.log(`[Appointment Service] Payment synced for appointment: ${appointment._id}`);

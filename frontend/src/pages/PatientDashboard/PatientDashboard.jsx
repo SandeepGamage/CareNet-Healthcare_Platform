@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Download, Eye, Trash2, X, Calendar, User, DollarSign, Info } from "lucide-react";
 import {
     Activity,
     Calendar,
@@ -258,6 +259,37 @@ export default function ModernPatientDashboard() {
         }
     };
 
+    const downloadPaymentReport = () => {
+        if (!paymentsData || paymentsData.length === 0) {
+            alert("No data to export.");
+            return;
+        }
+
+        const headers = ["Date", "Doctor", "Amount", "Currency", "Status", "Reference ID"];
+        const rows = paymentsData.map(p => [
+            new Date(p.createdAt).toLocaleDateString(),
+            p.metadata?.doctorName || "General Consultation",
+            p.amount.toFixed(2),
+            p.currency.toUpperCase(),
+            p.status,
+            p._id
+        ]);
+
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(row => row.join(","))
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `CareNet_Payment_Report_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const openViewModal = (payment) => {
         setSelectedPayment(payment);
         setIsViewModalOpen(true);
@@ -510,16 +542,67 @@ export default function ModernPatientDashboard() {
 
                     {/* ── PAYMENTS TAB ─────────────────────────────────────────────────── */}
                     {activeTab === "payments" && (
-                        <div style={{ animation: "fadeIn 0.3s ease-in" }}>
+                        <div style={{ animation: "fadeIn 0.3s ease-in", display: "flex", flexDirection: "column", gap: "32px" }}>
+                            
+                            {/* ── REPORT DOWNLOAD SECTION ───────────────────────────────────── */}
+                            <div style={{
+                                background: "white",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: "16px",
+                                padding: "24px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                background: "linear-gradient(90deg, #ffffff 0%, #f0f9ff 100%)",
+                                boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)"
+                            }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                                    <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#dbeafe", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px" }}>
+                                        📄
+                                    </div>
+                                    <div>
+                                        <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#111827", margin: 0 }}>Reports & Exports</h3>
+                                        <p style={{ fontSize: "13px", color: "#6b7280", margin: "2px 0 0 0" }}>Download your full transaction history for records or insurance.</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={downloadPaymentReport}
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "8px",
+                                        padding: "10px 20px",
+                                        background: "#3b82f6",
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "10px",
+                                        fontWeight: 600,
+                                        fontSize: "14px",
+                                        cursor: "pointer",
+                                        transition: "all 0.2s"
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = "#2563eb"}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = "#3b82f6"}
+                                >
+                                    <Download size={18} /> Export CSV
+                                </button>
+                            </div>
+
+                            {/* ── MAIN TRANSACTION HISTORY ─────────────────────────────────── */}
                             <div style={{
                                 background: "white",
                                 border: "1px solid #e5e7eb",
                                 borderRadius: "16px",
                                 padding: "28px",
                             }}>
-                                <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", margin: "0 0 24px 0" }}>
-                                    Payment History
-                                </h3>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+                                    <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", margin: 0 }}>
+                                        Transaction History
+                                    </h3>
+                                    <span style={{ fontSize: "13px", color: "#6b7280", background: "#f3f4f6", padding: "4px 12px", borderRadius: "20px" }}>
+                                        {paymentsData.filter(p => !['refunded', 'pending_refund'].includes(p.status)).length} Records
+                                    </span>
+                                </div>
                                 <div style={{ overflowX: "auto" }}>
                                     <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
                                         <thead>
@@ -533,14 +616,15 @@ export default function ModernPatientDashboard() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {paymentsData.length === 0 ? (
+                                            {paymentsData.filter(p => !['refunded', 'pending_refund'].includes(p.status)).length === 0 ? (
                                                 <tr>
-                                                    <td colSpan="5" style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
-                                                        No payment history available.
+                                                    <td colSpan="6" style={{ padding: "48px", textAlign: "center", color: "#9ca3af" }}>
+                                                        <div style={{ fontSize: "40px", marginBottom: "16px" }}>💳</div>
+                                                        No active payment history available.
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                paymentsData.map((payment) => (
+                                                paymentsData.filter(p => !['refunded', 'pending_refund'].includes(p.status)).map((payment) => (
                                                     <tr key={payment._id} style={{ borderBottom: "1px solid #f3f4f6", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "#f9fafb"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                                                         <td style={{ padding: "16px", fontSize: "14px", color: "#111827" }}>
                                                             {new Date(payment.createdAt).toLocaleDateString()}
@@ -600,12 +684,8 @@ export default function ModernPatientDashboard() {
                                                                         alignItems: "center",
                                                                         gap: "4px"
                                                                     }}
-                                                                    onMouseEnter={(e) => {
-                                                                        e.currentTarget.style.background = "#eff6ff";
-                                                                    }}
-                                                                    onMouseLeave={(e) => {
-                                                                        e.currentTarget.style.background = "transparent";
-                                                                    }}
+                                                                    onMouseEnter={(e) => e.currentTarget.style.background = "#eff6ff"}
+                                                                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                                                                 >
                                                                     <Download size={14} /> Invoice
                                                                 </button>
@@ -656,6 +736,93 @@ export default function ModernPatientDashboard() {
                                     </table>
                                 </div>
                             </div>
+
+                            {/* ── REFUND HISTORY SECTION ─────────────────────────────────── */}
+                            <div style={{
+                                background: "#fff5f5",
+                                border: "1px solid #feb2b2",
+                                borderRadius: "16px",
+                                padding: "28px",
+                            }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                        <span style={{ fontSize: "20px" }}>🔄</span>
+                                        <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#9b2c2c", margin: 0 }}>
+                                            Refund History
+                                        </h3>
+                                    </div>
+                                    <span style={{ fontSize: "13px", color: "#c53030", background: "#fed7d7", padding: "4px 12px", borderRadius: "20px" }}>
+                                        {paymentsData.filter(p => ['refunded', 'pending_refund'].includes(p.status)).length} Refunds
+                                    </span>
+                                </div>
+                                <div style={{ overflowX: "auto" }}>
+                                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                                        <thead>
+                                            <tr style={{ color: "#c53030", fontSize: "12px", textTransform: "uppercase" }}>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #feb2b2" }}>Date</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #feb2b2" }}>Doctor</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #feb2b2" }}>Refund Amount</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #feb2b2" }}>Status</th>
+                                                <th style={{ padding: "12px 16px", borderBottom: "1px solid #feb2b2", textAlign: "right" }}>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {paymentsData.filter(p => ['refunded', 'pending_refund'].includes(p.status)).length === 0 ? (
+                                                <tr>
+                                                    <td colSpan="5" style={{ padding: "32px", textAlign: "center", color: "#f56565" }}>
+                                                        No refund records found.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                paymentsData.filter(p => ['refunded', 'pending_refund'].includes(p.status)).map((payment) => (
+                                                    <tr key={payment._id} style={{ borderBottom: "1px solid #fed7d7" }}>
+                                                        <td style={{ padding: "16px", fontSize: "14px", color: "#2d3748" }}>
+                                                            {new Date(payment.createdAt).toLocaleDateString()}
+                                                        </td>
+                                                        <td style={{ padding: "16px", fontSize: "14px", color: "#4a5568" }}>
+                                                            {payment.metadata?.doctorName || 'Consultation'}
+                                                        </td>
+                                                        <td style={{ padding: "16px", fontSize: "14px", color: "#c53030", fontWeight: 700 }}>
+                                                            {payment.currency} {payment.amount.toFixed(2)}
+                                                        </td>
+                                                        <td style={{ padding: "16px" }}>
+                                                            <span style={{
+                                                                background: payment.status === 'refunded' ? '#fed7d7' : '#fffaf0',
+                                                                color: payment.status === 'refunded' ? '#c53030' : '#b7791f',
+                                                                padding: "4px 8px",
+                                                                borderRadius: "4px",
+                                                                fontSize: "12px",
+                                                                fontWeight: 700,
+                                                                border: payment.status === 'refunded' ? "1px solid #feb2b2" : "1px solid #fbd38d"
+                                                            }}>
+                                                                {payment.status.replace('_', ' ')}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: "16px", textAlign: "right" }}>
+                                                            <button
+                                                                onClick={() => openViewModal(payment)}
+                                                                style={{
+                                                                    background: "white",
+                                                                    border: "1px solid #feb2b2",
+                                                                    color: "#c53030",
+                                                                    padding: "6px 12px",
+                                                                    borderRadius: "8px",
+                                                                    cursor: "pointer",
+                                                                    fontSize: "12px",
+                                                                    fontWeight: 600
+                                                                }}
+                                                            >
+                                                                View Details
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
                         </div>
                     )}
                     {/* ── TRANSACTION VIEW MODAL ─────────────────────────────────────── */}

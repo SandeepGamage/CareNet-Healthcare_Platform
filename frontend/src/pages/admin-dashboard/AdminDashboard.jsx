@@ -30,6 +30,8 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import axios from 'axios';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import Navbar from '../../components/common/Navbar';
 import AppointmentsView from './Appointments/viewAppointments';
 
@@ -50,6 +52,9 @@ const AdminDashboard = () => {
   const [pendingDoctors, setPendingDoctors] = useState([]);
   const [allDoctors, setAllDoctors] = useState([]);
   const [allDoctorsCount, setAllDoctorsCount] = useState(0);
+  const [transactions, setTransactions] = useState([]);
+  const [paymentStats, setPaymentStats] = useState({ totalRevenue: 0, succeededCount: 0, pendingAmount: 0 });
+
   const [stats, setStats] = useState([
     { title: 'Total Patients', value: '0', change: '+12%', icon: Users, color: 'from-blue-500 to-blue-700', bg: 'bg-blue-50' },
     { title: 'Appointments', value: '0', change: '+8%', icon: Calendar, color: 'from-indigo-500 to-indigo-700', bg: 'bg-indigo-50' },
@@ -76,13 +81,15 @@ const AdminDashboard = () => {
     subject: '',
     message: '',
     isOtp: false,
-    role: 'user'
+    role: 'user',
+    sender: 'CareNet Administration'
   });
   const [selectedLog, setSelectedLog] = useState(null); // For modal viewer
 
 
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifSuccess, setNotifSuccess] = useState(null);
+  const [reportPeriod, setReportPeriod] = useState('all'); // 'all', 'daily', 'monthly', 'yearly'
 
   const [cancelReason, setCancelReason] = useState('');
 
@@ -111,6 +118,36 @@ const AdminDashboard = () => {
     }
   };
 
+  // Fetch all transactions from payment-service
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      const token = getAuthToken();
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/payments/admin/all`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setTransactions(response.data.data || []);
+        
+        // Update stats from the aggregation in the response
+        const stats = response.data.stats || [];
+        const succeeded = stats.find(s => s._id === 'succeeded');
+        const pending = stats.find(s => s._id === 'pending');
+        
+        setPaymentStats({
+          totalRevenue: succeeded ? succeeded.totalAmount : 0,
+          succeededCount: succeeded ? succeeded.count : 0,
+          pendingAmount: pending ? pending.totalAmount : 0
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch transactions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   // Fetch patients from your backend
   const fetchPatients = async () => {
     try {
@@ -135,28 +172,44 @@ const AdminDashboard = () => {
   const fetchDashboardStatsData = async () => {
     try {
       const token = getAuthToken();
-      // Fetch patients and doctors counts unconditionally for the dashboard overall stats
-      const [patientsRes, doctorsRes] = await Promise.all([
+      // Fetch patients, doctors, and payment stats for the dashboard overall stats
+      const [patientsRes, doctorsRes, paymentsRes] = await Promise.all([
         axios.get(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/patients`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { data: [] } })),
-        axios.get(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/doctors`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { count: 0 } }))
+        axios.get(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/doctors`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { count: 0 } })),
+        axios.get(`${import.meta.env.VITE_API_BASE_URL}/payments/admin/all`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { stats: [] } }))
       ]);
+      
       const pData = Array.isArray(patientsRes.data?.data) ? patientsRes.data.data : [];
       setPatients(pData);
       setAllDoctorsCount(doctorsRes.data?.count || 0);
+
+      const pStats = paymentsRes.data?.stats || [];
+      const succeeded = pStats.find(s => s._id === 'succeeded');
+      const pending = pStats.find(s => s._id === 'pending');
+      
+      setPaymentStats({
+        totalRevenue: succeeded ? succeeded.totalAmount : 0,
+        succeededCount: succeeded ? succeeded.count : 0,
+        pendingAmount: pending ? pending.totalAmount : 0
+      });
     } catch (err) {
       console.error('Failed to fetch dashboard stats data');
     }
   };
 
-  // Automatically rebuild stats whenever patients, or doctors count changes
+
+  // Automatically rebuild stats whenever patients, doctors, or appointments change
   useEffect(() => {
+    const activeAppointmentsCount = appointments.filter(a => a.status !== 'CANCELLED').length;
+
     setStats([
       { title: 'Total Patients', value: patients.length || '0', change: '+12%', icon: Users, color: 'from-blue-500 to-blue-700', bg: 'bg-blue-50' },
-      { title: 'Appointments', value: '42', change: '+8%', icon: Calendar, color: 'from-indigo-500 to-indigo-700', bg: 'bg-indigo-50' },
-      { title: 'Revenue', value: `$1,240`, change: '+23%', icon: DollarSign, color: 'from-emerald-500 to-emerald-700', bg: 'bg-emerald-50' },
+      { title: 'Appointments', value: activeAppointmentsCount.toString(), change: '+8%', icon: Calendar, color: 'from-indigo-500 to-indigo-700', bg: 'bg-indigo-50' },
+      { title: 'Revenue', value: `LKR ${paymentStats.totalRevenue.toLocaleString()}`, change: '+23%', icon: DollarSign, color: 'from-emerald-500 to-emerald-700', bg: 'bg-emerald-50' },
       { title: 'Total Doctors', value: allDoctorsCount || '0', change: '+5%', icon: Users, color: 'from-rose-500 to-rose-700', bg: 'bg-rose-50' },
     ]);
-  }, [patients, allDoctorsCount]);
+  }, [patients, allDoctorsCount, appointments, paymentStats]);
+
 
 
 
@@ -276,7 +329,8 @@ const AdminDashboard = () => {
         subject: '',
         message: '',
         isOtp: false,
-        role: 'user'
+        role: 'user',
+        sender: 'CareNet Administration'
       });
       setSelectedRecipients([]);
       setSearchQuery('');
@@ -299,6 +353,76 @@ const AdminDashboard = () => {
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to delete log entry');
     }
+  };
+
+  const handleDownloadNotificationReport = () => {
+    let filteredLogs = [...notificationLogs];
+    const now = new Date();
+    
+    if (reportPeriod === 'daily') {
+      filteredLogs = notificationLogs.filter(log => {
+        const d = new Date(log.createdAt);
+        return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+    } else if (reportPeriod === 'monthly') {
+      filteredLogs = notificationLogs.filter(log => {
+        const d = new Date(log.createdAt);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+    } else if (reportPeriod === 'yearly') {
+      filteredLogs = notificationLogs.filter(log => {
+        const d = new Date(log.createdAt);
+        return d.getFullYear() === now.getFullYear();
+      });
+    }
+
+    if (filteredLogs.length === 0) {
+      alert(`No notification dispatches found for the selected period: ${reportPeriod.toUpperCase()}`);
+      return;
+    }
+
+    const doc = new jsPDF();
+    
+    // Add header
+    doc.setFontSize(22);
+    doc.setTextColor(30, 41, 59); // slate-800
+    doc.text(`CareNet Notification Report (${reportPeriod.toUpperCase()})`, 14, 25);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 32);
+    doc.text(`Dispatches in this Period: ${filteredLogs.length}`, 14, 37);
+    
+    // Summary Stats
+    const successCount = filteredLogs.filter(l => l.status === 'success').length;
+    doc.text(`Success Rate: ${filteredLogs.length > 0 ? Math.round((successCount/filteredLogs.length)*100) : 0}%`, 14, 42);
+
+    // Create Table
+    const tableData = filteredLogs.map(log => [
+      new Date(log.createdAt).toLocaleString(),
+      log.recipientName || log.recipientEmail || log.recipientPhone || 'N/A',
+      log.sender || 'System',
+      log.eventType?.replace(/_/g, ' ') || 'N/A',
+      log.status?.toUpperCase() || 'N/A',
+      `${log.channels?.email?.sent ? 'Email ' : ''}${log.channels?.sms?.sent ? 'SMS' : ''}`.trim() || 'None'
+    ]);
+    
+    autoTable(doc, {
+      startY: 50,
+      head: [['Date', 'Recipient', 'Sender', 'Event Type', 'Status', 'Channels']],
+      body: tableData,
+      headStyles: { 
+        fillColor: [59, 130, 246], // blue-500
+        textColor: [255, 255, 255],
+        fontSize: 10,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] }, // slate-50
+      margin: { top: 50 },
+      styles: { fontSize: 8 }
+    });
+    
+    doc.save(`CareNet_Notification_${reportPeriod}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const selectRecipient = (person) => {
@@ -345,9 +469,13 @@ const AdminDashboard = () => {
     if (activeTab === 'notifications') {
       fetchNotificationLogs();
     }
-    if (activeTab === 'analytics' || activeTab === 'revenue' || activeTab === 'overview') {
+    if (activeTab === 'revenue') {
+      fetchTransactions();
+    }
+    if (activeTab === 'analytics' || activeTab === 'overview') {
       fetchAppointmentsSummary();
     }
+
   }, [activeTab]);
 
 
@@ -800,29 +928,33 @@ const AdminDashboard = () => {
                     <h3 className="text-lg font-medium text-gray-900 mb-3">Revenue Overview</h3>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center p-2 border-b border-gray-200">
-                        <span className="text-sm text-gray-600">Total Revenue</span>
+                        <span className="text-sm text-gray-600">Total Revenue (Paid)</span>
                         <span className="font-medium text-gray-900">
-                          ${appointments.filter(a => a.status === 'COMPLETED').reduce((sum, a) => sum + (a.consultationFee || 0), 0).toLocaleString()}
+                          LKR {paymentStats.totalRevenue.toLocaleString()}
                         </span>
                       </div>
+
                       <div className="flex justify-between items-center p-2 border-b border-gray-200">
                         <span className="text-sm text-gray-600">Pending Payments</span>
                         <span className="font-medium text-gray-900">
-                          ${appointments.filter(a => a.status === 'CONFIRMED').reduce((sum, a) => sum + (a.consultationFee || 0), 0).toLocaleString()}
+                          LKR {paymentStats.pendingAmount.toLocaleString()}
                         </span>
                       </div>
+
                       <div className="flex justify-between items-center p-2">
-                        <span className="text-sm text-gray-600">Average Consultation Fee</span>
+                        <span className="text-sm text-gray-600">Average Transaction</span>
                         <span className="font-medium text-gray-900">
-                          ${appointments.length ? (appointments.reduce((sum, a) => sum + (a.consultationFee || 0), 0) / appointments.length).toFixed(2) : '0'}
+                          LKR {paymentStats.succeededCount ? (paymentStats.totalRevenue / paymentStats.succeededCount).toFixed(0) : '0'}
                         </span>
                       </div>
+
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           )}
+
           {/* Revenue Tab Content */}
           {activeTab === 'revenue' && (
             <div className="space-y-6">
@@ -830,23 +962,24 @@ const AdminDashboard = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <p className="text-sm text-gray-600 mb-1">Total Revenue</p>
                   <h3 className="text-2xl font-bold text-gray-900">
-                    ${appointments.filter(a => a.status === 'COMPLETED').reduce((sum, a) => sum + (a.consultationFee || 0), 0).toLocaleString()}
+                    LKR {paymentStats.totalRevenue.toLocaleString()}
                   </h3>
                   <p className="text-xs text-green-600 mt-2">↑ 15% from last month</p>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <p className="text-sm text-gray-600 mb-1">Pending Collections</p>
+                  <p className="text-sm text-gray-600 mb-1">Unpaid / Pending</p>
                   <h3 className="text-2xl font-bold text-gray-900">
-                    ${appointments.filter(a => a.status === 'CONFIRMED').reduce((sum, a) => sum + (a.consultationFee || 0), 0).toLocaleString()}
+                    LKR {paymentStats.pendingAmount.toLocaleString()}
                   </h3>
                   <p className="text-xs text-yellow-600 mt-2">Awaiting payment</p>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <p className="text-sm text-gray-600 mb-1">Total Appointments</p>
-                  <h3 className="text-2xl font-bold text-gray-900">{appointments.length}</h3>
-                  <p className="text-xs text-blue-600 mt-2">{appointments.filter(a => a.status === 'CONFIRMED').length} confirmed</p>
+                  <p className="text-sm text-gray-600 mb-1">Successful Payments</p>
+                  <h3 className="text-2xl font-bold text-gray-900">{paymentStats.succeededCount}</h3>
+                  <p className="text-xs text-blue-600 mt-2">Completed transactions</p>
                 </div>
               </div>
+
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="p-6 border-b border-gray-200">
                   <h2 className="text-xl font-semibold text-gray-900">Recent Transactions</h2>
@@ -855,7 +988,7 @@ const AdminDashboard = () => {
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Appointment ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
@@ -863,31 +996,26 @@ const AdminDashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {appointments
-                        .filter(a => a.status === 'COMPLETED' || a.status === 'CONFIRMED')
-                        .slice(0, 5)
-                        .map((appointment) => (
-                          <tr key={appointment._id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {appointment._id.slice(-8)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                              {appointment.patientName}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              ${appointment.consultationFee}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                              {formatDate(appointment.appointmentDate)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${appointment.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                {appointment.status === 'COMPLETED' ? 'Paid' : 'Pending'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                      {transactions.map((tx) => (
+                        <tr key={tx._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{tx.payhereOrderId}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{tx.metadata?.patientName || tx.patientId}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">LKR {tx.amount.toLocaleString()}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatDate(tx.createdAt)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${tx.status === "succeeded" ? "bg-green-100 text-green-800" : tx.status === "failed" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>
+                              {tx.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {transactions.length === 0 && (
+                        <tr>
+                          <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
+                            No transactions found.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -907,6 +1035,16 @@ const AdminDashboard = () => {
                   </div>
 
                   <form onSubmit={handleSendNotification} className="p-8 space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Send From</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. CareNet Administration"
+                        value={notifForm.sender}
+                        onChange={(e) => setNotifForm({ ...notifForm, sender: e.target.value })}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
+                      />
+                    </div>
                     {notifSuccess && (
                       <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-700 text-sm font-bold flex items-center mb-4">
                         <CheckCircle className="w-5 h-5 mr-2" />
@@ -1111,12 +1249,75 @@ const AdminDashboard = () => {
 
                 {/* Recent Logs Summary */}
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-                  <div className="p-8 border-b border-gray-100">
+                  <div className="p-8 border-b border-gray-100 bg-white">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-2xl font-black text-gray-900 tracking-tight">Recent Dispatches</h2>
-                      <button onClick={fetchNotificationLogs} className="p-2 hover:bg-gray-50 rounded-xl transition-colors">
-                        <Activity className="w-5 h-5 text-blue-600" />
-                      </button>
+                      <div>
+                        <h2 className="text-2xl font-black text-gray-900 tracking-tight">Recent Dispatches</h2>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Live notification lifecycle tracking</p>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div className="flex bg-gray-100 p-1 rounded-2xl">
+                          <select 
+                            value={reportPeriod}
+                            onChange={(e) => setReportPeriod(e.target.value)}
+                            className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest px-3 py-1.5 focus:ring-0 cursor-pointer appearance-none outline-none"
+                            title="Filter by period"
+                          >
+                            <option value="all">All Dispatches</option>
+                            <option value="daily">Today Only</option>
+                            <option value="monthly">This Month</option>
+                            <option value="yearly">This Year</option>
+                          </select>
+                        </div>
+                        <button 
+                          onClick={handleDownloadNotificationReport}
+                          className="flex items-center space-x-2 px-5 py-2.5 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all text-xs font-black shadow-sm group"
+                        >
+                          <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                          <span>EXPORT PDF</span>
+                        </button>
+                        <button 
+                          onClick={fetchNotificationLogs} 
+                          className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-600 hover:text-white transition-all shadow-sm group"
+                          title="Refresh Logs"
+                        >
+                          <Activity className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Dynamic Real-time Stats */}
+                    <div className="grid grid-cols-3 gap-4 mt-8">
+                      <div className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50/30 rounded-3xl border border-blue-100/50 relative overflow-hidden group hover:shadow-md transition-all">
+                        <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform">
+                          <Bell className="w-16 h-16 text-blue-600" />
+                        </div>
+                        <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1 relative z-10">Total Dispatches</p>
+                        <p className="text-2xl font-black text-gray-900 relative z-10">{notificationLogs.length}</p>
+                      </div>
+
+                      <div className="p-5 bg-gradient-to-br from-emerald-50 to-teal-50/30 rounded-3xl border border-emerald-100/50 relative overflow-hidden group hover:shadow-md transition-all">
+                        <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform">
+                          <CheckCircle className="w-16 h-16 text-emerald-600" />
+                        </div>
+                        <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1 relative z-10">Success Rate</p>
+                        <p className="text-2xl font-black text-gray-900 relative z-10">
+                          {notificationLogs.length > 0 
+                            ? Math.round((notificationLogs.filter(l => l.status === 'success').length / notificationLogs.length) * 100) 
+                            : 0}%
+                        </p>
+                      </div>
+
+                      <div className="p-5 bg-gradient-to-br from-amber-50 to-orange-50/30 rounded-3xl border border-amber-100/50 relative overflow-hidden group hover:shadow-md transition-all">
+                        <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform">
+                          <Activity className="w-16 h-16 text-amber-600" />
+                        </div>
+                        <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-1 relative z-10">System Status</p>
+                        <div className="flex items-center space-x-2 relative z-10">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                          <p className="text-sm font-black text-gray-900 uppercase">Operational</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -1139,7 +1340,11 @@ const AdminDashboard = () => {
                                   {log.recipientRole}
                                 </span>
                               </div>
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{log.eventType.replace(/_/g, ' ')}</p>
+                              <div className="flex items-center space-x-2">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{log.eventType.replace(/_/g, ' ')}</p>
+                                <span className="text-[10px] text-gray-300">•</span>
+                                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">From: {log.sender || 'System'}</p>
+                              </div>
                             </div>
                           </div>
 
@@ -1204,97 +1409,136 @@ const AdminDashboard = () => {
 
       {/* Notification Log Detail Modal */}
       {selectedLog && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
-              <div>
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight">Notification Details</h3>
-                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">
-                  ID: {selectedLog._id}
-                </p>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2rem] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            {/* Header */}
+            <div className="p-8 border-b border-gray-100 bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl">
+                  <Bell className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black tracking-tight">Notification Details</h3>
+                  <p className="text-[10px] font-bold text-blue-100 uppercase tracking-widest mt-0.5 opacity-80">
+                    ID: {selectedLog._id}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedLog(null)}
-                className="p-3 bg-white shadow-sm rounded-2xl text-gray-400 hover:text-rose-600 transition-all hover:scale-110"
+                className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl text-white transition-all hover:scale-110 active:scale-95"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="p-8 overflow-y-auto space-y-6">
+            <div className="p-8 overflow-y-auto space-y-8">
+              {/* Recipient & Event Info Cards */}
               <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Recipient</label>
-                  <p className="text-sm font-black text-gray-900">{selectedLog.recipientName || 'Unknown Name'}</p>
-                  <p className="text-[11px] font-bold text-gray-500">{selectedLog.recipientEmail || selectedLog.recipientPhone}</p>
-                </div>
-                <div className="space-y-1 text-right">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Event Type</label>
-                  <p className="text-sm font-black text-indigo-600">{selectedLog.eventType.replace(/_/g, ' ')}</p>
-                  <p className="text-[11px] font-bold text-gray-400">{new Date(selectedLog.createdAt).toLocaleString()}</p>
-                </div>
-              </div>
-
-              <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Subject Line</label>
-                  <p className="text-sm font-black text-gray-900 leading-tight">
-                    {selectedLog.subject || '(No Subject)'}
-                  </p>
-                </div>
-                <div className="h-px bg-gray-200/50 w-full"></div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Message Content</label>
-                  <p className="text-sm font-medium text-gray-700 leading-relaxed font-mono bg-white p-4 rounded-xl border border-gray-100">
-                    {selectedLog.message || selectedLog.payload?.message || "No content available."}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl space-y-2">
-                  <div className="flex items-center space-x-2 text-emerald-600">
-                    <Mail className="w-4 h-4" />
-                    <span className="text-[10px] font-black uppercase">Email Channel</span>
+                <div className="p-5 bg-blue-50/50 rounded-3xl border border-blue-100/50 flex items-start space-x-4">
+                  <div className="p-2.5 bg-blue-100 text-blue-600 rounded-xl">
+                    <User className="w-5 h-5" />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-emerald-700">Status</span>
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${selectedLog.channels?.email?.sent ? 'bg-emerald-200 text-emerald-800' : 'bg-gray-200 text-gray-600'}`}>
-                      {selectedLog.channels?.email?.sent ? 'SENT' : 'NOT ATTEMPTED'}
-                    </span>
+                  <div>
+                    <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest block mb-1">Recipient</label>
+                    <p className="text-sm font-black text-gray-900 leading-none mb-1">{selectedLog.recipientName || 'Unknown Name'}</p>
+                    <p className="text-[11px] font-bold text-gray-500 break-all">{selectedLog.recipientEmail || selectedLog.recipientPhone}</p>
                   </div>
                 </div>
 
-                <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl space-y-2">
-                  <div className="flex items-center space-x-2 text-indigo-600">
-                    <Phone className="w-4 h-4" />
-                    <span className="text-[10px] font-black uppercase">SMS Channel</span>
+                <div className="p-5 bg-indigo-50/50 rounded-3xl border border-indigo-100/50 flex items-start space-x-4">
+                  <div className="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl">
+                    <Activity className="w-5 h-5" />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-indigo-700">Status</span>
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${selectedLog.channels?.sms?.sent ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-200 text-gray-600'}`}>
-                      {selectedLog.channels?.sms?.sent ? 'SENT' : 'NOT ATTEMPTED'}
-                    </span>
+                  <div>
+                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block mb-1">Event Type</label>
+                    <p className="text-sm font-black text-indigo-600 leading-none mb-1">{selectedLog.eventType.replace(/_/g, ' ')}</p>
+                    <p className="text-[11px] font-bold text-gray-400 flex items-center">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {new Date(selectedLog.createdAt).toLocaleString()}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {selectedLog.payload && Object.keys(selectedLog.payload).length > 2 && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Technical Payload</label>
-                  <pre className="p-4 bg-gray-900 text-emerald-400 text-[10px] rounded-2xl overflow-x-auto font-mono scrollbar-hide">
-                    {JSON.stringify(selectedLog.payload, null, 2)}
-                  </pre>
+              {/* Sender & Context Info */}
+              <div className="p-5 bg-gray-50/50 rounded-3xl border border-gray-100 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-white shadow-sm rounded-xl text-blue-600">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Sender Identity</label>
+                    <p className="text-sm font-black text-gray-900">{selectedLog.sender || 'CareNet System'}</p>
+                  </div>
                 </div>
-              )}
+                <div className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-[9px] font-black uppercase tracking-widest">
+                  Verified Dispatch
+                </div>
+              </div>
+
+              {/* Message Details */}
+              <div className="space-y-4">
+                <div className="p-8 bg-white rounded-3xl border-2 border-gray-50 shadow-sm space-y-6 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
+                  
+                  <div className="relative">
+                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest block mb-2">Subject Line</label>
+                    <p className="text-lg font-black text-gray-900 leading-tight">
+                      {selectedLog.subject || '(No Subject)'}
+                    </p>
+                  </div>
+
+                  <div className="h-px bg-gray-100 w-full relative"></div>
+
+                  <div className="relative">
+                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest block mb-3">Message Content</label>
+                    <div className="text-sm font-medium text-gray-700 leading-relaxed bg-gray-50/50 p-6 rounded-2xl border border-gray-100 italic">
+                      "{selectedLog.message || selectedLog.payload?.message || "No content available."}"
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Channels */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Delivery Status</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className={`p-4 rounded-2xl border transition-all ${selectedLog.channels?.email?.sent ? 'bg-emerald-50 border-emerald-100' : 'bg-gray-50 border-gray-100'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className={`p-2 rounded-lg ${selectedLog.channels?.email?.sent ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-200 text-gray-400'}`}>
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${selectedLog.channels?.email?.sent ? 'bg-emerald-600 text-white' : 'bg-gray-400 text-white'}`}>
+                        {selectedLog.channels?.email?.sent ? 'SENT' : 'SKIPPED'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">Email Channel</p>
+                    <p className="text-[9px] font-bold text-gray-400 mt-0.5">{selectedLog.channels?.email?.sent ? 'Delivered successfully' : 'Not triggered'}</p>
+                  </div>
+
+                  <div className={`p-4 rounded-2xl border transition-all ${selectedLog.channels?.sms?.sent ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className={`p-2 rounded-lg ${selectedLog.channels?.sms?.sent ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-400'}`}>
+                        <Phone className="w-4 h-4" />
+                      </div>
+                      <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${selectedLog.channels?.sms?.sent ? 'bg-blue-600 text-white' : 'bg-gray-400 text-white'}`}>
+                        {selectedLog.channels?.sms?.sent ? 'SENT' : 'SKIPPED'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">SMS Channel</p>
+                    <p className="text-[9px] font-bold text-gray-400 mt-0.5">{selectedLog.channels?.sms?.sent ? 'Delivered successfully' : 'Not triggered'}</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end px-8">
+            <div className="p-8 bg-gray-50/80 backdrop-blur-sm border-t border-gray-100 flex justify-center">
               <button
                 onClick={() => setSelectedLog(null)}
-                className="px-8 py-3 bg-white border border-gray-200 text-gray-600 rounded-2xl font-black text-xs hover:bg-gray-100 transition-all"
+                className="w-full max-w-xs py-4 bg-white border border-gray-200 text-gray-900 rounded-2xl font-black text-sm shadow-sm hover:shadow-md hover:bg-gray-50 transition-all active:scale-95"
               >
-                CLOSE
+                CLOSE VIEW
               </button>
             </div>
           </div>

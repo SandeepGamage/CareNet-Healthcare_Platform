@@ -254,6 +254,7 @@ const handleManualNotification = async (req, res, next) => {
           role: t.role,
           recipientId: t.recipientId,
           data,
+          sender: req.body.sender,
         })
       )
     ).catch((err) => logger.error(`Manual bulk notification dispatch error: ${err.message}`));
