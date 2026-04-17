@@ -18,7 +18,8 @@ import {
 	Activity,
 	FileText,
 	AlertTriangle,
-	ArrowRight
+	ArrowRight,
+	CreditCard
 } from "lucide-react";
 import axios from "axios";
 
@@ -246,7 +247,7 @@ export default function Appointments() {
 		try {
 			const token = localStorage.getItem("token");
 			await axios.post(
-				`http://localhost:3005/api/refunds/auto-request`,
+				`${API_BASE_URL}/refunds/auto-request`,
 				{
 					appointmentId: appointment._id,
 					reason: 'appointment_cancelled',
@@ -576,9 +577,16 @@ export default function Appointments() {
 											</div>
 										</td>
 										<td className="px-6 py-5">
-											<span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${statusStyles[appointment.status] || "bg-slate-100"}`}>
-												{appointment.status}
-											</span>
+											<div className="flex flex-col gap-1.5">
+												<span className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${statusStyles[appointment.status] || "bg-slate-100"}`}>
+													{appointment.status === 'PENDING' && appointment.isPaid ? 'Awaiting Approval' : appointment.status}
+												</span>
+												{appointment.isPaid && (
+													<span className="inline-flex items-center justify-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[9px] font-black uppercase tracking-tighter border border-emerald-200 animate-pulse">
+														<CreditCard size={10} /> Paid
+													</span>
+												)}
+											</div>
 										</td>
 										<td className="px-6 py-5 max-w-[300px]">
 											<div className="flex items-start gap-2">
@@ -717,10 +725,15 @@ export default function Appointments() {
 										</div>
 										<div className="space-y-2">
 											<p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Current Status</p>
-											<div className="flex items-center gap-2">
-												<span className={`inline-flex rounded-xl px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] shadow-sm ${statusStyles[selectedAppointment.status] || "bg-slate-100"}`}>
+											<div className="flex flex-col gap-2">
+												<span className={`inline-flex items-center justify-center rounded-xl px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] shadow-sm ${statusStyles[selectedAppointment.status] || "bg-slate-100"}`}>
 													{selectedAppointment.status}
 												</span>
+												{selectedAppointment.isPaid && (
+													<span className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-black uppercase border border-emerald-200">
+														<CreditCard size={12} /> Payment Verified
+													</span>
+												)}
 											</div>
 										</div>
 										<div className="space-y-2">

@@ -57,6 +57,7 @@ const handlePayhereWebhook = async (req, res) => {
       }
 
       transaction.status = 'succeeded';
+      transaction.paymentId = req.body.payment_id;
       transaction.payhereOrderId = order_id;
       await transaction.save();
 
