@@ -15,8 +15,10 @@ const {
   getProfileById,
   updateMyProfileAvailableHours,
   updateMyProfile,
+  updateProfileWithUser,
   updateProfile,
   deleteProfile,
+  deleteMyProfile,
   bookSlot,
   freeSlot,
   resetAllSlots,
@@ -35,10 +37,11 @@ router.get("/details/:id", protect, authorizeDoctorAdminPatient, getProfileById)
 router.patch("/me/available-hours", protect, authorizeDoctor, updateMyProfileAvailableHours);
 router.put("/me", protect, authorizeDoctor, normalizeDoctorPayload, updateMyProfile);
 router.post("/", protect, authorizeDoctor, normalizeDoctorPayload, createProfile);
-router.put("/:id", protect, authorizeDoctor, normalizeDoctorPayload, updateProfile);
+router.put("/:id", protect, authorizeDoctor, normalizeDoctorPayload, updateProfileWithUser);
 router.patch("/book-slot/:id", protect, bookSlot); // Can be called by appointment service
 router.patch("/free-slot/:id", protect, freeSlot); // Can be called by appointment service
 router.post("/reset-slots", protect, resetAllSlots);
 router.delete("/:id", protect, authorizeDoctor, deleteProfile);
+router.delete("/me", protect, authorizeDoctor, deleteMyProfile);
 
 module.exports = router;
