@@ -24,7 +24,7 @@ spec:
             - name: APPOINTMENT_SERVICE_URL
               value: "http://appointment-service:3004"
             - name: GEMINI_API_KEY
-              value: "AIzaSyDDNNr7YCz7p-Of06eZO4bVRb-1jWoyTmE"
+              value: "AQ.Ab8RN6KyMMVns-NhinEKIR0Eq44yIP7SOkTLg6kshHcwfIgbmg"
               # valueFrom:
               #   secretKeyRef:
               #     name: symptom-secret
