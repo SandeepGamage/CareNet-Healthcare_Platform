@@ -14,6 +14,8 @@ export default function PrescriptionForm({
   onBackToList,
   onInputChange,
   onAddMedicine,
+  onEditMedicineClick,
+  onSaveMedicine,
   onRemoveMedicine,
   onSubmitPrescription,
   onEditPrescription,
@@ -288,12 +290,17 @@ export default function PrescriptionForm({
                     onFormError?.(firstError);
                     return;
                   }
-                  onAddMedicine?.();
+                  // If an edit is in progress, call save; otherwise add new medicine
+                  if (typeof onSaveMedicine === "function" && formData._editingMedicineId) {
+                    onSaveMedicine?.();
+                  } else {
+                    onAddMedicine?.();
+                  }
                 }}
                 disabled={isSubmitting}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Plus size={18} /> Add Medicine
+                <Plus size={18} /> {formData._editingMedicineId ? "Save Medicine" : "Add Medicine"}
               </button>
             </div>
             <ConfirmationDialog
@@ -444,6 +451,13 @@ export default function PrescriptionForm({
                     {m.instructions && <p className="text-xs text-slate-400 mt-1">{m.instructions}</p>}
                   </div>
                   <div className="ml-4">
+                    <button
+                      type="button"
+                      onClick={() => onEditMedicineClick?.(m.id)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 mr-2"
+                    >
+                      Update
+                    </button>
                     <button
                       type="button"
                       onClick={() => onRemoveMedicine?.(m.id)}
