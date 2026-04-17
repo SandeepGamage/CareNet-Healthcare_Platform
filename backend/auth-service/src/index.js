@@ -10,6 +10,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Serve local uploads (fallback when Supabase service role key not available)
+const path = require('path');
+const fs = require('fs');
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
+
 // Routes
 app.use('/api/auth', authRoutes);
 

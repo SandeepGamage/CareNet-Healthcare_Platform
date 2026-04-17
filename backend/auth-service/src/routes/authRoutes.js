@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe, getPendingDoctors, getAllDoctors, getVerifiedDoctors, approveDoctor, rejectDoctor, verifyOTP, resendOTP, deactivateAccount, getAllPatients, forgotPassword, resetPassword } = require('../controllers/authController');
+const { register, login, getMe, updateMe, uploadAvatar, getPendingDoctors, getAllDoctors, getVerifiedDoctors, approveDoctor, rejectDoctor, verifyOTP, resendOTP, deactivateAccount, getAllPatients, forgotPassword, resetPassword } = require('../controllers/authController');
 const protect = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
@@ -17,6 +17,9 @@ router.post('/reset-password', resetPassword);
 // Protected routes – require valid JWT
 router.get('/me', protect, getMe);
 router.post('/deactivate', protect, deactivateAccount);
+router.put('/me', protect, updateMe);
+// Upload avatar (separate endpoint) - accepts multipart/form-data with field 'profileImage'
+router.post('/me/avatar', protect, upload.single('profileImage'), uploadAvatar);
 
 // Public-facing: list only approved doctors (any logged-in user, including patients)
 router.get('/doctors/verified', protect, getVerifiedDoctors);
