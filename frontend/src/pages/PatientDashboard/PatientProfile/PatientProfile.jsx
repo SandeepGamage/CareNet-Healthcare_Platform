@@ -180,9 +180,9 @@ export default function PatientProfile() {
                         </div>
                     </div>
 
-                    {statusMessage && (
+                    {/* {statusMessage && (
                         <p className="text-sm text-slate-600">{loading ? "Loading profile..." : statusMessage}</p>
-                    )}
+                    )} */}
                 </div>
 
                 <div className="mb-8 grid gap-4 md:grid-cols-3">
@@ -212,7 +212,7 @@ export default function PatientProfile() {
                 <div className="overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-md">
                     <div className="border-b border-blue-100 bg-linear-to-r from-blue-50 to-sky-50 px-6 py-4">
                         <h2 className="text-lg font-bold text-slate-800">Health & Emergency Details</h2>
-                        <p className="mt-1 text-sm text-slate-600">Information currently associated with your logged-in account</p>
+                        {/* <p className="mt-1 text-sm text-slate-600">Information currently associated with your logged-in account</p> */}
                     </div>
                     <div className="grid gap-6 p-6 md:grid-cols-2">
                         <div>

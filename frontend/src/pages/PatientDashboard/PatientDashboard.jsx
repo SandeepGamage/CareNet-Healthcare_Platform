@@ -1,5 +1,24 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+    Activity,
+    Calendar,
+    DollarSign,
+    Download,
+    Eye,
+    FileText,
+    HeartPulse,
+    Home,
+    Info,
+    LogOut,
+    Menu,
+    Settings,
+    Trash2,
+    User,
+    Users,
+    Video,
+    X,
+} from "lucide-react";
 // Render a local header instead of the shared Navbar
 import PatientProfile from "./PatientProfile/PatientProfile";
 import MedicalRecordsTab from "./MedicalRecords/MedicalRecordsTab";
@@ -99,7 +118,7 @@ const healthScoreData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 export default function ModernPatientDashboard() {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState("overview");
+    const [activeTab, setActiveTab] = useState("profile");
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [appointmentsData, setAppointmentsData] = useState([]);
     const [paymentsData, setPaymentsData] = useState([]);
@@ -245,287 +264,92 @@ export default function ModernPatientDashboard() {
     };
 
     return (
-        <div style={{
-            minHeight: "100vh",
-            background: "linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%)",
-            fontFamily: "'Segoe UI', 'Helvetica Neue', sans-serif",
-        }}>
-            {/* ── TOP NAVIGATION ────────────────────────────────────────────────── */}
-            {/* ── TOP NAVIGATION ────────────────────────────────────────────────── */}
-            <header style={{ padding: "16px 24px", borderBottom: "1px solid #e5e7eb", background: "linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%)" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "20px", minWidth: 0 }}>
-                        <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ padding: "8px", borderRadius: "8px", border: "none", background: "transparent", cursor: "pointer" }}>☰</button>
-
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px", whiteSpace: "nowrap", minWidth: 0 }}>
-                            <div style={{
-                                width: "40px",
-                                height: "40px",
-                                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                                borderRadius: "10px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: "white",
-                                fontSize: "20px",
-                            }}>
-                                💙
-                            </div>
-                            <span style={{ fontSize: "20px", fontWeight: 700, color: "#111827", flexShrink: 0 }}>CareNet</span>
-                        </div>
-
-                        <div style={{ display: "flex", gap: "8px", marginLeft: "12px", flexWrap: "nowrap", overflowX: "auto", alignItems: "center" }}>
-                            {["overview", "appointments", "telemedicine", "vitals", "prescriptions", "payments", "profile"].map((tab) => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    style={{
-                                        padding: "8px 16px",
-                                        fontSize: "14px",
-                                        fontWeight: 500,
-                                        color: activeTab === tab ? "#3b82f6" : "#6b7280",
-                                        background: "transparent",
-                                        border: "none",
-                                        cursor: "pointer",
-                                        borderBottom: activeTab === tab ? "2px solid #3b82f6" : "none",
-                                        transition: "all 0.2s",
-                                        whiteSpace: "nowrap"
-                                    }}
-                                >
-                                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                                </button>
-                            ))}
-                        </div>
+        <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 flex font-sans">
+            <aside className={`${sidebarOpen ? "w-72" : "w-20"} bg-white border-r border-slate-200 transition-all duration-300 flex flex-col z-50`}>
+                <div className="p-6 flex items-center gap-3 border-b border-slate-100">
+                    <div className="w-9 h-9 rounded-full bg-linear-to-br from-teal-500 to-blue-600 flex items-center justify-center shadow-md">
+                        <HeartPulse className="text-white w-5 h-5" />
                     </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{ textAlign: "right" }}>
-                            <div style={{ fontSize: "14px", fontWeight: 700, color: "#111827" }}>{userProfile.name}</div>
-                            <div style={{ fontSize: "12px", color: "#6b7280" }}>{userProfile.email}</div>
-                        </div>
-                        <img src={userProfile.avatar} alt="Profile" style={{ width: "40px", height: "40px", borderRadius: "8px", objectFit: "cover" }} />
-                    </div>
-                </div>
-            </header>
-
-            {/* ── SIDEBAR ───────────────────────────────────────────────────────── */}
-            <div style={{
-                display: "flex",
-                minHeight: "calc(100vh - 72px)",
-            }}>
-                {/* Sidebar */}
-                <aside style={{
-                    width: sidebarOpen ? "280px" : "0px",
-                    background: "linear-gradient(180deg, #1e3a8a 0%, #1d4ed8 100%)",
-                    color: "white",
-                    padding: sidebarOpen ? "24px" : "0px",
-                    borderRight: sidebarOpen ? "1px solid #2563eb" : "none",
-                    overflow: "hidden",
-                    transition: "all 0.3s ease",
-                    boxShadow: sidebarOpen ? "4px 0 16px rgba(37,99,235,0.25)" : "none",
-                }}>
-                    {/* Quick Links */}
                     {sidebarOpen && (
-                        <div>
-                            <p style={{
-                                fontSize: "11px",
-                                fontWeight: 700,
-                                color: "rgba(255,255,255,0.6)",
-                                margin: "0 0 16px 0",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.5px",
-                            }}>
-                                Menu
-                            </p>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "32px" }}>
-                                {[
-                                    { icon: "📊", label: "Dashboard", tab: "overview" },
-                                    { icon: "📅", label: "Appointments", tab: "appointments" },
-                                    { icon: "🎥", label: "Telemedicine", tab: "telemedicine" },
-                                    { icon: "📋", label: "Medical Records", tab: "vitals" },
-                                    { icon: "💊", label: "Prescriptions", tab: "prescriptions" },
-                                    { icon: "💳", label: "Payment History", tab: "payments" },
-                                    { icon: "👤", label: "Profile", tab: "profile" },
-                                    { icon: "⚙️", label: "Settings", tab: "settings" },
-                                ].map((item, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => setActiveTab(item.tab)}
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "12px",
-                                            padding: "12px 16px",
-                                            background: activeTab === item.tab ? "rgba(255, 255, 255, 0.2)" : "transparent",
-                                            border: activeTab === item.tab ? "1px solid rgba(255,255,255,0.5)" : "1px solid transparent",
-                                            borderRadius: "10px",
-                                            color: "white",
-                                            cursor: "pointer",
-                                            fontSize: "14px",
-                                            fontWeight: 500,
-                                            transition: "all 0.2s",
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            if (!item.active) {
-                                                e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
-                                            }
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            if (!item.active) {
-                                                e.currentTarget.style.background = "transparent";
-                                            }
-                                        }}
-                                    >
-                                        <span style={{ fontSize: "16px" }}>{item.icon}</span>
-                                        <span>{item.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Divider */}
-                            <div style={{ height: "1px", background: "rgba(255,255,255,0.2)", marginBottom: "24px" }} />
-
-                            {/* Support Section */}
-                            <p style={{
-                                fontSize: "11px",
-                                fontWeight: 700,
-                                color: "#9ca3af",
-                                margin: "0 0 16px 0",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.5px",
-                            }}>
-                                Support
-                            </p>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "32px" }}>
-                                {[
-                                    { icon: "❓", label: "Help Center" },
-                                    { icon: "💬", label: "Message Doctor" },
-                                    { icon: "📲", label: "Download App" },
-                                ].map((item, i) => (
-                                    <button
-                                        key={i}
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "12px",
-                                            padding: "12px 16px",
-                                            background: "transparent",
-                                            border: "1px solid transparent",
-                                            borderRadius: "10px",
-                                            color: "#d1d5db",
-                                            cursor: "pointer",
-                                            fontSize: "14px",
-                                            fontWeight: 500,
-                                            transition: "all 0.2s",
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
-                                            e.currentTarget.style.color = "white";
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.background = "transparent";
-                                            e.currentTarget.style.color = "#d1d5db";
-                                        }}
-                                    >
-                                        <span style={{ fontSize: "16px" }}>{item.icon}</span>
-                                        <span>{item.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* User Profile at Bottom */}
-                            <div style={{
-                                marginTop: "auto",
-                                paddingTop: "24px",
-                                borderTop: "1px solid #374151",
-                            }}>
-                                <div style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "12px",
-                                    padding: "12px",
-                                    background: "rgba(255, 255, 255, 0.05)",
-                                    borderRadius: "10px",
-                                    cursor: "pointer",
-                                    transition: "all 0.2s",
-                                }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-                                    }}>
-                                    <img src={userProfile.avatar} alt="Profile" style={{
-                                        width: "36px",
-                                        height: "36px",
-                                        borderRadius: "8px",
-                                        objectFit: "cover",
-                                    }} />
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <p style={{ fontSize: "13px", fontWeight: 600, margin: "0", color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                            {userProfile.name}
-                                        </p>
-                                        <p style={{ fontSize: "11px", margin: "2px 0 0 0", color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                            {userProfile.email}
-                                        </p>
-                                        <p style={{ fontSize: "11px", margin: "2px 0 0 0", color: "rgba(255,255,255,0.4)" }}>
-                                            {userProfile.phone}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        localStorage.clear();
-                                        window.location.href = "/login";
-                                    }}
-                                    style={{
-                                        width: "100%",
-                                        padding: "10px 16px",
-                                        marginTop: "12px",
-                                        background: "transparent",
-                                        border: "1px solid #4b5563",
-                                        borderRadius: "8px",
-                                        color: "#d1d5db",
-                                        cursor: "pointer",
-                                        fontSize: "13px",
-                                        fontWeight: 500,
-                                        transition: "all 0.2s",
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
-                                        e.currentTarget.style.borderColor = "#ef4444";
-                                        e.currentTarget.style.color = "#fca5a5";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = "transparent";
-                                        e.currentTarget.style.borderColor = "#4b5563";
-                                        e.currentTarget.style.color = "#d1d5db";
-                                    }}>
-                                    Sign out
-                                </button>
-                            </div>
+                        <div className="flex flex-col">
+                            <span className="text-xl font-bold tracking-tight text-slate-900">
+                                Care<span className="text-blue-600">Net</span>
+                            </span>
+                            <span className="text-xs text-slate-500 mt-0.5">Healthcare Platform</span>
                         </div>
                     )}
-                </aside>
+                </div>
 
-                {/* Main Content Area */}
-                <main style={{
-                    flex: 1,
-                    padding: "40px",
-                    maxWidth: "1400px",
+                <nav className="flex-1 p-4 space-y-2 mt-4">
+                    {[
+                        { id: "profile", icon: Users, label: "Profile" },
+                        { id: "appointments", icon: Calendar, label: "Appointments" },
+                        { id: "telemedicine", icon: Video, label: "Telemedicine" },
+                        { id: "vitals", icon: Activity, label: "Medical Records" },
+                        { id: "prescriptions", icon: FileText, label: "Prescriptions" },
+                        { id: "payments", icon: DollarSign, label: "Payment History" },
+                        { id: "settings", icon: Settings, label: "Settings" },
+                    ].map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => setActiveTab(item.id)}
+                            className={`w-full flex items-center gap-4 p-3.5 rounded-xl transition-all ${
+                                activeTab === item.id
+                                    ? "bg-linear-to-r from-teal-600 to-blue-600 text-white shadow-sm"
+                                    : "text-slate-500 hover:bg-slate-50"
+                            }`}
+                        >
+                            <item.icon size={20} className={activeTab === item.id ? "text-white" : "text-slate-400"} />
+                            {sidebarOpen && <span className="font-semibold text-[15px]">{item.label}</span>}
+                            {activeTab === item.id && sidebarOpen && <div className="ml-auto w-1.5 h-1.5 bg-white rounded-full" />}
+                        </button>
+                    ))}
+                </nav>
+
+                <div className="py-2 px-3 border-t border-slate-100 mb-2">
+                    <button
+                        onClick={() => {
+                            localStorage.clear();
+                            navigate("/login");
+                        }}
+                        className="w-full flex items-center gap-3 py-2.5 px-3.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                    >
+                        <LogOut size={20} />
+                        {sidebarOpen && <span className="font-semibold text-[15px]">Logout</span>}
+                    </button>
+                </div>
+            </aside>
+
+            <main className="flex-1 overflow-y-auto">
+                <div className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            title="Toggle Sidebar"
+                            className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all active:scale-95"
+                        >
+                            <Menu size={18} />
+                        </button>
+                        <div className="text-xl font-bold text-slate-800">Welcome, {userProfile.name}</div>
+                    </div>
+                    <div className="hidden md:flex items-center gap-3">
+                        <button
+                            onClick={() => navigate("/")}
+                            title="Home"
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold bg-linear-to-r from-teal-600 to-blue-600 text-white hover:shadow-lg transition-all cursor-pointer"
+                        >
+                            <Home size={18} className="text-white" />
+                            <span>Home</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div style={{
+                    padding: activeTab === "profile" ? "0" : "40px",
+                    maxWidth: activeTab === "profile" ? "100%" : "1400px",
                     width: "100%",
                     overflow: "auto",
                 }}>
-
-                    {/* Header */}
-                    <div style={{ marginBottom: "40px" }}>
-                        <h1 style={{ fontSize: "36px", fontWeight: 700, color: "#111827", margin: "0 0 8px 0" }}>
-                            Welcome back, {userProfile.name.split(" ")[0]}
-                        </h1>
-                        <p style={{ fontSize: "16px", color: "#6b7280", margin: 0 }}>
-                            Here's your health summary for this week
-                        </p>
-                    </div>
 
                     {/* ── OVERVIEW TAB ──────────────────────────────────────────────── */}
                     {activeTab === "overview" && (
@@ -1009,8 +833,8 @@ export default function ModernPatientDashboard() {
 
                     {/* ── PROFILE TAB ──────────────────────────────────────────────── */}
                     {activeTab === "profile" && <PatientProfile />}
+                </div>
                 </main>
-            </div>
         </div>
     );
 }
