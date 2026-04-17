@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Download, Eye, Trash2, X, Calendar, User, DollarSign, Info } from "lucide-react";
 import {
     Activity,
     Calendar,
