@@ -117,13 +117,13 @@ export default function Prescriptions() {
     let patientObj = {
       patientUserId: prescription.patient,
       medicalReportId: prescription.patientReportId || null,
-      title: prescription.title || null,
+      title: prescription.title || prescription.reportTitle || null,
       reportType: prescription.reportType || null,
-      fileName: prescription.fileName || null,
-      fileUrl: prescription.fileUrl || null,
-      mimeType: prescription.mimeType || null,
+      fileName: prescription.fileName || prescription.reportFileName || null,
+      fileUrl: prescription.fileUrl || prescription.reportFileUrl || null,
+      mimeType: prescription.mimeType || prescription.fileType || null,
       fileSize: prescription.fileSize || null,
-      description: prescription.description || null,
+      description: prescription.description || prescription.reportDescription || null,
     };
 
     // If we have a report id, try to fetch the full report details from patient service
@@ -157,7 +157,7 @@ export default function Prescriptions() {
 
     setSelectedPatient(patientObj);
 
-    // Prefill medications and form fields
+    // Prefill medications and set editing mode for the first medicine so the form shows "Save Medicine"
     const meds = (prescription.medications && prescription.medications.length)
       ? prescription.medications.map((m, i) => ({ id: Date.now() + i, ...m }))
       : [
@@ -173,14 +173,18 @@ export default function Prescriptions() {
         ];
 
     setMedications(meds);
+    const firstMed = meds[0] || null;
+    const editId = firstMed?.id || null;
+    setEditingMedicineId(editId);
     setFormData({
       diagnosis: prescription.diagnosis || "",
-      medicationName: meds[0]?.medicationName || "",
-      dosage: meds[0]?.dosage || "",
-      frequency: meds[0]?.frequency || "",
-      duration: meds[0]?.duration || "",
-      instructions: meds[0]?.instructions || "",
-      notes: meds[0]?.notes || "",
+      medicationName: firstMed?.medicationName || "",
+      dosage: firstMed?.dosage || "",
+      frequency: firstMed?.frequency || "",
+      duration: firstMed?.duration || "",
+      instructions: firstMed?.instructions || "",
+      notes: firstMed?.notes || "",
+      _editingMedicineId: editId,
     });
   };
 
@@ -320,6 +324,7 @@ export default function Prescriptions() {
 
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [medications, setMedications] = useState([]);
+  const [editingMedicineId, setEditingMedicineId] = useState(null);
   const [editingPrescription, setEditingPrescription] = useState(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -356,10 +361,28 @@ export default function Prescriptions() {
         onAddMedicine={() => {
           setValidationErrors({});
           setErrorMessage("");
-          setMedications([...medications, { ...formData, id: Date.now() }]);
-          setFormData(prev => ({ ...prev, medicationName: "", dosage: "", frequency: "", duration: "", instructions: "", notes: "" }));
+          // ensure temporary editing marker is removed when adding
+          const { _editingMedicineId, ...cleanForm } = formData || {};
+          setMedications([...medications, { ...cleanForm, id: Date.now() }]);
+          setFormData(prev => ({ ...prev, medicationName: "", dosage: "", frequency: "", duration: "", instructions: "", notes: "", _editingMedicineId: undefined }));
+          setEditingMedicineId(null);
         }}
         onRemoveMedicine={id => setMedications(medications.filter(medicine => medicine.id !== id))}
+        onEditMedicineClick={(id) => {
+          const med = medications.find(m => m.id === id);
+          if (!med) return;
+          // populate form with med values and mark editing id
+          setFormData(prev => ({ ...prev, medicationName: med.medicationName || med.name || "", dosage: med.dosage || "", frequency: med.frequency || "", duration: med.duration || "", instructions: med.instructions || "", notes: med.notes || "", _editingMedicineId: id }));
+          setEditingMedicineId(id);
+        }}
+        onSaveMedicine={() => {
+          const id = editingMedicineId || formData._editingMedicineId;
+          if (!id) return;
+          const updated = medications.map(m => m.id === id ? ({ ...m, medicationName: formData.medicationName || m.medicationName, dosage: formData.dosage || m.dosage, frequency: formData.frequency || m.frequency, duration: formData.duration || m.duration, instructions: formData.instructions || m.instructions, notes: formData.notes || m.notes }) : m);
+          setMedications(updated);
+          setEditingMedicineId(null);
+          setFormData(prev => ({ ...prev, medicationName: "", dosage: "", frequency: "", duration: "", instructions: "", notes: "", _editingMedicineId: undefined }));
+        }}
         onSubmitPrescription={async () => {
           setSubmitLoading(true);
           setErrorMessage("");
@@ -418,7 +441,8 @@ export default function Prescriptions() {
                 setSubmitLoading(false);
                 return;
               }
-              setSuccessMessage("Prescription updated successfully.");
+              // Do not show a success message for updates to avoid persistent notification
+              setSuccessMessage("");
             } else {
               // Create new prescription
               const response = await fetch(PRESCRIPTIONS_ENDPOINT, {
@@ -443,7 +467,8 @@ export default function Prescriptions() {
                 setSubmitLoading(false);
                 return;
               }
-              setSuccessMessage("Prescription created successfully.");
+              // Do not show a success message on create to avoid the persistent notification
+              setSuccessMessage("");
               // Remove the associated report from the reports table so it no longer appears.
               try {
                 // Use backend-created object if available — it may store a different id field.
@@ -483,6 +508,7 @@ export default function Prescriptions() {
             setMedications([]);
             setFormData({ diagnosis: "", medicationName: "", dosage: "", frequency: "", duration: "", instructions: "", notes: "" });
             setEditingPrescription(null);
+            setEditingMedicineId(null);
           } catch (err) {
             setErrorMessage("Network error. Could not save prescription.");
           } finally {
@@ -496,6 +522,7 @@ export default function Prescriptions() {
           setMedications([]);
           setValidationErrors({});
           setFormData({ diagnosis: "", medicationName: "", dosage: "", frequency: "", duration: "", instructions: "", notes: "" });
+          setEditingMedicineId(null);
         }}
         onValidationErrorsChange={setValidationErrors}
         onFormError={setErrorMessage}
