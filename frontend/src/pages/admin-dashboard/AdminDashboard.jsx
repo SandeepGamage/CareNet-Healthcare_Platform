@@ -89,6 +89,7 @@ const AdminDashboard = () => {
 
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifSuccess, setNotifSuccess] = useState(null);
+  const [reportPeriod, setReportPeriod] = useState('all'); // 'all', 'daily', 'monthly', 'yearly'
 
   const [cancelReason, setCancelReason] = useState('');
 
@@ -355,25 +356,49 @@ const AdminDashboard = () => {
   };
 
   const handleDownloadNotificationReport = () => {
+    let filteredLogs = [...notificationLogs];
+    const now = new Date();
+    
+    if (reportPeriod === 'daily') {
+      filteredLogs = notificationLogs.filter(log => {
+        const d = new Date(log.createdAt);
+        return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+    } else if (reportPeriod === 'monthly') {
+      filteredLogs = notificationLogs.filter(log => {
+        const d = new Date(log.createdAt);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+    } else if (reportPeriod === 'yearly') {
+      filteredLogs = notificationLogs.filter(log => {
+        const d = new Date(log.createdAt);
+        return d.getFullYear() === now.getFullYear();
+      });
+    }
+
+    if (filteredLogs.length === 0) {
+      alert(`No notification dispatches found for the selected period: ${reportPeriod.toUpperCase()}`);
+      return;
+    }
+
     const doc = new jsPDF();
     
     // Add header
     doc.setFontSize(22);
     doc.setTextColor(30, 41, 59); // slate-800
-    doc.text('CareNet Notification Report', 14, 25);
+    doc.text(`CareNet Notification Report (${reportPeriod.toUpperCase()})`, 14, 25);
     
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139); // slate-500
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 32);
-    doc.text(`Total Dispatches: ${notificationLogs.length}`, 14, 37);
+    doc.text(`Dispatches in this Period: ${filteredLogs.length}`, 14, 37);
     
     // Summary Stats
-    const successCount = notificationLogs.filter(l => l.status === 'success').length;
-    const failureCount = notificationLogs.length - successCount;
-    doc.text(`Success Rate: ${notificationLogs.length > 0 ? Math.round((successCount/notificationLogs.length)*100) : 0}%`, 14, 42);
+    const successCount = filteredLogs.filter(l => l.status === 'success').length;
+    doc.text(`Success Rate: ${filteredLogs.length > 0 ? Math.round((successCount/filteredLogs.length)*100) : 0}%`, 14, 42);
 
     // Create Table
-    const tableData = notificationLogs.map(log => [
+    const tableData = filteredLogs.map(log => [
       new Date(log.createdAt).toLocaleString(),
       log.recipientName || log.recipientEmail || log.recipientPhone || 'N/A',
       log.sender || 'System',
@@ -394,10 +419,10 @@ const AdminDashboard = () => {
       },
       alternateRowStyles: { fillColor: [248, 250, 252] }, // slate-50
       margin: { top: 50 },
-      styles: { fontSize: 8 } // Reduced font size to fit more columns
+      styles: { fontSize: 8 }
     });
     
-    doc.save(`CareNet_Notification_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`CareNet_Notification_${reportPeriod}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const selectRecipient = (person) => {
@@ -1231,6 +1256,19 @@ const AdminDashboard = () => {
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Live notification lifecycle tracking</p>
                       </div>
                       <div className="flex items-center space-x-3">
+                        <div className="flex bg-gray-100 p-1 rounded-2xl">
+                          <select 
+                            value={reportPeriod}
+                            onChange={(e) => setReportPeriod(e.target.value)}
+                            className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest px-3 py-1.5 focus:ring-0 cursor-pointer appearance-none outline-none"
+                            title="Filter by period"
+                          >
+                            <option value="all">All Dispatches</option>
+                            <option value="daily">Today Only</option>
+                            <option value="monthly">This Month</option>
+                            <option value="yearly">This Year</option>
+                          </select>
+                        </div>
                         <button 
                           onClick={handleDownloadNotificationReport}
                           className="flex items-center space-x-2 px-5 py-2.5 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all text-xs font-black shadow-sm group"
