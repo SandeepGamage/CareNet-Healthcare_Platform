@@ -72,6 +72,7 @@ const dispatchNotification = async ({
   data,
   referenceId,
   referenceType,
+  sender,
 }) => {
   const emailResult  = { sent: false, messageId: null, error: null };
   const smsResult    = { sent: false, messageSid: null, error: null };
@@ -97,7 +98,7 @@ const dispatchNotification = async ({
 
   // ── Email ─────────────────────────────────────────────────────────────────
   if (email) {
-    const result = await sendTemplatedEmail(email, eventType, data);
+    const result = await sendTemplatedEmail(email, eventType, { ...data, senderName: sender || 'CareNet Administration' });
     emailResult.sent      = result.success;
     emailResult.messageId = result.messageId || null;
     emailResult.error     = result.error || null;
@@ -105,8 +106,16 @@ const dispatchNotification = async ({
 
   // ── SMS ───────────────────────────────────────────────────────────────────
   if (phone) {
-    // User requested: "sms send when only doctor approved the appointment"
-    const allowedSmsEvents = ['APPOINTMENT_CONFIRMED', 'APPOINTMENT_CANCELLED', 'APPOINTMENT_BOOKED', 'VERIFICATION_CODE_SMS', 'REFUND_SUCCESS', 'REFUND_REQUESTED']; // VERIFICATION is needed for login if any
+    // Allowed events for SMS delivery
+    const allowedSmsEvents = [
+      'APPOINTMENT_CONFIRMED', 
+      'APPOINTMENT_CANCELLED', 
+      'APPOINTMENT_BOOKED', 
+      'VERIFICATION_CODE_SMS', 
+      'REFUND_SUCCESS', 
+      'REFUND_REQUESTED',
+      'MANUAL_MESSAGE' // Added to allow manual admin SMS
+    ];
     
     if (allowedSmsEvents.includes(eventType)) {
       const smsBody  = getSMSBody(eventType, data);
@@ -145,6 +154,7 @@ const dispatchNotification = async ({
       message         : renderedMsg,
       subject         : renderedSubject,
       recipientName   : name,
+      sender          : sender || 'CareNet System',
       status,
     });
   } catch (error) {

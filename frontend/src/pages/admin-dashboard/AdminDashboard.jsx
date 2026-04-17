@@ -30,6 +30,8 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import axios from 'axios';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import Navbar from '../../components/common/Navbar';
 import AppointmentsView from './Appointments/viewAppointments';
 
@@ -79,7 +81,8 @@ const AdminDashboard = () => {
     subject: '',
     message: '',
     isOtp: false,
-    role: 'user'
+    role: 'user',
+    sender: 'CareNet Administration'
   });
   const [selectedLog, setSelectedLog] = useState(null); // For modal viewer
 
@@ -325,7 +328,8 @@ const AdminDashboard = () => {
         subject: '',
         message: '',
         isOtp: false,
-        role: 'user'
+        role: 'user',
+        sender: 'CareNet Administration'
       });
       setSelectedRecipients([]);
       setSearchQuery('');
@@ -348,6 +352,52 @@ const AdminDashboard = () => {
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to delete log entry');
     }
+  };
+
+  const handleDownloadNotificationReport = () => {
+    const doc = new jsPDF();
+    
+    // Add header
+    doc.setFontSize(22);
+    doc.setTextColor(30, 41, 59); // slate-800
+    doc.text('CareNet Notification Report', 14, 25);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 32);
+    doc.text(`Total Dispatches: ${notificationLogs.length}`, 14, 37);
+    
+    // Summary Stats
+    const successCount = notificationLogs.filter(l => l.status === 'success').length;
+    const failureCount = notificationLogs.length - successCount;
+    doc.text(`Success Rate: ${notificationLogs.length > 0 ? Math.round((successCount/notificationLogs.length)*100) : 0}%`, 14, 42);
+
+    // Create Table
+    const tableData = notificationLogs.map(log => [
+      new Date(log.createdAt).toLocaleString(),
+      log.recipientName || log.recipientEmail || log.recipientPhone || 'N/A',
+      log.sender || 'System',
+      log.eventType?.replace(/_/g, ' ') || 'N/A',
+      log.status?.toUpperCase() || 'N/A',
+      `${log.channels?.email?.sent ? 'Email ' : ''}${log.channels?.sms?.sent ? 'SMS' : ''}`.trim() || 'None'
+    ]);
+    
+    autoTable(doc, {
+      startY: 50,
+      head: [['Date', 'Recipient', 'Sender', 'Event Type', 'Status', 'Channels']],
+      body: tableData,
+      headStyles: { 
+        fillColor: [59, 130, 246], // blue-500
+        textColor: [255, 255, 255],
+        fontSize: 10,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] }, // slate-50
+      margin: { top: 50 },
+      styles: { fontSize: 8 } // Reduced font size to fit more columns
+    });
+    
+    doc.save(`CareNet_Notification_Report_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const selectRecipient = (person) => {
@@ -960,6 +1010,16 @@ const AdminDashboard = () => {
                   </div>
 
                   <form onSubmit={handleSendNotification} className="p-8 space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Send From</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. CareNet Administration"
+                        value={notifForm.sender}
+                        onChange={(e) => setNotifForm({ ...notifForm, sender: e.target.value })}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
+                      />
+                    </div>
                     {notifSuccess && (
                       <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-700 text-sm font-bold flex items-center mb-4">
                         <CheckCircle className="w-5 h-5 mr-2" />
@@ -1164,12 +1224,62 @@ const AdminDashboard = () => {
 
                 {/* Recent Logs Summary */}
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-                  <div className="p-8 border-b border-gray-100">
+                  <div className="p-8 border-b border-gray-100 bg-white">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-2xl font-black text-gray-900 tracking-tight">Recent Dispatches</h2>
-                      <button onClick={fetchNotificationLogs} className="p-2 hover:bg-gray-50 rounded-xl transition-colors">
-                        <Activity className="w-5 h-5 text-blue-600" />
-                      </button>
+                      <div>
+                        <h2 className="text-2xl font-black text-gray-900 tracking-tight">Recent Dispatches</h2>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Live notification lifecycle tracking</p>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <button 
+                          onClick={handleDownloadNotificationReport}
+                          className="flex items-center space-x-2 px-5 py-2.5 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all text-xs font-black shadow-sm group"
+                        >
+                          <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                          <span>EXPORT PDF</span>
+                        </button>
+                        <button 
+                          onClick={fetchNotificationLogs} 
+                          className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-600 hover:text-white transition-all shadow-sm group"
+                          title="Refresh Logs"
+                        >
+                          <Activity className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Dynamic Real-time Stats */}
+                    <div className="grid grid-cols-3 gap-4 mt-8">
+                      <div className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50/30 rounded-3xl border border-blue-100/50 relative overflow-hidden group hover:shadow-md transition-all">
+                        <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform">
+                          <Bell className="w-16 h-16 text-blue-600" />
+                        </div>
+                        <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1 relative z-10">Total Dispatches</p>
+                        <p className="text-2xl font-black text-gray-900 relative z-10">{notificationLogs.length}</p>
+                      </div>
+
+                      <div className="p-5 bg-gradient-to-br from-emerald-50 to-teal-50/30 rounded-3xl border border-emerald-100/50 relative overflow-hidden group hover:shadow-md transition-all">
+                        <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform">
+                          <CheckCircle className="w-16 h-16 text-emerald-600" />
+                        </div>
+                        <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1 relative z-10">Success Rate</p>
+                        <p className="text-2xl font-black text-gray-900 relative z-10">
+                          {notificationLogs.length > 0 
+                            ? Math.round((notificationLogs.filter(l => l.status === 'success').length / notificationLogs.length) * 100) 
+                            : 0}%
+                        </p>
+                      </div>
+
+                      <div className="p-5 bg-gradient-to-br from-amber-50 to-orange-50/30 rounded-3xl border border-amber-100/50 relative overflow-hidden group hover:shadow-md transition-all">
+                        <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform">
+                          <Activity className="w-16 h-16 text-amber-600" />
+                        </div>
+                        <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-1 relative z-10">System Status</p>
+                        <div className="flex items-center space-x-2 relative z-10">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                          <p className="text-sm font-black text-gray-900 uppercase">Operational</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -1192,7 +1302,11 @@ const AdminDashboard = () => {
                                   {log.recipientRole}
                                 </span>
                               </div>
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{log.eventType.replace(/_/g, ' ')}</p>
+                              <div className="flex items-center space-x-2">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{log.eventType.replace(/_/g, ' ')}</p>
+                                <span className="text-[10px] text-gray-300">•</span>
+                                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">From: {log.sender || 'System'}</p>
+                              </div>
                             </div>
                           </div>
 
@@ -1257,97 +1371,136 @@ const AdminDashboard = () => {
 
       {/* Notification Log Detail Modal */}
       {selectedLog && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
-              <div>
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight">Notification Details</h3>
-                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">
-                  ID: {selectedLog._id}
-                </p>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2rem] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            {/* Header */}
+            <div className="p-8 border-b border-gray-100 bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl">
+                  <Bell className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black tracking-tight">Notification Details</h3>
+                  <p className="text-[10px] font-bold text-blue-100 uppercase tracking-widest mt-0.5 opacity-80">
+                    ID: {selectedLog._id}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedLog(null)}
-                className="p-3 bg-white shadow-sm rounded-2xl text-gray-400 hover:text-rose-600 transition-all hover:scale-110"
+                className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl text-white transition-all hover:scale-110 active:scale-95"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="p-8 overflow-y-auto space-y-6">
+            <div className="p-8 overflow-y-auto space-y-8">
+              {/* Recipient & Event Info Cards */}
               <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Recipient</label>
-                  <p className="text-sm font-black text-gray-900">{selectedLog.recipientName || 'Unknown Name'}</p>
-                  <p className="text-[11px] font-bold text-gray-500">{selectedLog.recipientEmail || selectedLog.recipientPhone}</p>
-                </div>
-                <div className="space-y-1 text-right">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Event Type</label>
-                  <p className="text-sm font-black text-indigo-600">{selectedLog.eventType.replace(/_/g, ' ')}</p>
-                  <p className="text-[11px] font-bold text-gray-400">{new Date(selectedLog.createdAt).toLocaleString()}</p>
-                </div>
-              </div>
-
-              <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Subject Line</label>
-                  <p className="text-sm font-black text-gray-900 leading-tight">
-                    {selectedLog.subject || '(No Subject)'}
-                  </p>
-                </div>
-                <div className="h-px bg-gray-200/50 w-full"></div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Message Content</label>
-                  <p className="text-sm font-medium text-gray-700 leading-relaxed font-mono bg-white p-4 rounded-xl border border-gray-100">
-                    {selectedLog.message || selectedLog.payload?.message || "No content available."}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl space-y-2">
-                  <div className="flex items-center space-x-2 text-emerald-600">
-                    <Mail className="w-4 h-4" />
-                    <span className="text-[10px] font-black uppercase">Email Channel</span>
+                <div className="p-5 bg-blue-50/50 rounded-3xl border border-blue-100/50 flex items-start space-x-4">
+                  <div className="p-2.5 bg-blue-100 text-blue-600 rounded-xl">
+                    <User className="w-5 h-5" />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-emerald-700">Status</span>
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${selectedLog.channels?.email?.sent ? 'bg-emerald-200 text-emerald-800' : 'bg-gray-200 text-gray-600'}`}>
-                      {selectedLog.channels?.email?.sent ? 'SENT' : 'NOT ATTEMPTED'}
-                    </span>
+                  <div>
+                    <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest block mb-1">Recipient</label>
+                    <p className="text-sm font-black text-gray-900 leading-none mb-1">{selectedLog.recipientName || 'Unknown Name'}</p>
+                    <p className="text-[11px] font-bold text-gray-500 break-all">{selectedLog.recipientEmail || selectedLog.recipientPhone}</p>
                   </div>
                 </div>
 
-                <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl space-y-2">
-                  <div className="flex items-center space-x-2 text-indigo-600">
-                    <Phone className="w-4 h-4" />
-                    <span className="text-[10px] font-black uppercase">SMS Channel</span>
+                <div className="p-5 bg-indigo-50/50 rounded-3xl border border-indigo-100/50 flex items-start space-x-4">
+                  <div className="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl">
+                    <Activity className="w-5 h-5" />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-indigo-700">Status</span>
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${selectedLog.channels?.sms?.sent ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-200 text-gray-600'}`}>
-                      {selectedLog.channels?.sms?.sent ? 'SENT' : 'NOT ATTEMPTED'}
-                    </span>
+                  <div>
+                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block mb-1">Event Type</label>
+                    <p className="text-sm font-black text-indigo-600 leading-none mb-1">{selectedLog.eventType.replace(/_/g, ' ')}</p>
+                    <p className="text-[11px] font-bold text-gray-400 flex items-center">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {new Date(selectedLog.createdAt).toLocaleString()}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {selectedLog.payload && Object.keys(selectedLog.payload).length > 2 && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Technical Payload</label>
-                  <pre className="p-4 bg-gray-900 text-emerald-400 text-[10px] rounded-2xl overflow-x-auto font-mono scrollbar-hide">
-                    {JSON.stringify(selectedLog.payload, null, 2)}
-                  </pre>
+              {/* Sender & Context Info */}
+              <div className="p-5 bg-gray-50/50 rounded-3xl border border-gray-100 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-white shadow-sm rounded-xl text-blue-600">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Sender Identity</label>
+                    <p className="text-sm font-black text-gray-900">{selectedLog.sender || 'CareNet System'}</p>
+                  </div>
                 </div>
-              )}
+                <div className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-[9px] font-black uppercase tracking-widest">
+                  Verified Dispatch
+                </div>
+              </div>
+
+              {/* Message Details */}
+              <div className="space-y-4">
+                <div className="p-8 bg-white rounded-3xl border-2 border-gray-50 shadow-sm space-y-6 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
+                  
+                  <div className="relative">
+                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest block mb-2">Subject Line</label>
+                    <p className="text-lg font-black text-gray-900 leading-tight">
+                      {selectedLog.subject || '(No Subject)'}
+                    </p>
+                  </div>
+
+                  <div className="h-px bg-gray-100 w-full relative"></div>
+
+                  <div className="relative">
+                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest block mb-3">Message Content</label>
+                    <div className="text-sm font-medium text-gray-700 leading-relaxed bg-gray-50/50 p-6 rounded-2xl border border-gray-100 italic">
+                      "{selectedLog.message || selectedLog.payload?.message || "No content available."}"
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Channels */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Delivery Status</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className={`p-4 rounded-2xl border transition-all ${selectedLog.channels?.email?.sent ? 'bg-emerald-50 border-emerald-100' : 'bg-gray-50 border-gray-100'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className={`p-2 rounded-lg ${selectedLog.channels?.email?.sent ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-200 text-gray-400'}`}>
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${selectedLog.channels?.email?.sent ? 'bg-emerald-600 text-white' : 'bg-gray-400 text-white'}`}>
+                        {selectedLog.channels?.email?.sent ? 'SENT' : 'SKIPPED'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">Email Channel</p>
+                    <p className="text-[9px] font-bold text-gray-400 mt-0.5">{selectedLog.channels?.email?.sent ? 'Delivered successfully' : 'Not triggered'}</p>
+                  </div>
+
+                  <div className={`p-4 rounded-2xl border transition-all ${selectedLog.channels?.sms?.sent ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className={`p-2 rounded-lg ${selectedLog.channels?.sms?.sent ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-400'}`}>
+                        <Phone className="w-4 h-4" />
+                      </div>
+                      <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${selectedLog.channels?.sms?.sent ? 'bg-blue-600 text-white' : 'bg-gray-400 text-white'}`}>
+                        {selectedLog.channels?.sms?.sent ? 'SENT' : 'SKIPPED'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">SMS Channel</p>
+                    <p className="text-[9px] font-bold text-gray-400 mt-0.5">{selectedLog.channels?.sms?.sent ? 'Delivered successfully' : 'Not triggered'}</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end px-8">
+            <div className="p-8 bg-gray-50/80 backdrop-blur-sm border-t border-gray-100 flex justify-center">
               <button
                 onClick={() => setSelectedLog(null)}
-                className="px-8 py-3 bg-white border border-gray-200 text-gray-600 rounded-2xl font-black text-xs hover:bg-gray-100 transition-all"
+                className="w-full max-w-xs py-4 bg-white border border-gray-200 text-gray-900 rounded-2xl font-black text-sm shadow-sm hover:shadow-md hover:bg-gray-50 transition-all active:scale-95"
               >
-                CLOSE
+                CLOSE VIEW
               </button>
             </div>
           </div>
