@@ -50,6 +50,9 @@ const AdminDashboard = () => {
   const [pendingDoctors, setPendingDoctors] = useState([]);
   const [allDoctors, setAllDoctors] = useState([]);
   const [allDoctorsCount, setAllDoctorsCount] = useState(0);
+  const [transactions, setTransactions] = useState([]);
+  const [paymentStats, setPaymentStats] = useState({ totalRevenue: 0, succeededCount: 0, pendingAmount: 0 });
+
   const [stats, setStats] = useState([
     { title: 'Total Patients', value: '0', change: '+12%', icon: Users, color: 'from-blue-500 to-blue-700', bg: 'bg-blue-50' },
     { title: 'Appointments', value: '0', change: '+8%', icon: Calendar, color: 'from-indigo-500 to-indigo-700', bg: 'bg-indigo-50' },
@@ -111,6 +114,36 @@ const AdminDashboard = () => {
     }
   };
 
+  // Fetch all transactions from payment-service
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      const token = getAuthToken();
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/payments/admin/all`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setTransactions(response.data.data || []);
+        
+        // Update stats from the aggregation in the response
+        const stats = response.data.stats || [];
+        const succeeded = stats.find(s => s._id === 'succeeded');
+        const pending = stats.find(s => s._id === 'pending');
+        
+        setPaymentStats({
+          totalRevenue: succeeded ? succeeded.totalAmount : 0,
+          succeededCount: succeeded ? succeeded.count : 0,
+          pendingAmount: pending ? pending.totalAmount : 0
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch transactions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   // Fetch patients from your backend
   const fetchPatients = async () => {
     try {
@@ -135,28 +168,44 @@ const AdminDashboard = () => {
   const fetchDashboardStatsData = async () => {
     try {
       const token = getAuthToken();
-      // Fetch patients and doctors counts unconditionally for the dashboard overall stats
-      const [patientsRes, doctorsRes] = await Promise.all([
+      // Fetch patients, doctors, and payment stats for the dashboard overall stats
+      const [patientsRes, doctorsRes, paymentsRes] = await Promise.all([
         axios.get(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/patients`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { data: [] } })),
-        axios.get(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/doctors`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { count: 0 } }))
+        axios.get(`${import.meta.env.VITE_API_BASE_URL}/auth/admin/doctors`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { count: 0 } })),
+        axios.get(`${import.meta.env.VITE_API_BASE_URL}/payments/admin/all`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { stats: [] } }))
       ]);
+      
       const pData = Array.isArray(patientsRes.data?.data) ? patientsRes.data.data : [];
       setPatients(pData);
       setAllDoctorsCount(doctorsRes.data?.count || 0);
+
+      const pStats = paymentsRes.data?.stats || [];
+      const succeeded = pStats.find(s => s._id === 'succeeded');
+      const pending = pStats.find(s => s._id === 'pending');
+      
+      setPaymentStats({
+        totalRevenue: succeeded ? succeeded.totalAmount : 0,
+        succeededCount: succeeded ? succeeded.count : 0,
+        pendingAmount: pending ? pending.totalAmount : 0
+      });
     } catch (err) {
       console.error('Failed to fetch dashboard stats data');
     }
   };
 
-  // Automatically rebuild stats whenever patients, or doctors count changes
+
+  // Automatically rebuild stats whenever patients, doctors, or appointments change
   useEffect(() => {
+    const activeAppointmentsCount = appointments.filter(a => a.status !== 'CANCELLED').length;
+
     setStats([
       { title: 'Total Patients', value: patients.length || '0', change: '+12%', icon: Users, color: 'from-blue-500 to-blue-700', bg: 'bg-blue-50' },
-      { title: 'Appointments', value: '42', change: '+8%', icon: Calendar, color: 'from-indigo-500 to-indigo-700', bg: 'bg-indigo-50' },
-      { title: 'Revenue', value: `$1,240`, change: '+23%', icon: DollarSign, color: 'from-emerald-500 to-emerald-700', bg: 'bg-emerald-50' },
+      { title: 'Appointments', value: activeAppointmentsCount.toString(), change: '+8%', icon: Calendar, color: 'from-indigo-500 to-indigo-700', bg: 'bg-indigo-50' },
+      { title: 'Revenue', value: `LKR ${paymentStats.totalRevenue.toLocaleString()}`, change: '+23%', icon: DollarSign, color: 'from-emerald-500 to-emerald-700', bg: 'bg-emerald-50' },
       { title: 'Total Doctors', value: allDoctorsCount || '0', change: '+5%', icon: Users, color: 'from-rose-500 to-rose-700', bg: 'bg-rose-50' },
     ]);
-  }, [patients, allDoctorsCount]);
+  }, [patients, allDoctorsCount, appointments, paymentStats]);
+
 
 
 
@@ -345,9 +394,13 @@ const AdminDashboard = () => {
     if (activeTab === 'notifications') {
       fetchNotificationLogs();
     }
-    if (activeTab === 'analytics' || activeTab === 'revenue' || activeTab === 'overview') {
+    if (activeTab === 'revenue') {
+      fetchTransactions();
+    }
+    if (activeTab === 'analytics' || activeTab === 'overview') {
       fetchAppointmentsSummary();
     }
+
   }, [activeTab]);
 
 
@@ -800,29 +853,33 @@ const AdminDashboard = () => {
                     <h3 className="text-lg font-medium text-gray-900 mb-3">Revenue Overview</h3>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center p-2 border-b border-gray-200">
-                        <span className="text-sm text-gray-600">Total Revenue</span>
+                        <span className="text-sm text-gray-600">Total Revenue (Paid)</span>
                         <span className="font-medium text-gray-900">
-                          ${appointments.filter(a => a.status === 'COMPLETED').reduce((sum, a) => sum + (a.consultationFee || 0), 0).toLocaleString()}
+                          LKR {paymentStats.totalRevenue.toLocaleString()}
                         </span>
                       </div>
+
                       <div className="flex justify-between items-center p-2 border-b border-gray-200">
                         <span className="text-sm text-gray-600">Pending Payments</span>
                         <span className="font-medium text-gray-900">
-                          ${appointments.filter(a => a.status === 'CONFIRMED').reduce((sum, a) => sum + (a.consultationFee || 0), 0).toLocaleString()}
+                          LKR {paymentStats.pendingAmount.toLocaleString()}
                         </span>
                       </div>
+
                       <div className="flex justify-between items-center p-2">
-                        <span className="text-sm text-gray-600">Average Consultation Fee</span>
+                        <span className="text-sm text-gray-600">Average Transaction</span>
                         <span className="font-medium text-gray-900">
-                          ${appointments.length ? (appointments.reduce((sum, a) => sum + (a.consultationFee || 0), 0) / appointments.length).toFixed(2) : '0'}
+                          LKR {paymentStats.succeededCount ? (paymentStats.totalRevenue / paymentStats.succeededCount).toFixed(0) : '0'}
                         </span>
                       </div>
+
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           )}
+
           {/* Revenue Tab Content */}
           {activeTab === 'revenue' && (
             <div className="space-y-6">
@@ -830,23 +887,24 @@ const AdminDashboard = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <p className="text-sm text-gray-600 mb-1">Total Revenue</p>
                   <h3 className="text-2xl font-bold text-gray-900">
-                    ${appointments.filter(a => a.status === 'COMPLETED').reduce((sum, a) => sum + (a.consultationFee || 0), 0).toLocaleString()}
+                    LKR {paymentStats.totalRevenue.toLocaleString()}
                   </h3>
                   <p className="text-xs text-green-600 mt-2">↑ 15% from last month</p>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <p className="text-sm text-gray-600 mb-1">Pending Collections</p>
+                  <p className="text-sm text-gray-600 mb-1">Unpaid / Pending</p>
                   <h3 className="text-2xl font-bold text-gray-900">
-                    ${appointments.filter(a => a.status === 'CONFIRMED').reduce((sum, a) => sum + (a.consultationFee || 0), 0).toLocaleString()}
+                    LKR {paymentStats.pendingAmount.toLocaleString()}
                   </h3>
                   <p className="text-xs text-yellow-600 mt-2">Awaiting payment</p>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <p className="text-sm text-gray-600 mb-1">Total Appointments</p>
-                  <h3 className="text-2xl font-bold text-gray-900">{appointments.length}</h3>
-                  <p className="text-xs text-blue-600 mt-2">{appointments.filter(a => a.status === 'CONFIRMED').length} confirmed</p>
+                  <p className="text-sm text-gray-600 mb-1">Successful Payments</p>
+                  <h3 className="text-2xl font-bold text-gray-900">{paymentStats.succeededCount}</h3>
+                  <p className="text-xs text-blue-600 mt-2">Completed transactions</p>
                 </div>
               </div>
+
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="p-6 border-b border-gray-200">
                   <h2 className="text-xl font-semibold text-gray-900">Recent Transactions</h2>
@@ -855,7 +913,7 @@ const AdminDashboard = () => {
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Appointment ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
@@ -863,31 +921,26 @@ const AdminDashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {appointments
-                        .filter(a => a.status === 'COMPLETED' || a.status === 'CONFIRMED')
-                        .slice(0, 5)
-                        .map((appointment) => (
-                          <tr key={appointment._id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {appointment._id.slice(-8)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                              {appointment.patientName}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              ${appointment.consultationFee}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                              {formatDate(appointment.appointmentDate)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${appointment.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                {appointment.status === 'COMPLETED' ? 'Paid' : 'Pending'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                      {transactions.map((tx) => (
+                        <tr key={tx._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{tx.payhereOrderId}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{tx.metadata?.patientName || tx.patientId}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">LKR {tx.amount.toLocaleString()}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatDate(tx.createdAt)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${tx.status === "succeeded" ? "bg-green-100 text-green-800" : tx.status === "failed" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>
+                              {tx.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {transactions.length === 0 && (
+                        <tr>
+                          <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
+                            No transactions found.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>

@@ -13,6 +13,8 @@ const getTitle = (type) => {
     case 'CONSULTATION_COMPLETED': return 'Consultation Completed';
     case 'PRESCRIPTION_ISSUED': return 'New Prescription';
     case 'PAYMENT_SUCCESS': return 'Payment Successful';
+    case 'REFUND_REQUESTED': return 'Refund Initiated';
+    case 'REFUND_SUCCESS': return 'Refund Successful';
     default: return 'Healthcare Update';
   }
 };
@@ -25,6 +27,8 @@ const getMessage = (type, data) => {
     case 'PRESCRIPTION_ISSUED': return `You have a new prescription from Dr. ${data?.doctorName || ''}.`;
     case 'PAYMENT_SUCCESS': return `Your payment of ${data?.currency || 'LKR'} ${data?.amount || ''} for Dr. ${data?.doctorName || ''} was successful. Your appointment is now waiting for approval.`;
     case 'PAYMENT_SUCCESS_DOCTOR': return `You have received a payment of ${data?.currency || 'LKR'} ${data?.amount || ''} from ${data?.patientName || 'a patient'}.`;
+    case 'REFUND_REQUESTED': return `A refund of ${data?.currency || 'LKR'} ${data?.amount || ''} has been initiated for your cancelled appointment.`;
+    case 'REFUND_SUCCESS': return `A refund of ${data?.currency || 'LKR'} ${data?.amount || ''} has been successfully processed to your account.`;
     default: return 'You have a new update in your CareNet portal.';
   }
 };
@@ -38,6 +42,8 @@ const getLink = (type, refId) => {
     case 'PRESCRIPTION_ISSUED': return `/dashboard/prescriptions`;
     case 'PAYMENT_SUCCESS': 
     case 'PAYMENT_SUCCESS_DOCTOR':
+    case 'REFUND_REQUESTED':
+    case 'REFUND_SUCCESS':
       return `/dashboard/payments`;
     default: return '/dashboard';
   }
@@ -100,7 +106,7 @@ const dispatchNotification = async ({
   // ── SMS ───────────────────────────────────────────────────────────────────
   if (phone) {
     // User requested: "sms send when only doctor approved the appointment"
-    const allowedSmsEvents = ['APPOINTMENT_CONFIRMED', 'VERIFICATION_CODE_SMS']; // VERIFICATION is needed for login if any
+    const allowedSmsEvents = ['APPOINTMENT_CONFIRMED', 'APPOINTMENT_CANCELLED', 'APPOINTMENT_BOOKED', 'VERIFICATION_CODE_SMS', 'REFUND_SUCCESS', 'REFUND_REQUESTED']; // VERIFICATION is needed for login if any
     
     if (allowedSmsEvents.includes(eventType)) {
       const smsBody  = getSMSBody(eventType, data);
