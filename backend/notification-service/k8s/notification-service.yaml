@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: healthcare
+  labels:
+    app: notification-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+      - name: notification-service
+        image: healthcare-platform/notification-service:latest
+        ports:
+        - containerPort: 3006
+        env:
+        - name: PORT
+          value: "3006"
+        - name: NODE_ENV
+          value: "production"
+        - name: MONGO_URI
+          value: "mongodb://mongodb-service:27017/healthcare_notifications"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: healthcare-secrets
+              key: jwt-secret
+        - name: RABBITMQ_URL
+          value: "amqp://user:password@rabbitmq-service:5672"
+        # Cloud-native: Use secrets for credentials
+        - name: EMAIL_USER
+          valueFrom:
+            secretKeyRef:
+              name: healthcare-secrets
+              key: email-user
+        - name: EMAIL_PASS
+          valueFrom:
+            secretKeyRef:
+              name: healthcare-secrets
+              key: email-pass
+        - name: TWILIO_ACCOUNT_SID
+          valueFrom:
+            secretKeyRef:
+              name: healthcare-secrets
+              key: twilio-sid
+        - name: TWILIO_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: healthcare-secrets
+              key: twilio-token
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3006
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3006
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: healthcare
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - protocol: TCP
+      port: 3006
+      targetPort: 3006
+  type: ClusterIP

@@ -1,0 +1,247 @@
+
+
+services:
+  # ─── Infrastructure ──────────────────────────────────────────────
+
+
+  # ─── API Gateway ───────────────────────────────────────────────
+
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: api-gateway
+    ports:
+      - "8000:8080"
+    environment:
+      PORT: 8080
+      AUTH_SERVICE_URL: http://auth-service:3001
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+      PATIENT_SERVICE_URL: http://patient-service:3002
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      TELEMEDICINE_SERVICE_URL: http://telemedicine-service:3007
+      SYMPTOM_SERVICE_URL: http://symptom-service:3008
+      PAYMENT_SERVICE_URL: http://payment-service:3005
+    depends_on:
+      - auth-service
+      - appointment-service
+      - notification-service
+      - payment-service
+      - symptom-service
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+  # ─── Shared Mongo URI ───────────────────────────────────────────
+  # mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+
+  # ─── Auth Service ──────────────────────────────────────────────
+
+  auth-service:
+    build: ./backend/auth-service
+    container_name: auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+      PATIENT_SERVICE_URL: http://patient-service:3002
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      SUPABASE_URL: ${SUPABASE_URL:-https://lppiedfxwxlalsrnnjto.supabase.co}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwcGllZGZ4d3hsYWxzcm5uanRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0OTI4NzksImV4cCI6MjA4NjA2ODg3OX0.IOCsb9fRhN7Ze6hgSGqnMuyxwutLSdC60H6eThcXw1k}
+      SUPABASE_BUCKET: ${SUPABASE_BUCKET:-user-profile}
+      NODE_ENV: ${NODE_ENV:-production}
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+  # ─── Patient Service ──────────────────────────────────────────
+
+  patient-service:
+    build: ./backend/patient-service
+    container_name: patient-service
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_REPORTS_BUCKET: ${SUPABASE_REPORTS_BUCKET:-reports}
+      NODE_ENV: ${NODE_ENV:-production}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+  # ─── Doctor Service ──────────────────────────────────────────
+
+  doctor-service:
+    build: ./backend/doctor-service
+    container_name: doctor-service
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./backend/doctor-service:/app
+      - /app/node_modules
+    command: npm run dev
+    environment:
+      PORT: 3003
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      NODE_ENV: ${NODE_ENV:-development}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      PATIENT_SERVICE_URL: http://patient-service:3002
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+  # ─── Appointment Service ─────────────────────────────────────────
+
+  appointment-service:
+    build: ./backend/appointment-service
+    container_name: appointment-service
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      NODE_ENV: ${NODE_ENV:-production}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      DOCTOR_SERVICE_URL: http://doctor-service:3003
+      PATIENT_SERVICE_URL: http://patient-service:3002
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+      PAYMENT_SERVICE_URL: http://payment-service:3005
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+ # ─── Telemedicine Service ───────────────────────────────────────
+  telemedicine-service:
+    build: ./backend/telemedicine-service
+    container_name: telemedicine-service
+    ports:
+      - "3007:3007"
+    volumes:
+      - ./backend/telemedicine-service/keys:/keys:ro
+    environment:
+      PORT: 3007
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+      JITSI_PROVIDER: ${JITSI_PROVIDER:-jaas}
+      JITSI_DOMAIN: ${JITSI_DOMAIN:-8x8.vc}
+      JITSI_ENFORCE_JWT: ${JITSI_ENFORCE_JWT:-true}
+      JITSI_APP_ID: ${JITSI_APP_ID}
+      JITSI_KEY_ID: ${JITSI_KEY_ID}
+      JAAS_PRIVATE_KEY_PATH: ${JAAS_PRIVATE_KEY_PATH:-/keys/jaas_private_key.pem}
+      JITSI_PRIVATE_KEY: ${JITSI_PRIVATE_KEY}
+    depends_on:
+      - appointment-service
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+
+
+  # ─── Payment Service ─────────────────────────────────────────────
+
+  payment-service:
+    build: ./backend/payment-service
+    container_name: payment-service
+    ports:
+      - '3005:3005'
+    environment:
+      PORT: 3005
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      PAYHERE_MERCHANT_ID: ${PAYHERE_MERCHANT_ID}
+      PAYHERE_MERCHANT_SECRET: ${PAYHERE_MERCHANT_SECRET}
+      PAYHERE_SECRET: ${PAYHERE_SECRET}
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+      NODE_ENV: ${NODE_ENV:-production}
+    depends_on:
+      - notification-service
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+  # ─── Notification Service ───────────────────────────────────────
+
+  notification-service:
+    build: ./backend/notification-service
+    container_name: notification-service
+    ports:
+      - "3006:3006"
+    environment:
+      PORT: 3006
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      JWT_SECRET: ${JWT_SECRET:-carenet_secret}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      EMAIL_HOST: smtp.gmail.com
+      EMAIL_PORT: 587
+      EMAIL_SECURE: "false"
+      EMAIL_USER: carenet.admin.support@gmail.com
+      EMAIL_PASS: dunmjxijnykwlloc
+      EMAIL_FROM: "CareNet Healthcare <carenet.admin.support@gmail.com>"
+      TEXTLK_API_TOKEN: ${TEXTLK_API_TOKEN:-3996|rXnzTCy0SzluVtWuvkjPTtOJAVAf2t6n0udt7pO189bbe87d}
+      TEXTLK_SENDER_ID: ${TEXTLK_SENDER_ID:-CareNet}
+      NODE_ENV: ${NODE_ENV:-production}
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+
+
+  # ─── Symptom AI Service ──────────────────────────────────────────
+
+  symptom-service:
+    build: ./backend/ai-symptom-service
+    container_name: symptom-service
+    ports:
+      - "3008:3008"
+    environment:
+      PORT: 3008
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3004
+      NODE_ENV: ${NODE_ENV:-production}
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+    depends_on:
+      - appointment-service
+
+  # ─── Frontend ────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: carenet-frontend
+    ports:
+      - '5173:80'
+    environment:
+      VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL:-http://localhost:8000}
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+    depends_on:
+      - api-gateway
+
+  # ─── Frontend ────────────────────────────────────────────
+
+networks:
+  healthcare-network:
+    driver: bridge

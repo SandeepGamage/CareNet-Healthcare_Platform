@@ -1,0 +1,28 @@
+{
+	"name": "doctor-service",
+	"version": "1.0.0",
+	"description": "Doctor management service for digital prescriptions",
+	"main": "index.js",
+	"scripts": {
+		"start": "node index.js",
+		"dev": "nodemon index.js"
+	},
+	"dependencies": {
+		"axios": "^1.4.0",
+		"bcryptjs": "^3.0.3",
+		"cors": "^2.8.5",
+		"dotenv": "^16.4.5",
+		"express": "^4.19.2",
+		"helmet": "^7.1.0",
+		"jsonwebtoken": "^9.0.2",
+		"mongoose": "^8.6.2",
+		"morgan": "^1.10.0",
+		"node-cron": "^4.2.1"
+	},
+	"devDependencies": {
+		"nodemon": "^3.1.4"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}
