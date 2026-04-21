@@ -33,6 +33,8 @@ spec:
               value: "http://doctor-service:3003"
             - name: SYMPTOM_SERVICE_URL
               value: "http://symptom-service:3008"
+            - name: PAYMENT_SERVICE_URL
+              value: "http://payment-service:3005"
 ---
 apiVersion: v1
 kind: Service

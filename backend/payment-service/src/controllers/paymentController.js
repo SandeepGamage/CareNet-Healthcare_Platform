@@ -77,26 +77,23 @@ const createPayment = async (req, res, next) => {
     }
 
     const amountFormatted = parseFloat(amount).toFixed(2);
-    const upperCurrency   = currency.toUpperCase();
+    const upperCurrency   = (currency || 'LKR').toUpperCase().trim();
+    const cleanMerchantId = merchantId.trim();
+    const cleanSecret     = merchantSecret.trim();
     
-    // Step 1: MD5 of Merchant Secret
-    const hashedSecret   = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
-    
-    // Step 2: MD5(merchant_id + order_id + amount_formatted + currency + hashedSecret)
-    const hashInput      = `${merchantId}${appointmentId}${amountFormatted}${upperCurrency}${hashedSecret}`;
-    const hash           = crypto.createHash('md5').update(hashInput).digest('hex').toUpperCase();
+    // CORRECT PayHere MD5 Hash Formula:
+    // UpperCase(MD5(MerchantID + OrderID + Amount + Currency + UpperCase(MD5(MerchantSecret))))
+    const secretHash = crypto.createHash('md5').update(cleanSecret).digest('hex').toUpperCase();
+    const hashInput  = `${cleanMerchantId}${appointmentId}${amountFormatted}${upperCurrency}${secretHash}`;
+    const hash       = crypto.createHash('md5').update(hashInput).digest('hex').toUpperCase();
 
-    // DEBUG: Log the hash input (partially masked) to verify formatting
-    const maskedHashInput = `${merchantId}${appointmentId}${amountFormatted}${upperCurrency}${hashedSecret.substring(0, 4)}...`;
-    logger.info(`[DEBUG] PayHere Hash Input (Masked): ${maskedHashInput}`);
-
-    logger.info(`PayHere payment initiated for appointment ${appointmentId} (Amount: ${amountFormatted} ${upperCurrency})`);
+    logger.info(`PayHere Hash Generated for Appointment ${appointmentId} using standard nested MD5 formula`);
 
     // Return PayHere checkout details to the frontend
     res.status(201).json({
       success       : true,
       transactionId : transaction._id,
-      merchantId,
+      merchantId    : cleanMerchantId,
       orderId       : appointmentId,
       amount        : amountFormatted,
       currency      : upperCurrency,

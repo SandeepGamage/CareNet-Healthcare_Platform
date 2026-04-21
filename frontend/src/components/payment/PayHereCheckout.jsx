@@ -37,10 +37,20 @@ const PayHereCheckout = ({ appointmentId, doctorId, amount, patientDetails, doct
           }),
         });
 
-        const data = await res.json();
+        const contentType = res.headers.get('content-type');
+        let data;
+        
+        if (contentType && contentType.includes('application/json')) {
+          data = await res.json();
+        } else {
+          // If not JSON, it's likely a proxy error (HTML/Text)
+          const text = await res.text();
+          console.error('Non-JSON response received:', text);
+          throw new Error(`Server Error (${res.status}): The payment service is currently unreachable.`);
+        }
 
         if (!res.ok) {
-          throw new Error(data.message || 'Failed to initialize payment');
+          throw new Error(data?.message || 'Failed to initialize payment');
         }
 
         if (data.success) {
