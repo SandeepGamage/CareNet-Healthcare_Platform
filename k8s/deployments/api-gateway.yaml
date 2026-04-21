@@ -17,7 +17,7 @@ spec:
           image: api-gateway:latest
           imagePullPolicy: Never
           ports:
-            - containerPort: 8080
+            - containerPort: 8000
           env:
             - name: PORT
               value: "8080"
@@ -43,6 +43,6 @@ spec:
   selector:
     app: api-gateway
   ports:
-    - port: 8080
-      targetPort: 8080
+    - port: 8000
+      targetPort: 8000
       nodePort: 30080

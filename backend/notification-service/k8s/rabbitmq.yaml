@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rabbitmq
-  namespace: healthcare
   labels:
     app: rabbitmq
 spec:
@@ -62,7 +61,29 @@ apiVersion: v1
 kind: Service
 metadata:
   name: rabbitmq-service
-  namespace: healthcare
+  labels:
+    app: rabbitmq
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+  - name: amqp
+    protocol: TCP
+    port: 5672
+    targetPort: 5672
+  - name: management
+    protocol: TCP
+    port: 15672
+    targetPort: 15672
+  type: ClusterIP
+
+---
+# Backwards-compatible Service name: `rabbitmq` so manifests that reference
+# `rabbitmq:5672` (instead of `rabbitmq-service`) will also resolve.
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
   labels:
     app: rabbitmq
 spec:

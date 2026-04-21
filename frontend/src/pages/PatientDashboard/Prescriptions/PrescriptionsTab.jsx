@@ -6,10 +6,12 @@ export default function PrescriptionsTab() {
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState("");
 
-    const patientServiceBase = useMemo(
-        () => import.meta.env.VITE_API_BASE_URL,
-        []
-    );
+    const patientServiceBase = useMemo(() => {
+        const raw = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+        // Normalize: remove any trailing slashes and strip a trailing '/api' segment
+        if (raw.endsWith("/api")) return raw.slice(0, -4).replace(/\/+$/g, "");
+        return raw.replace(/\/+$/g, "");
+    }, []);
 
     useEffect(() => {
         const fetchPrescriptions = async () => {
