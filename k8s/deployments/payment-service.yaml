@@ -49,6 +49,6 @@ spec:
     app: payment-service
   ports:
     - protocol: TCP
-      port: 5003
-      targetPort: 5003
+      port: 3005
+      targetPort: 3005
   type: ClusterIP
