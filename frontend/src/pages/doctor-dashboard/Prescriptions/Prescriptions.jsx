@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowUpDown } from "lucide-react";
 import PrescriptionForm from "./PrescriptionForm";
-import ConfirmModal from "../../../components/common/ConfirmModal";
+import ConfirmationDialog from "../../../components/confirmationDialog";
 
 export default function Prescriptions() {
     // Prescription history state 
@@ -50,16 +50,18 @@ export default function Prescriptions() {
         fileSize: item.fileSize || null,
         description: item.reportDescription || item.description || null,
         diagnosis: item.diagnosis,
-        medications: [
-          {
-            medicationName: item.medicationName,
-            dosage: item.dosage,
-            frequency: item.frequency,
-            duration: item.duration,
-            instructions: item.instructions,
-            notes: item.notes,
-          },
-        ],
+        medications: Array.isArray(item.medications) && item.medications.length > 0
+          ? item.medications
+          : (item.medicationName || item.dosage || item.frequency || item.duration
+            ? [{
+                medicationName: item.medicationName,
+                dosage: item.dosage,
+                frequency: item.frequency,
+                duration: item.duration,
+                instructions: item.instructions,
+                notes: item.notes,
+              }]
+            : []),
         createdAt: item.createdAt,
       }));
       setPrescriptionHistory(list);
@@ -115,13 +117,13 @@ export default function Prescriptions() {
     let patientObj = {
       patientUserId: prescription.patient,
       medicalReportId: prescription.patientReportId || null,
-      title: prescription.title || null,
+      title: prescription.title || prescription.reportTitle || null,
       reportType: prescription.reportType || null,
-      fileName: prescription.fileName || null,
-      fileUrl: prescription.fileUrl || null,
-      mimeType: prescription.mimeType || null,
+      fileName: prescription.fileName || prescription.reportFileName || null,
+      fileUrl: prescription.fileUrl || prescription.reportFileUrl || null,
+      mimeType: prescription.mimeType || prescription.fileType || null,
       fileSize: prescription.fileSize || null,
-      description: prescription.description || null,
+      description: prescription.description || prescription.reportDescription || null,
     };
 
     // If we have a report id, try to fetch the full report details from patient service
@@ -142,7 +144,7 @@ export default function Prescriptions() {
             title: report.title || patientObj.title,
             reportType: report.reportType || patientObj.reportType,
             fileName: report.fileName || report.reportFileName || patientObj.fileName,
-            fileUrl: report.fileUrl || report.reportFileUrl || patientObj.fileUrl,
+            fileUrl: report.fileUrl || report.fileUrl || patientObj.fileUrl,
             mimeType: report.mimeType || report.fileType || patientObj.mimeType,
             fileSize: report.fileSize || patientObj.fileSize,
             description: report.description || report.reportDescription || patientObj.description,
@@ -155,7 +157,7 @@ export default function Prescriptions() {
 
     setSelectedPatient(patientObj);
 
-    // Prefill medications and form fields
+    // Prefill medications and set editing mode for the first medicine so the form shows "Save Medicine"
     const meds = (prescription.medications && prescription.medications.length)
       ? prescription.medications.map((m, i) => ({ id: Date.now() + i, ...m }))
       : [
@@ -171,14 +173,18 @@ export default function Prescriptions() {
         ];
 
     setMedications(meds);
+    const firstMed = meds[0] || null;
+    const editId = firstMed?.id || null;
+    setEditingMedicineId(editId);
     setFormData({
       diagnosis: prescription.diagnosis || "",
-      medicationName: meds[0]?.medicationName || "",
-      dosage: meds[0]?.dosage || "",
-      frequency: meds[0]?.frequency || "",
-      duration: meds[0]?.duration || "",
-      instructions: meds[0]?.instructions || "",
-      notes: meds[0]?.notes || "",
+      medicationName: firstMed?.medicationName || "",
+      dosage: firstMed?.dosage || "",
+      frequency: firstMed?.frequency || "",
+      duration: firstMed?.duration || "",
+      instructions: firstMed?.instructions || "",
+      notes: firstMed?.notes || "",
+      _editingMedicineId: editId,
     });
   };
 
@@ -224,6 +230,37 @@ export default function Prescriptions() {
   const SortIcon = ({ columnKey }) => {
     if (sortField !== columnKey) return <ArrowUpDown size={14} className="opacity-30 inline ml-1" />;
     return <ArrowUpDown size={14} className={sortDirection === "asc" ? "opacity-100 inline ml-1" : "opacity-50 rotate-180 inline ml-1"} />;
+  };
+  // Sorting state for Prescription History (cards)
+  const [historySortField, setHistorySortField] = useState("title");
+  const [historySortDirection, setHistorySortDirection] = useState("desc");
+
+  const handleHistorySort = (field) => {
+    if (historySortField === field) {
+      setHistorySortDirection(historySortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setHistorySortField(field);
+      setHistorySortDirection("asc");
+    }
+  };
+
+  const getSortedHistory = (data) => {
+    return [...data].sort((a, b) => {
+      let valA, valB;
+      switch (historySortField) {
+        case "diagnosis":
+          valA = String(a.diagnosis || "").toLowerCase();
+          valB = String(b.diagnosis || "").toLowerCase();
+          break;
+        case "title":
+        default:
+          valA = String(a.title || "").toLowerCase();
+          valB = String(b.title || "").toLowerCase();
+      }
+      if (valA < valB) return historySortDirection === "asc" ? -1 : 1;
+      if (valA > valB) return historySortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
   };
   // ...existing code...
 
@@ -287,6 +324,7 @@ export default function Prescriptions() {
 
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [medications, setMedications] = useState([]);
+  const [editingMedicineId, setEditingMedicineId] = useState(null);
   const [editingPrescription, setEditingPrescription] = useState(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -323,10 +361,28 @@ export default function Prescriptions() {
         onAddMedicine={() => {
           setValidationErrors({});
           setErrorMessage("");
-          setMedications([...medications, { ...formData, id: Date.now() }]);
-          setFormData(prev => ({ ...prev, medicationName: "", dosage: "", frequency: "", duration: "", instructions: "", notes: "" }));
+          // ensure temporary editing marker is removed when adding
+          const { _editingMedicineId, ...cleanForm } = formData || {};
+          setMedications([...medications, { ...cleanForm, id: Date.now() }]);
+          setFormData(prev => ({ ...prev, medicationName: "", dosage: "", frequency: "", duration: "", instructions: "", notes: "", _editingMedicineId: undefined }));
+          setEditingMedicineId(null);
         }}
         onRemoveMedicine={id => setMedications(medications.filter(medicine => medicine.id !== id))}
+        onEditMedicineClick={(id) => {
+          const med = medications.find(m => m.id === id);
+          if (!med) return;
+          // populate form with med values and mark editing id
+          setFormData(prev => ({ ...prev, medicationName: med.medicationName || med.name || "", dosage: med.dosage || "", frequency: med.frequency || "", duration: med.duration || "", instructions: med.instructions || "", notes: med.notes || "", _editingMedicineId: id }));
+          setEditingMedicineId(id);
+        }}
+        onSaveMedicine={() => {
+          const id = editingMedicineId || formData._editingMedicineId;
+          if (!id) return;
+          const updated = medications.map(m => m.id === id ? ({ ...m, medicationName: formData.medicationName || m.medicationName, dosage: formData.dosage || m.dosage, frequency: formData.frequency || m.frequency, duration: formData.duration || m.duration, instructions: formData.instructions || m.instructions, notes: formData.notes || m.notes }) : m);
+          setMedications(updated);
+          setEditingMedicineId(null);
+          setFormData(prev => ({ ...prev, medicationName: "", dosage: "", frequency: "", duration: "", instructions: "", notes: "", _editingMedicineId: undefined }));
+        }}
         onSubmitPrescription={async () => {
           setSubmitLoading(true);
           setErrorMessage("");
@@ -335,16 +391,36 @@ export default function Prescriptions() {
               console.log("[Prescriptions] creating prescription, selectedPatient:", selectedPatient);
               // Prefer medication fields from medications[0] if present (doctors add medicines)
               const firstMed = (medications && medications.length > 0) ? medications[0] : null;
+              // Build medications array for backend; keep legacy top-level fields for compatibility
+              const medsPayload = (medications && medications.length > 0)
+                ? medications.map(m => ({
+                    medicationName: m.medicationName || m.name || "",
+                    dosage: m.dosage || "",
+                    frequency: m.frequency || "",
+                    duration: m.duration || "",
+                    instructions: m.instructions || "",
+                    notes: m.notes || "",
+                  }))
+                : [{
+                    medicationName: formData.medicationName || "",
+                    dosage: formData.dosage || "",
+                    frequency: formData.frequency || "",
+                    duration: formData.duration || "",
+                    instructions: formData.instructions || "",
+                    notes: formData.notes || "",
+                  }];
+
               const payload = {
                 patientId: selectedPatient.patientUserId,
                 patientReportId: selectedPatient.medicalReportId,
                 diagnosis: formData.diagnosis,
-                medicationName: firstMed?.medicationName || formData.medicationName || "",
-                dosage: firstMed?.dosage || formData.dosage || "",
-                frequency: firstMed?.frequency || formData.frequency || "",
-                duration: firstMed?.duration || formData.duration || "",
-                instructions: firstMed?.instructions || formData.instructions || "",
-                notes: firstMed?.notes || formData.notes || "",
+                medications: medsPayload,
+                medicationName: medsPayload[0]?.medicationName || "",
+                dosage: medsPayload[0]?.dosage || "",
+                frequency: medsPayload[0]?.frequency || "",
+                duration: medsPayload[0]?.duration || "",
+                instructions: medsPayload[0]?.instructions || "",
+                notes: medsPayload[0]?.notes || "",
               };
               console.log("[Prescriptions] payload about to send:", payload);
             const token = localStorage.getItem("token");
@@ -365,7 +441,8 @@ export default function Prescriptions() {
                 setSubmitLoading(false);
                 return;
               }
-              setSuccessMessage("Prescription updated successfully.");
+              // Do not show a success message for updates to avoid persistent notification
+              setSuccessMessage("");
             } else {
               // Create new prescription
               const response = await fetch(PRESCRIPTIONS_ENDPOINT, {
@@ -390,7 +467,8 @@ export default function Prescriptions() {
                 setSubmitLoading(false);
                 return;
               }
-              setSuccessMessage("Prescription created successfully.");
+              // Do not show a success message on create to avoid the persistent notification
+              setSuccessMessage("");
               // Remove the associated report from the reports table so it no longer appears.
               try {
                 // Use backend-created object if available — it may store a different id field.
@@ -430,6 +508,7 @@ export default function Prescriptions() {
             setMedications([]);
             setFormData({ diagnosis: "", medicationName: "", dosage: "", frequency: "", duration: "", instructions: "", notes: "" });
             setEditingPrescription(null);
+            setEditingMedicineId(null);
           } catch (err) {
             setErrorMessage("Network error. Could not save prescription.");
           } finally {
@@ -443,6 +522,7 @@ export default function Prescriptions() {
           setMedications([]);
           setValidationErrors({});
           setFormData({ diagnosis: "", medicationName: "", dosage: "", frequency: "", duration: "", instructions: "", notes: "" });
+          setEditingMedicineId(null);
         }}
         onValidationErrorsChange={setValidationErrors}
         onFormError={setErrorMessage}
@@ -585,65 +665,107 @@ export default function Prescriptions() {
                 onChange={e => setHistorySearch(e.target.value)}
                 className="w-full sm:max-w-xs px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
               />
+
+              <div className="flex items-center gap-2 ml-auto">
+                <label className="text-sm text-slate-500">Sort:</label>
+                <select
+                  value={historySortField}
+                  onChange={(e) => handleHistorySort(e.target.value)}
+                  className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-sm text-slate-700"
+                >
+                  <option value="title">Title</option>
+                  <option value="diagnosis">Diagnosis</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc')}
+                  className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-sm text-slate-700"
+                  title="Toggle sort direction"
+                >
+                  {historySortDirection === 'asc' ? '↑' : '↓'}
+                </button>
+              </div>
             </div>
             {prescriptionHistory.length === 0 ? (
               <div className="text-slate-400 italic text-center py-8">No prescriptions created yet.</div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {prescriptionHistory
-                  .filter(item => {
-                    const q = historySearch.toLowerCase().trim();
+              ) : (
+              <div className="flex flex-col gap-6">
+                {getSortedHistory(
+                  prescriptionHistory.filter(item => {
+                    const q = String(historySearch || "").toLowerCase().trim();
                     if (!q) return true;
-                    return (
-                      (item.patient?.toLowerCase().includes(q)) ||
-                      (item.diagnosis?.toLowerCase().includes(q))
-                    );
+                    const patientStr = String(item.patient || "").toLowerCase();
+                    const diagnosisStr = String(item.diagnosis || "").toLowerCase();
+                    return (patientStr.includes(q) || diagnosisStr.includes(q));
                   })
-                  .map((item) => (
+                ).map((item) => (
                   <div
                     key={item.id}
-                    className="bg-white border border-slate-200 border-l-4 border-blue-400 rounded-3xl p-8 flex flex-col gap-4 transition-transform duration-200 hover:scale-[1.025]"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4"
                   >
-                    <div className="flex-1 flex flex-col">
-                      <span className="inline-block bg-blue-50 text-blue-700 text-[11px] font-semibold uppercase tracking-[0.22em] rounded-full px-3 py-1 mb-2 shadow-sm mx-auto text-center">Medical Prescription</span>
-                      <div className="mb-1 text-xs text-gray-500 font-medium">
-                        Patient id - {item.patient}
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 pr-4 text-sm text-slate-700">
+                        <p className="text-base font-semibold text-slate-800">{item.title || 'Medical Prescription'}</p>
+                        <p className="mt-1 text-xs text-slate-500">{item.reportType || 'Prescription'} • Patient: {item.patient}</p>
+
+                        <div className="mt-3">
+                          <p><span className="font-semibold">Diagnosis:</span> {item.diagnosis || '-'}</p>
+                          <div className="mt-2">
+                            <p className="font-semibold">Medications:</p>
+                            {(item.medications && item.medications.length > 0) ? (
+                              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {item.medications.map((med, idx) => (
+                                  <div key={med._id || med.id || idx} className="rounded-lg border border-slate-200 bg-white p-2 text-sm">
+                                    <div className="font-semibold text-slate-800">{med.medicationName || med.name || '-'}</div>
+                                    <div className="text-xs text-slate-500">{med.dosage || ''} • {med.frequency || ''} • {med.duration || ''}</div>
+                                    {med.instructions && <div className="mt-1 text-xs italic text-slate-400">{med.instructions}</div>}
+                                    {med.notes && <div className="mt-1 text-xs text-slate-400">Notes: {med.notes}</div>}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : item.medicationName ? (
+                              <div className="mt-2 rounded-lg border border-slate-200 bg-white p-2 text-sm">
+                                <div className="font-semibold text-slate-800">{item.medicationName}</div>
+                                <div className="text-xs text-slate-500">{item.dosage || ''} • {item.frequency || ''} • {item.duration || ''}</div>
+                                {item.instructions && <div className="mt-1 text-xs italic text-slate-400">{item.instructions}</div>}
+                                {item.notes && <div className="mt-1 text-xs text-slate-400">Notes: {item.notes}</div>}
+                              </div>
+                            ) : (
+                              <p className="text-slate-400 ml-2">None</p>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="mb-1 text-xs text-gray-500">
-                        {new Date(item.createdAt).toLocaleString()}
+
+                      <div className="flex flex-col items-end shrink-0">
+                        <p className="text-xs text-slate-500">{item.createdAt ? new Date(item.createdAt).toLocaleString() : ''}</p>
+
+                        <div className="mt-3 flex items-center gap-2">
+                          {item.fileUrl && (
+                            <a href={item.fileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50">
+                              View Report
+                            </a>
+                          )}
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleEditPrescription(item)}
+                              className="inline-flex items-center gap-2 rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                            >
+                              Update
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePrescription(item.id)}
+                              className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="mb-2">
-                        <span className="font-semibold text-slate-700">Diagnosis:</span> <span className="text-slate-600">{item.diagnosis || "-"}</span>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-slate-700">Medications:</span>
-                        {item.medications.length === 0 ? (
-                          <span className="text-slate-400 ml-2">None</span>
-                        ) : (
-                          <ul className="list-disc ml-6 mt-1">
-                            {item.medications.map((med, idx) => (
-                              <li key={med.id || idx} className="text-slate-600 text-sm">
-                                {med.medicationName} ({med.dosage}, {med.frequency}, {med.duration})
-                                {med.instructions && <span className="ml-2 italic text-xs text-slate-400">{med.instructions}</span>}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 mt-4 mt-auto">
-                      <button
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded-lg text-sm font-semibold transition-colors"
-                        onClick={() => handleEditPrescription(item)}
-                      >
-                        Update
-                      </button>
-                      <button
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white py-1.5 rounded-lg text-sm font-semibold transition-colors"
-                        onClick={() => handleDeletePrescription(item.id)}
-                      >
-                        Delete
-                      </button>
                     </div>
                   </div>
                 ))}
@@ -652,13 +774,16 @@ export default function Prescriptions() {
           </div>
         </div>
       </div>
-      {/* ConfirmModal for delete confirmation */}
-      <ConfirmModal
-        visible={confirmVisible}
-        title="Delete prescription"
-        message="Are you sure you want to delete this prescription? This action cannot be undone."
+      {/* Confirmation dialog for delete confirmation */}
+      <ConfirmationDialog
+        isOpen={confirmVisible}
+        onClose={() => { setPendingDeleteId(null); setConfirmVisible(false); }}
         onConfirm={performDelete}
-        onCancel={() => { setPendingDeleteId(null); setConfirmVisible(false); }}
+        title="Delete prescription"
+        description="Are you sure you want to delete this prescription? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
       />
     </div>
   );

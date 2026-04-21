@@ -22,6 +22,7 @@ const notificationLogSchema = new mongoose.Schema(
         'PAYMENT_SUCCESS_DOCTOR',
         'CONSULTATION_COMPLETED_DOCTOR',
         'APPOINTMENT_BOOKED_DOCTOR',
+        'MANUAL_MESSAGE'
       ],
       required: true,
       index: true,
@@ -66,6 +67,7 @@ const notificationLogSchema = new mongoose.Schema(
     message: { type: String, default: null },
     subject: { type: String, default: null },
     recipientName: { type: String, default: null },
+    sender: { type: String, default: 'CareNet System' },
 
     // Overall status
     status: {

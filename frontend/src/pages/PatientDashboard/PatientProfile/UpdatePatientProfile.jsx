@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Save, UserRound } from "lucide-react";
+import { Save } from "lucide-react";
 
 const INITIAL_FORM = {
+    name: "",
+    phone: "",
     dateOfBirth: "",
     gender: "",
     address: "",
@@ -30,32 +32,58 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
 
             try {
                 const patientServiceBase = import.meta.env.VITE_API_BASE_URL;
-                const response = await fetch(`${patientServiceBase}/patients/me/profile`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
+                const authBase = import.meta.env.VITE_API_BASE_URL;
 
-                if (response.ok) {
-                    const payload = await response.json();
-                    const profile = payload?.data || {};
+                const [patientRes, authRes] = await Promise.allSettled([
+                    fetch(`${patientServiceBase}/patients/me/profile`, {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }),
+                    fetch(`${authBase}/auth/me`, {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }),
+                ]);
 
-                    setFormData({
-                        dateOfBirth: profile.dateOfBirth ? String(profile.dateOfBirth).slice(0, 10) : "",
-                        gender: profile.gender || "",
-                        address: profile.address || "",
-                        bloodGroup: profile.bloodGroup || "",
-                        profileImage: profile.profileImage || "",
-                        allergies: Array.isArray(profile.allergies) ? profile.allergies.join(", ") : "",
-                        chronicConditions: Array.isArray(profile.chronicConditions)
-                            ? profile.chronicConditions.join(", ")
-                            : "",
-                        emergencyContactName: profile.emergencyContactName || "",
-                        emergencyContactPhone: profile.emergencyContactPhone || "",
-                    });
-                } else {
+                let profile = {};
+                if (patientRes.status === "fulfilled" && patientRes.value.ok) {
+                    const payload = await patientRes.value.json();
+                    profile = payload?.data || {};
+                } else if (patientRes.status === "fulfilled" && !patientRes.value.ok) {
                     setMessage("Profile not found yet. Fill details and save to create your record.");
                 }
+
+                let authUser = {};
+                if (authRes.status === "fulfilled" && authRes.value.ok) {
+                    const authPayload = await authRes.value.json();
+                    authUser = authPayload?.user || {};
+                }
+
+                const storedUser = (() => {
+                    try {
+                        return JSON.parse(localStorage.getItem("user") || "{}");
+                    } catch {
+                        return {};
+                    }
+                })();
+
+                setFormData({
+                    name: authUser.name || storedUser.name || "",
+                    phone: authUser.phone || storedUser.phone || "",
+                    dateOfBirth: profile.dateOfBirth ? String(profile.dateOfBirth).slice(0, 10) : "",
+                    gender: profile.gender || "",
+                    address: profile.address || "",
+                    bloodGroup: profile.bloodGroup || "",
+                    profileImage: profile.profileImage || authUser.profileImage || storedUser.profilePicture || "",
+                    allergies: Array.isArray(profile.allergies) ? profile.allergies.join(", ") : "",
+                    chronicConditions: Array.isArray(profile.chronicConditions)
+                        ? profile.chronicConditions.join(", ")
+                        : "",
+                    emergencyContactName: profile.emergencyContactName || "",
+                    emergencyContactPhone: profile.emergencyContactPhone || "",
+                });
             } catch {
                 setMessage("Patient service unavailable. Try again later.");
             } finally {
@@ -86,8 +114,14 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
         setSaving(true);
         setMessage("");
 
-        const payload = {
-            ...formData,
+        const patientPayload = {
+            dateOfBirth: formData.dateOfBirth,
+            gender: formData.gender,
+            address: formData.address,
+            bloodGroup: formData.bloodGroup,
+            profileImage: formData.profileImage,
+            emergencyContactName: formData.emergencyContactName,
+            emergencyContactPhone: formData.emergencyContactPhone,
             allergies: formData.allergies
                 .split(",")
                 .map((item) => item.trim())
@@ -96,6 +130,12 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
                 .split(",")
                 .map((item) => item.trim())
                 .filter(Boolean),
+        };
+
+        const authPayload = {
+            name: formData.name,
+            phone: formData.phone,
+            profileImage: formData.profileImage,
         };
 
         try {
@@ -109,16 +149,44 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
                 body: JSON.stringify(payload),
             });
 
-            if (updateRes.ok) {
+            const patientOk = patientResult.status === "fulfilled" && patientResult.value.ok;
+            const authOk = authResult.status === "fulfilled" && authResult.value.ok;
+
+            if (authOk) {
+                const storedUser = (() => {
+                    try {
+                        return JSON.parse(localStorage.getItem("user") || "{}");
+                    } catch {
+                        return {};
+                    }
+                })();
+
+                localStorage.setItem(
+                    "user",
+                    JSON.stringify({
+                        ...storedUser,
+                        name: formData.name,
+                        phone: formData.phone,
+                        profilePicture: formData.profileImage || storedUser.profilePicture,
+                    })
+                );
+            }
+
+            if (patientOk && authOk) {
                 setMessage("Profile updated successfully.");
-                if (onSaved) {
-                    onSaved();
-                }
+                if (onSaved) onSaved();
                 return;
             }
 
-            if (updateRes.status === 404) {
-                setMessage("Patient profile not found. Create your profile first, then use update.");
+            if (!patientOk && authOk) {
+                setMessage("Name and phone updated, but patient medical details could not be updated.");
+                if (onSaved) onSaved();
+                return;
+            }
+
+            if (patientOk && !authOk) {
+                setMessage("Patient medical details updated, but name/phone update failed.");
+                if (onSaved) onSaved();
                 return;
             }
 
@@ -135,7 +203,7 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
             <div className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-md">
                 <div className="border-b border-blue-100 bg-linear-to-r from-blue-50 to-sky-50 px-6 py-4">
                     <h1 className="text-xl font-bold text-slate-800">Update Patient Profile</h1>
-                    <p className="mt-1 text-sm text-slate-600">Edit your patient-service profile details</p>
+                    <p className="mt-1 text-sm text-slate-600">Edit your patient profile details</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6 p-6">
@@ -144,7 +212,29 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
                     ) : (
                         <>
                             <div className="grid gap-4 md:grid-cols-2">
-                                <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <label className="flex flex-col gap-2 text-sm text-slate-700">
+                                    Full Name
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        value={formData.name}
+                                        onChange={handleChange}
+                                        className="rounded-xl border border-slate-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                                    />
+                                </label>
+
+                                <label className="flex flex-col gap-2 text-sm text-slate-700">
+                                    Telephone Number
+                                    <input
+                                        type="text"
+                                        name="phone"
+                                        value={formData.phone}
+                                        onChange={handleChange}
+                                        className="rounded-xl border border-slate-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                                    />
+                                </label>
+
+                                {/* <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
                                     <p className="mb-3 text-sm font-semibold text-slate-700">Profile Image</p>
 
                                     <label className="flex flex-col gap-2 text-sm text-slate-700">
@@ -187,7 +277,7 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
                                             Remove Image
                                         </button>
                                     </div>
-                                </div>
+                                </div> */}
 
                                 <label className="flex flex-col gap-2 text-sm text-slate-700">
                                     Date of Birth
@@ -303,10 +393,10 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
                                     </button>
                                 )}
 
-                                <span className="inline-flex items-center gap-2 text-sm text-slate-600">
+                                {/* <span className="inline-flex items-center gap-2 text-sm text-slate-600">
                                     <UserRound size={16} />
                                     Patient profile updates are stored in patient-service
-                                </span>
+                                </span> */}
                             </div>
 
                             {message && <p className="text-sm text-slate-600">{message}</p>}

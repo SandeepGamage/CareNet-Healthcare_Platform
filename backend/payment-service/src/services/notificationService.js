@@ -2,7 +2,7 @@ const axios = require('axios');
 const logger = require('../utils/logger');
 
 const NOTIFICATION_URL =
-  process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:5004';
+  process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3006';
 
 /**
  * Notify patient and doctor after a successful payment.
@@ -78,15 +78,17 @@ const sendRefundConfirmation = async ({
   transaction,
   patientEmail,
   patientPhone,
+  type = 'REFUND_REQUESTED'
 }) => {
   try {
     await axios.post(`${NOTIFICATION_URL}/api/notifications/payment`, {
-      type: 'REFUND_REQUESTED',
+      type,
       recipients: [
         {
           email: patientEmail,
           phone: patientPhone || null,
           role: 'patient',
+          recipientId: transaction.patientId, // Required for dashboard bell
           data: {
             patientName: transaction.metadata.patientName,
             amount: parseFloat(transaction.amount).toFixed(2),

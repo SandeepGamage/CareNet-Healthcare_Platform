@@ -152,7 +152,7 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
   const anyOtherActive = navLinks.some(l => l.href !== '/' && isLinkActive(l.href));
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 px-4 sm:px-6 pointer-events-none transition-all duration-300">
+    <header className="fixed top-4 inset-x-0 z-50 px-4 sm:px-6 pointer-events-none transition-all duration-300">
       <div className="max-w-7xl mx-auto pointer-events-auto">
         <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-full h-[64px] px-4 sm:px-6 shadow-[0_8px_32px_rgba(0,0,0,0.06)] flex items-center justify-between transition-all duration-300 hover:bg-white/80">
           {/* Left Area: Logo + Title */}

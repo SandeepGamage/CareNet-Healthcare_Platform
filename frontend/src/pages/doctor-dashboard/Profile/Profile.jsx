@@ -164,7 +164,7 @@ export default function DoctorProfile() {
 		setSaveLoading(true);
 		setSaveMessage('');
 		try {
-			const payload = {
+			await saveProfilePayload({
 				name: form.name,
 				phone: form.phone,
 				profileImage: form.profileImage,
@@ -175,24 +175,7 @@ export default function DoctorProfile() {
 				qualifications: form.qualifications,
 				experienceYears: form.experienceYears,
 				isAvailable: form.isAvailable,
-			};
-			if (!profileId) {
-				throw new Error('Missing profile id');
-			}
-			const res = await axios.put(`${API_BASE_URL}/doctors/profile/${profileId}`, payload, {
-				headers: { Authorization: `Bearer ${token}` }
 			});
-			const result = res.data || {};
-			// update local state
-			setUser(prev => ({ ...prev, name: form.name, phone: form.phone, profileImage: form.profileImage }));
-			setProfile(prev => ({ ...prev, ...payload }));
-			setSaveMessage(result.message || 'Profile updated successfully!');
-			// animate modal out then unmount
-			setModalAnimate(false);
-			setTimeout(() => {
-				setEditing(false);
-				setShowModal(false);
-			}, 200);
 		} catch (err) {
 			const msg = err?.response?.data?.message || 'Network error. Please try again.';
 			setSaveMessage(msg);
@@ -200,6 +183,31 @@ export default function DoctorProfile() {
 			setSaveLoading(false);
 			setTimeout(() => setSaveMessage(''), 3000);
 		}
+	};
+
+	// Shared save logic used by modal save and embedded UpdateDoctorProfile via onSave
+	const saveProfilePayload = async (payload) => {
+		const token = localStorage.getItem('token');
+		if (!token) throw new Error('Not authenticated');
+		if (!profileId) throw new Error('Missing profile id');
+
+		const res = await axios.put(`${API_BASE_URL}/doctors/profile/${profileId}`, payload, {
+			headers: { Authorization: `Bearer ${token}` }
+		});
+		const result = res.data || {};
+
+		// update local state
+		setUser(prev => ({ ...prev, name: payload.name, phone: payload.phone, profileImage: payload.profileImage }));
+		setProfile(prev => ({ ...prev, ...payload }));
+		setSaveMessage(result.message || 'Profile updated successfully!');
+		// animate modal out then unmount
+		setModalAnimate(false);
+		setTimeout(() => {
+			setEditing(false);
+			setShowModal(false);
+		}, 200);
+
+		return result;
 	};
 
 
@@ -226,6 +234,7 @@ export default function DoctorProfile() {
 					<UpdateDoctorProfile
 						embedded
 						onCancel={() => setEditing(false)}
+						onSave={async (payload) => await saveProfilePayload(payload)}
 						onSaved={() => {
 							setEditing(false);
 							// refetch profile to refresh view
@@ -344,18 +353,18 @@ export default function DoctorProfile() {
 						<p className="mt-1 text-sm text-slate-600">Short introduction and professional details</p>
 					</div>
 					<div className="grid gap-6 p-6 md:grid-cols-2">
-						<div>
-							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Biography</p>
-							<p className="mt-2 text-base font-semibold text-slate-800">{profile?.bio || 'No biography provided yet.'}</p>
-						</div>
-						<div>
-							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Experience</p>
-							<p className="mt-2 text-base font-semibold text-slate-800">{profile?.experienceYears ? `${profile.experienceYears} years` : 'Not specified'}</p>
-							<p className="mt-3 text-xs text-slate-500">{profile?.isAvailable ? 'Currently accepting patients' : 'Not accepting patients'}</p>
-						</div>
 						<div className="md:col-span-2">
-							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Qualifications</p>
-							<p className="mt-2 text-base font-semibold text-slate-800">{profile?.qualifications || 'No qualifications listed.'}</p>
+							<p className="text-xs font-bold uppercase tracking-wide text-slate-500">Biography</p>
+							<p className="mt-2 text-base font-normal text-slate-800">{profile?.bio || 'No biography provided yet.'}</p>
+						</div>
+						<div className="md:col-span-1">
+							<p className="text-xs font-bold uppercase tracking-wide text-slate-500">Qualifications</p>
+							<p className="mt-2 text-base font-normal text-slate-800">{profile?.qualifications || 'No qualifications listed.'}</p>
+						</div>
+						<div className="md:col-span-1">
+							<p className="text-xs font-bold uppercase tracking-wide text-slate-500">Experience</p>
+							<p className="mt-2 text-base font-normal text-slate-800">{profile?.experienceYears ? `${profile.experienceYears} years` : 'Not specified'}</p>
+							<p className="mt-3 text-xs text-slate-500">{profile?.isAvailable ? 'Currently accepting patients' : 'Not accepting patients'}</p>
 						</div>
 					</div>
 				</div>
