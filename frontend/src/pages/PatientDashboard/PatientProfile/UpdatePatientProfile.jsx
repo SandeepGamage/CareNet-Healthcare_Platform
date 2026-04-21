@@ -140,14 +140,26 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
 
         try {
             const patientServiceBase = import.meta.env.VITE_API_BASE_URL;
-            const updateRes = await fetch(`${patientServiceBase}/patients/me/profile`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(payload),
-            });
+            const authBase = import.meta.env.VITE_API_BASE_URL;
+
+            const [patientResult, authResult] = await Promise.allSettled([
+                fetch(`${patientServiceBase}/patients/me/profile`, {
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    method: "PUT",
+                    body: JSON.stringify(patientPayload),
+                }),
+                fetch(`${authBase}/auth/me`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(authPayload),
+                }),
+            ]);
 
             const patientOk = patientResult.status === "fulfilled" && patientResult.value.ok;
             const authOk = authResult.status === "fulfilled" && authResult.value.ok;

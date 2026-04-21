@@ -94,6 +94,7 @@ docker image inspect auth-service:latest >nul 2>&1 || docker build -t auth-servi
 docker image inspect api-gateway:latest >nul 2>&1 || docker build -t api-gateway:latest ./backend/api-gateway
 docker image inspect payment-service:latest >nul 2>&1 || docker build -t payment-service:latest ./backend/payment-service
 docker image inspect notification-service:latest >nul 2>&1 || docker build -t notification-service:latest ./backend/notification-service
+docker image inspect telemedicine-service:latest >nul 2>&1 || docker build -t telemedicine-service:latest ./backend/telemedicine-service
 
 :: Optimized Frontend Build (Uses relative /api proxy)
 echo [FORCE] Cleaning .env and rebuilding frontend with internal proxy routing...
