@@ -11,11 +11,12 @@ app.use(cors());
 app.use(express.json());
 
 // Serve local uploads (fallback when Supabase service role key not available)
-const path = require('path');
-const fs = require('fs');
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-app.use('/uploads', express.static(uploadsDir));
+// Temporarily disabled to enforce Supabase-only image hosting.
+// const path = require('path');
+// const fs = require('fs');
+// const uploadsDir = path.join(__dirname, '..', 'uploads');
+// if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+// app.use('/uploads', express.static(uploadsDir));
 
 // Logging middleware
 app.use((req, res, next) => {

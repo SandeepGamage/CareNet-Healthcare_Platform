@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { Save, UserRound } from "lucide-react";
+import { Save } from "lucide-react";
 // Toast removed per request
 import ConfirmationDialog from "../../../components/confirmationDialog";
 
 const INITIAL_FORM = {
     name: "",
     phone: "",
-    profileImage: "",
     specialization: "",
     consultationFee: "",
     availableHours: "",
@@ -20,12 +19,10 @@ export default function UpdateDoctorProfile({ embedded = false, onCancel, onSave
     const [formData, setFormData] = useState(INITIAL_FORM);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [message, setMessage] = useState("");
     // profileId no longer required; using PUT /me endpoint
 
     const API_BASE_URL = (import.meta.env.VITE_DOCTOR_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:3003/api").replace(/\/$/, "");
-    const AUTH_API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api").replace(/\/$/, "");
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -47,7 +44,6 @@ export default function UpdateDoctorProfile({ embedded = false, onCancel, onSave
                     setFormData({
                         name: profile.name || "",
                         phone: profile.phone || "",
-                        profileImage: profile.profileImage || "",
                         specialization: profile.specialization || "",
                         consultationFee: profile.consultationFee || "",
                         availableHours: profile.availableHours || "",
@@ -76,47 +72,7 @@ export default function UpdateDoctorProfile({ embedded = false, onCancel, onSave
 
     const [confirmVisible, setConfirmVisible] = useState(false);
 
-    const uploadAvatarFile = async (file) => {
-        setUploadingAvatar(true);
-        setMessage("");
-        const token = localStorage.getItem("token");
-        if (!token) {
-            setMessage("Please login to upload your profile image.");
-            setUploadingAvatar(false);
-            return;
-        }
-
-        try {
-            const fd = new FormData();
-            fd.append('profileImage', file);
-
-            const res = await fetch(`${AUTH_API_BASE}/auth/me/avatar`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
-                body: fd,
-            });
-
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                setMessage(err.message || 'Image upload failed.');
-                setUploadingAvatar(false);
-                return;
-            }
-
-            const payload = await res.json();
-            const url = payload?.url || payload?.data?.url || null;
-            if (url) {
-                setFormData((p) => ({ ...p, profileImage: url }));
-                setMessage('Image uploaded. Preview updated.');
-            } else {
-                setMessage('Upload succeeded but no URL returned.');
-            }
-        } catch (err) {
-            setMessage('Image upload failed.');
-        } finally {
-            setUploadingAvatar(false);
-        }
-    };
+    // profile image upload removed
 
     const performSave = async () => {
         setConfirmVisible(false);
@@ -188,31 +144,7 @@ export default function UpdateDoctorProfile({ embedded = false, onCancel, onSave
                                 <p className="text-sm text-slate-600">Loading profile...</p>
                             ) : (
                                 <>
-                                    <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                        <p className="mb-3 text-sm font-semibold text-slate-700">Profile Image</p>
-
-                                        <div className="mt-4 flex items-center gap-4">
-                                            <div className="h-20 w-20 overflow-hidden rounded-full border border-slate-200 bg-white">
-                                                {formData.profileImage ? (
-                                                    <img src={formData.profileImage} alt="Profile preview" className="h-full w-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                                                ) : (
-                                                    <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No Image</div>
-                                                )}
-                                            </div>
-
-                                            <button type="button" onClick={() => setFormData((p) => ({ ...p, profileImage: "" }))} className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100">Remove Image</button>
-                                        </div>
-
-                                        <label className="flex flex-col gap-2 text-sm text-slate-700 mt-3">
-                                            Upload from device
-                                            <input type="file" accept="image/*" onChange={(e) => {
-                                                const f = e.target.files && e.target.files[0];
-                                                if (f) uploadAvatarFile(f);
-                                                e.currentTarget.value = null;
-                                            }} className="rounded-xl border border-slate-200 bg-white px-3 py-2 focus:border-blue-500 focus:outline-none" />
-                                            {uploadingAvatar && <span className="text-xs text-slate-500">Uploading image...</span>}
-                                        </label>
-                                    </div>
+                                    {/* Profile image removed */}
 
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <label className="flex flex-col gap-2 text-sm text-slate-700 md:col-span-2">

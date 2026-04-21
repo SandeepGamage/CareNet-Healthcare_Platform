@@ -46,6 +46,10 @@ if %errorlevel% neq 0 (
 )
 
 echo Starting services...
+:: Clear any remote Docker host variables so we use the local Docker daemon
+set DOCKER_HOST=
+set DOCKER_TLS_VERIFY=
+set DOCKER_CERT_PATH=
 docker-compose up -d
 
 echo.
@@ -59,6 +63,10 @@ goto MENU
 :DOCKER_STOP
 cls
 echo [ Stopping Docker Compose + Removing Volumes ]
+:: Clear any remote Docker host variables before stopping local compose
+set DOCKER_HOST=
+set DOCKER_TLS_VERIFY=
+set DOCKER_CERT_PATH=
 docker-compose down -v
 echo Done!
 pause
@@ -82,7 +90,25 @@ echo.
 echo Linking Docker to Minikube...
 @FOR /f "tokens=*" %%i IN ('minikube -p minikube docker-env --shell cmd') DO @%%i
 
-echo.
+:: Ensure .env files exist by copying from .env.example when missing
+echo Checking for .env files from .env.example...
+if exist ".env.example" (
+    if not exist ".env" (
+        copy ".env.example" ".env" >nul
+        echo Created root .env from .env.example
+    )
+)
+
+for /d %%D in (*) do (
+    if exist "%%D\.env.example" (
+        if not exist "%%D\.env" (
+            copy "%%D\.env.example" "%%D\.env" >nul
+            echo Created %%D\.env from %%D\.env.example
+        )
+    )
+)
+
+docker-compose up -d
 echo [INFO] Building images...
 
 :: Core Services
@@ -147,6 +173,10 @@ goto MENU
 :CLEANUP
 cls
 echo [ Cleaning Docker System ]
+:: Clear remote Docker host vars to ensure prune targets local daemon
+set DOCKER_HOST=
+set DOCKER_TLS_VERIFY=
+set DOCKER_CERT_PATH=
 docker system prune -a -f
 
 echo.

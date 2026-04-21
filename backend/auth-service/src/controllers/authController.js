@@ -342,46 +342,53 @@ exports.uploadAvatar = async (req, res) => {
     const filePath = `profiles/${fileName}`;
     const bucket = process.env.SUPABASE_BUCKET || 'profiles';
 
-    // Attempt Supabase upload if configured; otherwise or on failure, fallback to local storage
+    // Attempt Supabase upload only (local fallback intentionally disabled for now)
     const hasSupabase = process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
     let publicUrl = null;
-    let uploadError = null;
 
-    if (hasSupabase) {
-      const which = process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SERVICE_ROLE_KEY' : 'ANON_KEY';
-      console.log(`[Auth Service] Uploading avatar for user ${userId} to bucket ${bucket} at ${filePath} using ${which}`);
-      const result = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file.buffer, {
-          contentType: file.mimetype,
-          upsert: false,
-        });
-
-      uploadError = result.error;
-      if (!uploadError) {
-        const { data: { publicUrl: supaUrl } } = supabase.storage.from(bucket).getPublicUrl(filePath);
-        publicUrl = supaUrl;
-      } else {
-        console.error('[Auth Service] Supabase upload error:', uploadError);
-      }
+    if (!hasSupabase) {
+      return res.status(503).json({
+        success: false,
+        message: 'Image upload is unavailable: Supabase storage is not configured.',
+      });
     }
 
-    // Fallback to local filesystem if Supabase not configured or upload failed
-    if (!publicUrl) {
-      try {
-        const fs = require('fs');
-        const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
-        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-        const localPath = path.join(uploadsDir, fileName);
-        fs.writeFileSync(localPath, file.buffer);
-        const host = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
-        publicUrl = `${host}/uploads/${fileName}`;
-        console.log(`[Auth Service] Saved avatar locally for user ${userId} at ${publicUrl}`);
-      } catch (err) {
-        console.error('[Auth Service] Local fallback failed:', err.message);
-        return res.status(500).json({ success: false, message: 'Failed to upload image.' });
-      }
+    const which = process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SERVICE_ROLE_KEY' : 'ANON_KEY';
+    console.log(`[Auth Service] Uploading avatar for user ${userId} to bucket ${bucket} at ${filePath} using ${which}`);
+    const result = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (result.error) {
+      console.error('[Auth Service] Supabase upload error:', result.error);
+      return res.status(502).json({
+        success: false,
+        message: 'Image upload failed: Supabase storage error.',
+      });
     }
+
+    const { data: { publicUrl: supaUrl } } = supabase.storage.from(bucket).getPublicUrl(filePath);
+    publicUrl = supaUrl;
+
+    // Local fallback kept for temporary reference only (disabled on purpose).
+    // if (!publicUrl) {
+    //   try {
+    //     const fs = require('fs');
+    //     const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+    //     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+    //     const localPath = path.join(uploadsDir, fileName);
+    //     fs.writeFileSync(localPath, file.buffer);
+    //     const host = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+    //     publicUrl = `${host}/uploads/${fileName}`;
+    //     console.log(`[Auth Service] Saved avatar locally for user ${userId} at ${publicUrl}`);
+    //   } catch (err) {
+    //     console.error('[Auth Service] Local fallback failed:', err.message);
+    //     return res.status(500).json({ success: false, message: 'Failed to upload image.' });
+    //   }
+    // }
 
     // Update user record
     const user = await User.findById(userId);
