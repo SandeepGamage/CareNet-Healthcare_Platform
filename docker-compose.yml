@@ -2,6 +2,29 @@
 
 services:
   # ─── Infrastructure ──────────────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: healthcare-mongodb
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - healthcare-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: healthcare-rabbitmq
+    restart: unless-stopped
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    networks:
+      - healthcare-network
 
 
   # ─── API Gateway ───────────────────────────────────────────────
@@ -245,3 +268,6 @@ services:
 networks:
   healthcare-network:
     driver: bridge
+ 
+volumes:
+  mongo-data:
