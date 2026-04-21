@@ -22,7 +22,7 @@ spec:
             - name: PORT
               value: "3005"
             - name: MONGO_URI
-              value: "mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/payment_db?appName=Cluster0"
+              value: "mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0"
 ---
 apiVersion: v1
 kind: Service

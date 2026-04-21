@@ -22,7 +22,7 @@ spec:
             - name: PORT
               value: "3002"
             - name: MONGO_URI
-              value: "mongodb://mongodb:27017/carenet_patients"
+              value: "mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0"
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

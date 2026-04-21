@@ -43,7 +43,7 @@ import {
 import axios from 'axios';
 import { format, parseISO, isToday, isTomorrow, isPast, differenceInDays } from 'date-fns';
 
-const API_BASE_URL = 'http://localhost:3004/api';
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/appointments`;
 
 const PatientAppointments = () => {
   // State management
@@ -188,7 +188,7 @@ const PatientAppointments = () => {
         return;
       }
       
-      const response = await axios.get(`${API_BASE_URL}/appointments/my`, {
+      const response = await axios.get(`${API_BASE_URL}/my`, {
         headers: { 
           Authorization: `Bearer ${token}` 
         }
@@ -228,7 +228,7 @@ const PatientAppointments = () => {
       
       // Step 1: Find the transaction for the appointment
       const txRes = await axios.get(
-        `http://localhost:3005/api/payments/appointment/${appointment._id}`,
+        `${import.meta.env.VITE_API_BASE_URL}/payments/appointment/${appointment._id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const transaction = txRes.data.data;
@@ -241,7 +241,7 @@ const PatientAppointments = () => {
 
       // Step 2: Submit refund request
       await axios.post(
-        'http://localhost:3005/api/refunds',
+        `${import.meta.env.VITE_API_BASE_URL}/refunds`,
         {
           transactionId: transaction._id,
           reason: 'appointment_cancelled',
@@ -269,7 +269,7 @@ const PatientAppointments = () => {
       const token = localStorage.getItem('token');
 
       // Cancel the appointment
-      const response = await axios.delete(`${API_BASE_URL}/appointments/${id}`, {
+      const response = await axios.delete(`${API_BASE_URL}/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
         data: { reason: reason || 'Cancelled by patient' }
       });
@@ -304,7 +304,7 @@ const PatientAppointments = () => {
       const token = localStorage.getItem('token');
       
       await axios.patch(
-        `${API_BASE_URL}/appointments/${selectedAppointment._id}/status`,
+        `${API_BASE_URL}/${selectedAppointment._id}/status`,
         {
           status: selectedAppointment.status,
           notes: editFormData.reason,

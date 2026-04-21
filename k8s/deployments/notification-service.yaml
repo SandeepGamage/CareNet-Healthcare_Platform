@@ -22,7 +22,7 @@ spec:
             - name: PORT
               value: "3006"
             - name: MONGO_URI
-              value: "mongodb+srv://hanaan:1234@cluster0.jxyoaqc.mongodb.net/?appName=Cluster0"
+              value: "mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0"
             - name: RABBITMQ_URL
               value: "amqp://guest:guest@rabbitmq:5672"
             - name: EMAIL_HOST

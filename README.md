@@ -120,7 +120,6 @@ docker-compose up --build -d
 | :--- | :--- | :--- |
 | **Frontend** | `http://localhost:5173` | UI Access |
 | **API Gateway** | `http://localhost:8080` | Backend API |
-| **RabbitMQ** | `http://localhost:15672` | `guest` / `guest` |
 
 ---
 

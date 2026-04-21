@@ -22,7 +22,7 @@ const PaymentSuccess = () => {
 
         // Note: For local development, simulate webhook to verify the payment
         try {
-          await axios.post(`http://localhost:3005/api/payments/verify-local`, 
+          await axios.post(`${import.meta.env.VITE_API_BASE_URL}/payments/verify-local`, 
             { appointmentId: orderId },
             { headers: { Authorization: `Bearer ${token}` } }
           );
@@ -30,7 +30,7 @@ const PaymentSuccess = () => {
           console.log("Local verification step skipped/failed:", localVerifyErr.message);
         }
 
-        const response = await axios.get(`http://localhost:3005/api/payments/appointment/${orderId}`, {
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/payments/appointment/${orderId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setTransactionData(response.data.data);
@@ -52,7 +52,7 @@ const PaymentSuccess = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        `http://localhost:3005/api/payments/invoices/${transactionData._id}`,
+        `${import.meta.env.VITE_API_BASE_URL}/payments/invoices/${transactionData._id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
           responseType: 'blob',

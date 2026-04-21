@@ -20,7 +20,7 @@ import {
     Plus
 } from "lucide-react";
 
-const APPOINTMENT_SERVICE_URL = "http://localhost:3004/api/appointments";
+const APPOINTMENT_SERVICE_URL = `${import.meta.env.VITE_API_BASE_URL}/appointments`;
 
 export default function ViewAppointments() {
     const navigate = useNavigate();

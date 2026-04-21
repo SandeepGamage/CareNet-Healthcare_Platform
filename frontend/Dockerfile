@@ -14,6 +14,10 @@ RUN rm -f package-lock.json && \
 # Copy the rest of the source code
 COPY . .
 
+# Pass environment variables for Vite at build time
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 # Build the application
 RUN npm run build
 
@@ -21,9 +25,14 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# nginx config for SPA routing
+# nginx config for SPA routing and API proxying
 RUN echo 'server { \
   listen 80; \
+  location /api/ { \
+    proxy_pass http://api-gateway:8080/api/; \
+    proxy_set_header Host $host; \
+    proxy_set_header X-Real-IP $remote_addr; \
+  } \
   location / { \
     root /usr/share/nginx/html; \
     index index.html; \

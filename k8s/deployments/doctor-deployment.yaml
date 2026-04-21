@@ -19,7 +19,7 @@ spec:
           image: carenet-doctor-service:1.0
           imagePullPolicy: Never
           ports:
-            - containerPort: 5001
+            - containerPort: 3003
           env:
             - name: PORT
               valueFrom:

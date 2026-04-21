@@ -33,7 +33,7 @@ export default function TelemedicineTab({ role = "patient" }) {
     const [endingSession, setEndingSession] = useState(false);
 
     const apiBase = useMemo(
-        () => import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api",
+        () => import.meta.env.VITE_API_BASE_URL,
         []
     );
 

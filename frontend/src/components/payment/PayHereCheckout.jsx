@@ -10,7 +10,7 @@ const PayHereCheckout = ({ appointmentId, doctorId, amount, patientDetails, doct
   const cancelUrl  = `${window.location.origin}/payment/cancel`;
   // NOTE: PayHere cannot reach 'localhost'. To receive payment notifications locally, 
   // you must use a service like Ngrok or Cloudflare Tunnel to expose this port.
-  const notifyUrl  = "http://localhost:3005/api/payments/payhere/notify";
+  const notifyUrl  = `${import.meta.env.VITE_API_BASE_URL}/payments/payhere/notify`;
 
   useEffect(() => {
     if (!appointmentId || hasInitialized.current) return;
@@ -21,8 +21,8 @@ const PayHereCheckout = ({ appointmentId, doctorId, amount, patientDetails, doct
         setLoading(true);
         const token = localStorage.getItem('token');
 
-        // Call payment-service to create a transaction record and get the secure hash
-        const res = await fetch('http://localhost:3005/api/payments/create', {
+        // Call payment-service via Gateway
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/payments/create`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

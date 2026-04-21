@@ -7,7 +7,7 @@ export default function PrescriptionsTab() {
     const [message, setMessage] = useState("");
 
     const patientServiceBase = useMemo(
-        () => import.meta.env.VITE_PATIENT_SERVICE_URL || "http://localhost:3002",
+        () => import.meta.env.VITE_API_BASE_URL,
         []
     );
 

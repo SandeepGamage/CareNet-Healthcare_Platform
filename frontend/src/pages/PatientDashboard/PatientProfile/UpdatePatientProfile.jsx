@@ -29,8 +29,8 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
             }
 
             try {
-                const patientServiceBase = import.meta.env.VITE_PATIENT_SERVICE_URL || "http://localhost:3002";
-                const response = await fetch(`${patientServiceBase}/api/patients/me/profile`, {
+                const patientServiceBase = import.meta.env.VITE_API_BASE_URL;
+                const response = await fetch(`${patientServiceBase}/patients/me/profile`, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -99,9 +99,8 @@ export default function UpdatePatientProfile({ embedded = false, onCancel, onSav
         };
 
         try {
-            const patientServiceBase = import.meta.env.VITE_PATIENT_SERVICE_URL || "http://localhost:3002";
-
-            const updateRes = await fetch(`${patientServiceBase}/api/patients/me/profile`, {
+            const patientServiceBase = import.meta.env.VITE_API_BASE_URL;
+            const updateRes = await fetch(`${patientServiceBase}/patients/me/profile`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",

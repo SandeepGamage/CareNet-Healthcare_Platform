@@ -163,8 +163,8 @@ export default function ModernPatientDashboard() {
         const fetchAppointments = async () => {
             try {
                 const token = localStorage.getItem("token");
-                // Using appointment-service at port 3004
-                const response = await fetch("http://localhost:3004/api/appointments/my", {
+                // Using appointment-service via Gateway
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/appointments/my`, {
                     headers: {
                         "Authorization": `Bearer ${token}`
                     }
@@ -193,7 +193,7 @@ export default function ModernPatientDashboard() {
         const fetchPayments = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const response = await fetch("http://localhost:3005/api/payments/history", {
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/payments/history`, {
                     headers: {
                         "Authorization": `Bearer ${token}`
                     }
@@ -220,7 +220,7 @@ export default function ModernPatientDashboard() {
         try {
             setIsDeleting(true);
             const token = localStorage.getItem("token");
-            const response = await fetch(`http://localhost:3005/api/payments/${id}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/payments/${id}`, {
                 method: "DELETE",
                 headers: {
                     "Authorization": `Bearer ${token}`
@@ -745,7 +745,7 @@ export default function ModernPatientDashboard() {
                                                                 <button
                                                                     onClick={async () => {
                                                                         try {
-                                                                            const res = await fetch(`http://localhost:3005/api/payments/invoices/${payment._id}`, {
+                                                                            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/payments/invoices/${payment._id}`, {
                                                                                 headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
                                                                             });
                                                                             if (!res.ok) throw new Error();

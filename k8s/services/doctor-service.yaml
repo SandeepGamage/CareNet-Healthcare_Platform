@@ -8,6 +8,6 @@ spec:
   type: NodePort
   ports:
     - protocol: TCP
-      port: 5001
-      targetPort: 5001
-      nodePort: 32001
+      port: 3003
+      targetPort: 3003
+      nodePort: 32003

@@ -5,13 +5,9 @@ metadata:
 spec:
   selector:
     app: appointment-service
-  ports:
-    - protocol: TCP
-      port: 3004
-      targetPort: 3004
   type: NodePort
   ports:
     - protocol: TCP
       port: 3004
       targetPort: 3004
-      nodePort: 32004   # (optional, pick a port between 30000-32767)
+      nodePort: 32004

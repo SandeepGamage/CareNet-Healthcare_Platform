@@ -83,39 +83,44 @@ echo Linking Docker to Minikube...
 @FOR /f "tokens=*" %%i IN ('minikube -p minikube docker-env --shell cmd') DO @%%i
 
 echo.
-echo [INFO] Building images ONLY if not exists...
+echo [INFO] Building images...
 
+:: Core Services
 docker image inspect carenet-appointment-service:1.0 >nul 2>&1 || docker build -t carenet-appointment-service:1.0 ./backend/appointment-service
+docker image inspect carenet-doctor-service:1.0 >nul 2>&1 || docker build -t carenet-doctor-service:1.0 ./backend/doctor-service
+docker image inspect patient-service:latest >nul 2>&1 || docker build -t patient-service:latest ./backend/patient-service
 docker image inspect symptom-service:latest >nul 2>&1 || docker build -t symptom-service:latest ./backend/ai-symptom-service
 docker image inspect auth-service:latest >nul 2>&1 || docker build -t auth-service:latest ./backend/auth-service
 docker image inspect api-gateway:latest >nul 2>&1 || docker build -t api-gateway:latest ./backend/api-gateway
 docker image inspect payment-service:latest >nul 2>&1 || docker build -t payment-service:latest ./backend/payment-service
 docker image inspect notification-service:latest >nul 2>&1 || docker build -t notification-service:latest ./backend/notification-service
-docker image inspect carenet-frontend:latest >nul 2>&1 || docker build -t carenet-frontend:latest ./frontend
+
+:: Optimized Frontend Build (Uses relative /api proxy)
+echo [FORCE] Cleaning .env and rebuilding frontend with internal proxy routing...
+if exist "frontend\.env" del "frontend\.env"
+docker build --build-arg VITE_API_BASE_URL=/api -t carenet-frontend:latest ./frontend
 
 echo.
 echo Applying Kubernetes configs...
 kubectl apply -f k8s/deployments/
 kubectl apply -f k8s/services/
 
-echo Waiting for services...
-kubectl wait --for=condition=available deployment/api-gateway --timeout=90s
+echo Waiting for pods to initialize...
+kubectl wait --for=condition=available deployment/frontend --timeout=90s
 
 echo.
-echo Opening bridges...
-start cmd /k "kubectl port-forward svc/api-gateway 8000:8080"
-start cmd /k "kubectl port-forward svc/appointment-service 3004:3004"
-start cmd /k "kubectl port-forward svc/symptom-service 3008:3008"
-
+echo [SUCCESS] Deployment complete!
 echo.
-echo [SUCCESS] Deployment applied to Kubernetes!
-echo To open the frontend in your browser natively, opening now...
-start cmd /k "title CareNet Frontend Bridge && echo [*] Frontend... && kubectl port-forward svc/frontend 5173:5173"
-echo Opening frontend at http://localhost:5173...
-start "" "http://localhost:5173"
+echo ==========================================================
+echo   IMPORTANT: Windows + Docker Driver detected.
+echo   I am opening a terminal to bridge the connection.
+echo   KEEP THAT WINDOW OPEN while using the website!
+echo ==========================================================
 echo.
+echo Finalizing...
+start cmd /k "title CareNet Service Tunnel && echo [*] Tunneling Frontend... && minikube service frontend"
 
-pause
+timeout /t 5 >nul
 goto MENU
 
 :MINIKUBE_STOP
@@ -130,10 +135,8 @@ goto MENU
 :: =======================================
 :RESTART_BRIDGES
 cls
-echo Restarting bridges...
-start cmd /k "kubectl port-forward svc/api-gateway 8000:8080"
-start cmd /k "kubectl port-forward svc/appointment-service 3004:3004"
-start cmd /k "kubectl port-forward svc/symptom-service 3008:3008"
+echo Restarting service tunnel...
+start cmd /k "title CareNet Service Tunnel && minikube service frontend"
 pause
 goto MENU
 
@@ -148,14 +151,6 @@ docker system prune -a -f
 echo.
 echo [ Cleaning Volumes ]
 docker volume prune -f
-
-echo.
-echo [ Optional: Delete Minikube cache ]
-echo This will REMOVE all Kubernetes data!
-set /p confirm="Delete Minikube? (y/n): "
-if /i "%confirm%"=="y" (
-    minikube delete
-)
 
 echo Cleanup complete!
 pause

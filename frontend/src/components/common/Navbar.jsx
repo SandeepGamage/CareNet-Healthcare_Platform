@@ -31,8 +31,9 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    // Connect to the gateway (port 3001) which proxies /socket.io to notification-service
-    const socket = io('http://localhost:3001', {
+    // Connect to the gateway which proxies /socket.io to notification-service
+    const gatewayUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '');
+    const socket = io(gatewayUrl, {
       auth: { token }
     });
 
