@@ -324,7 +324,7 @@ const RegisterPage = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-lg relative z-10"
+        className="w-full max-w-xl sm:max-w-2xl relative z-10"
       >
         {/* Back to Home */}
         <Link to="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-teal-600 transition-colors mb-8 group">
@@ -504,21 +504,21 @@ const RegisterPage = () => {
                   className="space-y-4 overflow-hidden pt-1"
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-slate-700 ml-1">Date of Birth</label>
+                    <div className="space-y-1 min-w-0">
+                      <label className="text-sm font-semibold text-slate-700 ml-1 block truncate">Date of Birth</label>
                       <input
                         type="date"
                         value={dateOfBirth}
                         onChange={(e) => setDateOfBirth(e.target.value)}
-                        className={inputCls(false)}
+                        className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-sm"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-slate-700 ml-1">Blood Group</label>
+                    <div className="space-y-1 min-w-0">
+                      <label className="text-sm font-semibold text-slate-700 ml-1 block truncate">Blood Group</label>
                       <select
                         value={bloodGroup}
                         onChange={(e) => setBloodGroup(e.target.value)}
-                        className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer"
+                        className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer text-sm"
                       >
                         <option value="">Select</option>
                         <option value="A+">A+</option>
@@ -535,17 +535,15 @@ const RegisterPage = () => {
 
                   <div className="space-y-1">
                     <label className="text-sm font-semibold text-slate-700 ml-1">Gender</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <select
-                        value={gender}
-                        onChange={(e) => setGender(e.target.value)}
-                        className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer"
-                      >
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </div>
+                    <select
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                      className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer text-sm"
+                    >
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
                   </div>
 
                   <div className="space-y-1">
@@ -560,8 +558,8 @@ const RegisterPage = () => {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-slate-700 ml-1">Emergency Contact Name</label>
+                    <div className="space-y-1 min-w-0">
+                      <label className="text-sm font-semibold text-slate-700 ml-1 block truncate">Emergency Contact Name</label>
                       <input
                         type="text"
                         placeholder="Guardian / Spouse Name"
@@ -570,8 +568,8 @@ const RegisterPage = () => {
                         className={inputCls(false)}
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-slate-700 ml-1">Emergency Contact Phone</label>
+                    <div className="space-y-1 min-w-0">
+                      <label className="text-sm font-semibold text-slate-700 ml-1 block truncate">Emergency Contact Phone</label>
                       <input
                         type="tel"
                         placeholder="+94 77 123 4567"
@@ -583,8 +581,8 @@ const RegisterPage = () => {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-slate-700 ml-1">Allergies (comma separated)</label>
+                    <div className="space-y-1 min-w-0">
+                      <label className="text-sm font-semibold text-slate-700 ml-1 block truncate">Allergies (comma separated)</label>
                       <input
                         type="text"
                         placeholder="e.g. Peanuts, Penicillin"
@@ -593,8 +591,8 @@ const RegisterPage = () => {
                         className={inputCls(false)}
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-slate-700 ml-1">Chronic Conditions</label>
+                    <div className="space-y-1 min-w-0">
+                      <label className="text-sm font-semibold text-slate-700 ml-1 block truncate">Chronic Conditions</label>
                       <input
                         type="text"
                         placeholder="e.g. Diabetes, Asthma"
@@ -605,7 +603,7 @@ const RegisterPage = () => {
                     </div>
                   </div>
 
-                   <div className="space-y-1">
+                  <div className="space-y-1">
                     <label className="text-sm font-semibold text-slate-700 ml-1">Profile Image (Optional)</label>
                     <input
                       type="file"
@@ -713,12 +711,12 @@ const RegisterPage = () => {
       {/* ── Google Profile Completion Modal ────────────────────────────────── */}
       <AnimatePresence>
         {showGoogleModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-white rounded-3xl p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-lg sm:max-w-xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto my-auto"
             >
               <h2 className="text-2xl font-bold text-slate-900 mb-1">Complete Your Profile</h2>
               <p className="text-slate-500 mb-6 text-sm">
@@ -732,7 +730,7 @@ const RegisterPage = () => {
                   <select
                     value={googleRole}
                     onChange={(e) => setGoogleRole(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer"
+                    className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer text-sm font-medium"
                   >
                     <option value="patient">Patient</option>
                     <option value="doctor">Doctor / Professional</option>
@@ -820,21 +818,21 @@ const RegisterPage = () => {
                       className="space-y-4 overflow-hidden"
                     >
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">Date of Birth</label>
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-sm font-semibold text-slate-700 ml-1 block truncate">Date of Birth</label>
                           <input
                             type="date"
                             value={googleDateOfBirth}
                             onChange={(e) => setGoogleDateOfBirth(e.target.value)}
-                            className={inputCls(false)}
+                            className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-sm"
                           />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">Blood Group</label>
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-sm font-semibold text-slate-700 ml-1 block truncate">Blood Group</label>
                           <select
                             value={googleBloodGroup}
                             onChange={(e) => setGoogleBloodGroup(e.target.value)}
-                            className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer"
+                            className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer text-sm"
                           >
                             <option value="">Select</option>
                             <option value="A+">A+</option>
@@ -853,7 +851,7 @@ const RegisterPage = () => {
                         <select
                           value={googleGender}
                           onChange={(e) => setGoogleGender(e.target.value)}
-                          className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer"
+                          className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer text-sm"
                         >
                           <option value="male">Male</option>
                           <option value="female">Female</option>
@@ -873,8 +871,8 @@ const RegisterPage = () => {
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">Emergency Contact Name</label>
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-sm font-semibold text-slate-700 ml-1 block truncate">Emergency Contact Name</label>
                           <input
                             type="text"
                             placeholder="Guardian / Spouse Name"
@@ -883,8 +881,8 @@ const RegisterPage = () => {
                             className={inputCls(false)}
                           />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">Emergency Contact Phone</label>
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-sm font-semibold text-slate-700 ml-1 block truncate">Emergency Contact Phone</label>
                           <input
                             type="tel"
                             placeholder="+94 77 123 4567"
@@ -896,8 +894,8 @@ const RegisterPage = () => {
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">Allergies (comma separated)</label>
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-sm font-semibold text-slate-700 ml-1 block truncate">Allergies (comma separated)</label>
                           <input
                             type="text"
                             placeholder="e.g. Peanuts, Penicillin"
@@ -906,8 +904,8 @@ const RegisterPage = () => {
                             className={inputCls(false)}
                           />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-sm font-semibold text-slate-700 ml-1">Chronic Conditions</label>
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-sm font-semibold text-slate-700 ml-1 block truncate">Chronic Conditions</label>
                           <input
                             type="text"
                             placeholder="e.g. Diabetes, Asthma"
@@ -918,7 +916,7 @@ const RegisterPage = () => {
                         </div>
                       </div>
 
-                       <div className="space-y-1">
+                      <div className="space-y-1">
                         <label className="text-sm font-semibold text-slate-700 ml-1">Profile Image (Optional)</label>
                         <input
                           type="file"

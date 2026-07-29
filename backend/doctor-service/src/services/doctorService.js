@@ -9,9 +9,22 @@ const getDoctorByUser = async (user, populate = false) => {
   if (populate) {
     query = query.populate('userId', 'name email phone profileImage');
   }
-  const doctor = await query;
+  let doctor = await query;
   if (!doctor) {
-    throw new ApiError(404, 'Doctor profile not found');
+    console.log(`[Doctor Service] Auto-creating missing Doctor profile for user ${userId}...`);
+    doctor = await Doctor.create({
+      userId,
+      specialization: user?.specialization || "General Physician",
+      qualifications: user?.qualifications || "MBBS",
+      experienceYears: user?.experienceYears || 5,
+      consultationFee: user?.consultationFee || 1500,
+      isAvailable: true,
+      availableHours: "09:00 - 17:00",
+      availableSlots: ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30"]
+    });
+    if (populate) {
+      doctor = await Doctor.findById(doctor._id).populate('userId', 'name email phone profileImage');
+    }
   }
 
   // Lazy-fix for corrupted database data (slotDuration: "" or invalid slots, or string isAvailable)

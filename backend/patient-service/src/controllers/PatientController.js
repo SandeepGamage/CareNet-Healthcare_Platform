@@ -105,12 +105,21 @@ exports.getMyProfile = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const profile = await PatientProfile.findOne({ userId });
+    let profile = await PatientProfile.findOne({ userId });
 
     if (!profile) {
-      return res.status(404).json({
-        success: false,
-        message: "Patient profile not found. Create profile first.",
+      console.log(`[Patient Service] Auto-creating missing Patient profile for user ${userId}...`);
+      const patientId = await generatePatientId();
+      profile = await PatientProfile.create({
+        userId,
+        patientId,
+        gender: req.user?.gender || "other",
+        address: req.user?.address || "",
+        bloodGroup: req.user?.bloodGroup || "",
+        allergies: [],
+        chronicConditions: [],
+        emergencyContactName: "",
+        emergencyContactPhone: ""
       });
     }
 

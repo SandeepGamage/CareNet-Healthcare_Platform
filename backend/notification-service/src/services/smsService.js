@@ -10,6 +10,11 @@ const logger = require('../utils/logger');
 const sendSMS = (to, body) => {
   return new Promise((resolve) => {
     try {
+      if (process.env.ENABLE_SMS === 'false' || process.env.DISABLE_SMS === 'true') {
+        logger.info('SMS Gateway is temporarily disabled — skipping SMS dispatch');
+        return resolve({ success: true, messageSid: 'SMS_DISABLED' });
+      }
+
       const token = process.env.TEXTLK_API_TOKEN;
       const sender_id = process.env.TEXTLK_SENDER_ID || 'TextLKDemo';
       

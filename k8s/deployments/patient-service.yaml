@@ -22,14 +22,17 @@ spec:
             - name: PORT
               value: "3002"
             - name: MONGO_URI
-              value: "mongodb://mongodb:27017/carenet_patients"
+              valueFrom:
+                secretKeyRef:
+                  name: patient-secret
+                  key: MONGO_URI
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: patient-secret
                   key: JWT_SECRET
             - name: DOCTOR_SERVICE_URL
-              value: "http://doctor-service:3003"
+              value: "http://doctor-service:5001"
             - name: DOCTOR_PRESCRIPTION_ENDPOINT_TEMPLATE
               value: "/api/doctors/prescriptions/patient/:patientUserId"
           livenessProbe:

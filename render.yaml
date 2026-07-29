@@ -1,0 +1,215 @@
+services:
+  # ─── API Gateway (Public Web Service) ───────────────────────────
+  - type: web
+    name: api-gateway
+    env: node
+    rootDir: backend/api-gateway
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: AUTH_SERVICE_URL
+        value: http://auth-service:3001
+      - key: PATIENT_SERVICE_URL
+        value: http://patient-service:3002
+      - key: DOCTOR_SERVICE_URL
+        value: http://doctor-service:3003
+      - key: APPOINTMENT_SERVICE_URL
+        value: http://appointment-service:3004
+      - key: PAYMENT_SERVICE_URL
+        value: http://payment-service:3005
+      - key: NOTIFICATION_SERVICE_URL
+        value: http://notification-service:3006
+      - key: TELEMEDICINE_SERVICE_URL
+        value: http://telemedicine-service:3007
+      - key: SYMPTOM_SERVICE_URL
+        value: http://symptom-service:3008
+
+  # ─── Auth Service (Private Service) ──────────────────────────────
+  - type: pserv
+    name: auth-service
+    env: node
+    rootDir: backend/auth-service
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: MONGO_URI
+        value: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_auth_db?appName=Cluster0
+      - key: JWT_SECRET
+        value: ufjkrm*$&+!=JfldsJKLfesadk421!@$45922dakjfsafdafa38fjkdjasKLJKFAF
+      - key: NOTIFICATION_SERVICE_URL
+        value: http://notification-service:3006
+      - key: PATIENT_SERVICE_URL
+        value: http://patient-service:3002
+      - key: DOCTOR_SERVICE_URL
+        value: http://doctor-service:3003
+
+  # ─── Patient Service (Private Service) ───────────────────────────
+  - type: pserv
+    name: patient-service
+    env: node
+    rootDir: backend/patient-service
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3002
+      - key: MONGO_URI
+        value: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_patient_db?appName=Cluster0
+      - key: JWT_SECRET
+        value: ufjkrm*$&+!=JfldsJKLfesadk421!@$45922dakjfsafdafa38fjkdjasKLJKFAF
+      - key: AUTH_SERVICE_URL
+        value: http://auth-service:3001
+      - key: DOCTOR_SERVICE_URL
+        value: http://doctor-service:3003
+      - key: APPOINTMENT_SERVICE_URL
+        value: http://appointment-service:3004
+      - key: NOTIFICATION_SERVICE_URL
+        value: http://notification-service:3006
+
+  # ─── Doctor Service (Private Service) ────────────────────────────
+  - type: pserv
+    name: doctor-service
+    env: node
+    rootDir: backend/doctor-service
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3003
+      - key: MONGO_URI
+        value: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_doctor_db?appName=Cluster0
+      - key: JWT_SECRET
+        value: ufjkrm*$&+!=JfldsJKLfesadk421!@$45922dakjfsafdafa38fjkdjasKLJKFAF
+      - key: AUTH_SERVICE_URL
+        value: http://auth-service:3001
+      - key: PATIENT_SERVICE_URL
+        value: http://patient-service:3002
+      - key: APPOINTMENT_SERVICE_URL
+        value: http://appointment-service:3004
+      - key: NOTIFICATION_SERVICE_URL
+        value: http://notification-service:3006
+
+  # ─── Appointment Service (Private Service) ───────────────────────
+  - type: pserv
+    name: appointment-service
+    env: node
+    rootDir: backend/appointment-service
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3004
+      - key: MONGO_URI
+        value: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_appointment_db?appName=Cluster0
+      - key: JWT_SECRET
+        value: ufjkrm*$&+!=JfldsJKLfesadk421!@$45922dakjfsafdafa38fjkdjasKLJKFAF
+      - key: AUTH_SERVICE_URL
+        value: http://auth-service:3001
+      - key: DOCTOR_SERVICE_URL
+        value: http://doctor-service:3003
+      - key: PATIENT_SERVICE_URL
+        value: http://patient-service:3002
+      - key: NOTIFICATION_SERVICE_URL
+        value: http://notification-service:3006
+      - key: PAYMENT_SERVICE_URL
+        value: http://payment-service:3005
+
+  # ─── Payment Service (Private Service) ───────────────────────────
+  - type: pserv
+    name: payment-service
+    env: node
+    rootDir: backend/payment-service
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3005
+      - key: MONGO_URI
+        value: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_payment_db?appName=Cluster0
+      - key: JWT_SECRET
+        value: ufjkrm*$&+!=JfldsJKLfesadk421!@$45922dakjfsafdafa38fjkdjasKLJKFAF
+      - key: PAYHERE_MERCHANT_ID
+        value: "1235186"
+      - key: PAYHERE_MERCHANT_SECRET
+        value: "MzE1MzcwODU2MjQxNTQxNDc1NzYzMTE1NzI4ODcyMzE5OTY2MTU4Mw=="
+      - key: PAYHERE_SECRET
+        value: "MzE1MzcwODU2MjQxNTQxNDc1NzYzMTE1NzI4ODcyMzE5OTY2MTU4Mw=="
+      - key: APPOINTMENT_SERVICE_URL
+        value: http://appointment-service:3004
+      - key: NOTIFICATION_SERVICE_URL
+        value: http://notification-service:3006
+
+  # ─── Notification Service (Private Service) ───────────────────────
+  - type: pserv
+    name: notification-service
+    env: node
+    rootDir: backend/notification-service
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3006
+      - key: MONGO_URI
+        value: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_notification_db?appName=Cluster0
+      - key: JWT_SECRET
+        value: ufjkrm*$&+!=JfldsJKLfesadk421!@$45922dakjfsafdafa38fjkdjasKLJKFAF
+      - key: ENABLE_SMS
+        value: "true"
+      - key: TEXTLK_API_TOKEN
+        value: "3996|rXnzTCy0SzluVtWuvkjPTtOJAVAf2t6n0udt7pO189bbe87d"
+      - key: TEXTLK_SENDER_ID
+        value: "CareNet"
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_SECURE
+        value: "false"
+      - key: EMAIL_USER
+        value: carenet.admin.support@gmail.com
+      - key: EMAIL_PASS
+        value: dunmjxijnykwlloc
+      - key: EMAIL_FROM
+        value: "CareNet Healthcare <carenet.admin.support@gmail.com>"
+
+  # ─── Telemedicine Service (Private Service) ──────────────────────
+  - type: pserv
+    name: telemedicine-service
+    env: node
+    rootDir: backend/telemedicine-service
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3007
+      - key: MONGO_URI
+        value: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_telemedicine_db?appName=Cluster0
+      - key: JWT_SECRET
+        value: ufjkrm*$&+!=JfldsJKLfesadk421!@$45922dakjfsafdafa38fjkdjasKLJKFAF
+      - key: APPOINTMENT_SERVICE_URL
+        value: http://appointment-service:3004
+      - key: JITSI_PROVIDER
+        value: "jaas"
+      - key: JITSI_DOMAIN
+        value: "8x8.vc"
+      - key: JITSI_ENFORCE_JWT
+        value: "false"
+
+  # ─── AI Symptom Checker Service (Private Service) ───────────────
+  - type: pserv
+    name: symptom-service
+    env: node
+    rootDir: backend/ai-symptom-service
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3008
+      - key: GEMINI_API_KEY
+        value: "AIzaSyDDNNr7YCz7p-Of06eZO4bVRb-1jWoyTmE"
+      - key: APPOINTMENT_SERVICE_URL
+        value: http://appointment-service:3004

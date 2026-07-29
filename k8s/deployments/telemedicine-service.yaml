@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telemedicine-service
+  labels:
+    app: telemedicine-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: telemedicine-service
+  template:
+    metadata:
+      labels:
+        app: telemedicine-service
+    spec:
+      containers:
+        - name: telemedicine-service
+          image: telemedicine-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3007
+          env:
+            - name: PORT
+              value: "3007"
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secret
+                  key: MONGO_URI
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secret
+                  key: JWT_SECRET
+            - name: APPOINTMENT_SERVICE_URL
+              value: "http://appointment-service:3004"
+            - name: JITSI_PROVIDER
+              value: "jaas"
+            - name: JITSI_DOMAIN
+              value: "8x8.vc"
+            - name: JITSI_ENFORCE_JWT
+              value: "false"
+            - name: JITSI_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secret
+                  key: JITSI_APP_ID
+            - name: JITSI_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secret
+                  key: JITSI_KEY_ID
+            - name: JITSI_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secret
+                  key: JITSI_PRIVATE_KEY
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3007
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3007
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: telemedicine-service
+spec:
+  selector:
+    app: telemedicine-service
+  ports:
+    - port: 3007
+      targetPort: 3007
+  type: ClusterIP

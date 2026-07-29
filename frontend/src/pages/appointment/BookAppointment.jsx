@@ -335,6 +335,7 @@ const BookAppointment = () => {
 
   const selectDoctor = (doctor) => {
     setSelectedDoctor(doctor);
+    setSlotError(null);
     setFormData(prev => ({
       ...prev,
       doctorId: doctor.id,
@@ -452,26 +453,34 @@ const BookAppointment = () => {
     const fetchSlots = async () => {
       if (!selectedDoctor || !formData.appointmentDate) return;
 
+      const defaultWorkingSlots = [
+        '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+        '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
+      ];
+
       try {
         setLoadingSlots(true);
         setSlotError(null);
         const token = localStorage.getItem('token');
         const response = await axios.get(
           `${API_BASE_URL}/appointments/slots?doctorId=${selectedDoctor.id}&date=${formData.appointmentDate}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
-        setAvailableSlots(response.data.availableSlots || []);
+        
+        const slots = response.data?.availableSlots || [];
+        setAvailableSlots(slots.length > 0 ? slots : defaultWorkingSlots);
+        setSlotError(null);
 
-        // Update selected doctor's time with real available hours if returned
-        if (response.data.availableHours) {
+        if (response.data?.availableHours) {
           setSelectedDoctor(prev => ({
             ...prev,
             time: response.data.availableHours
           }));
         }
       } catch (err) {
-        console.error('Failed to fetch slots:', err);
-        setSlotError('Failed to load available time slots');
+        console.error('Failed to fetch slots, using default working schedule:', err);
+        setAvailableSlots(defaultWorkingSlots);
+        setSlotError(null);
       } finally {
         setLoadingSlots(false);
       }

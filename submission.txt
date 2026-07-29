@@ -1,0 +1,17 @@
+========================================================================
+                      SE3020 – DISTRIBUTED SYSTEMS
+                            SUBMISSION DETAILS
+========================================================================
+
+GitHub Repository Link:
+https://github.com/SandeepGamage/CareNet-Healthcare_Platform.git
+
+YouTube Presentation / Demo Video Link:
+[Insert YouTube Video URL Here - Maximum 12 Minutes total length]
+
+------------------------------------------------------------------------
+Notes to Evaluators:
+- The project implements a cloud-native smart healthcare platform using a Microservices architecture.
+- Includes 9 separate Dockerized components, orchestrated with Kubernetes resources.
+- Features API Gateway routing, React frontend, asynchronous processing, and AI integrations.
+- Steps to configure, build, and deploy are provided in readme.txt.
