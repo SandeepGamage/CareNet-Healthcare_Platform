@@ -11,7 +11,8 @@ const {
   getPaymentByAppointment,
   downloadInvoice,
   verifyLocalPayment,
-  deleteTransaction
+  deleteTransaction,
+  completeSandboxPayment,
 } = require('../controllers/paymentController');
 
 // ─── Validation rules ─────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ const createPaymentValidation = [
 
 // Debug / Testing Route
 router.post('/verify-local', verifyLocalPayment);
+router.post('/complete-sandbox', protect, authorize('patient'), completeSandboxPayment);
 
 // Patient: initiate a PayHere payment for an appointment
 router.post(

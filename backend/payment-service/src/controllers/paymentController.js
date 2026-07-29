@@ -4,6 +4,8 @@ const Transaction          = require('../models/Transaction');
 const Invoice              = require('../models/Invoice');
 const logger               = require('../utils/logger');
 const axios                = require('axios');
+const { createInvoice }           = require('../services/invoiceService');
+const { sendPaymentConfirmation } = require('../services/notificationService');
 
 const APPOINTMENT_SERVICE_URL = process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:3004';
 
@@ -61,19 +63,27 @@ const createPayment = async (req, res, next) => {
 
     // Generate PayHere MD5 Hash
     // Formula: md5(merchant_id + order_id + amount_formatted + currency + md5(secret).toUpperCase()).toUpperCase()
-    const merchantId     = process.env.PAYHERE_MERCHANT_ID?.trim();
-    let merchantSecret   = (process.env.PAYHERE_SECRET || process.env.PAYHERE_MERCHANT_SECRET)?.trim();
-    
-    // If the secret looks like it might be Base64-encoded, we keep it as is 
-    // because PayHere often uses alphanumeric strings that look like Base64.
-    // We just ensure there are no hidden spaces/newlines.
+    const merchantId = process.env.PAYHERE_MERCHANT_ID?.trim();
+    let rawSecret = (process.env.PAYHERE_SECRET || process.env.PAYHERE_MERCHANT_SECRET)?.trim();
 
-    if (!merchantId || !merchantSecret) {
+    if (!merchantId || !rawSecret) {
       logger.error('PayHere credentials missing in environment variables');
       return res.status(500).json({ 
         success: false, 
         message: 'Payment gateway configuration error. Check server logs.' 
       });
+    }
+
+    let merchantSecret = rawSecret;
+    try {
+      if (rawSecret.endsWith('=') || /^[A-Za-z0-9+/=]{20,}$/.test(rawSecret)) {
+        const decoded = Buffer.from(rawSecret, 'base64').toString('utf8');
+        if (decoded && /^[\x20-\x7E]+$/.test(decoded)) {
+          merchantSecret = decoded;
+        }
+      }
+    } catch (e) {
+      // Fallback
     }
 
     const amountFormatted = parseFloat(amount).toFixed(2);
@@ -375,6 +385,55 @@ const deleteTransaction = async (req, res, next) => {
   }
 };
 
+// POST /api/payments/complete-sandbox
+// Completes payment in sandbox mode for testing & instant checkout validation
+const completeSandboxPayment = async (req, res, next) => {
+  try {
+    const { appointmentId } = req.body;
+    if (!appointmentId) {
+      return res.status(400).json({ success: false, message: 'Appointment ID is required' });
+    }
+
+    const transaction = await Transaction.findOne({ appointmentId });
+    if (!transaction) {
+      return res.status(404).json({ success: false, message: 'Transaction record not found.' });
+    }
+
+    transaction.status = 'succeeded';
+    transaction.paymentId = 'PAYHERE_SANDBOX_' + Date.now();
+    await transaction.save();
+
+    // Generate invoice
+    try {
+      const invoice = await createInvoice(transaction);
+      transaction.invoiceId = invoice._id;
+      await transaction.save();
+    } catch (err) {
+      logger.error(`Invoice generation error: ${err.message}`);
+    }
+
+    // Send notifications
+    try {
+      await sendPaymentConfirmation({
+        transaction,
+        patientEmail: transaction.metadata.patientEmail,
+      });
+    } catch (err) {
+      logger.error(`Notification error: ${err.message}`);
+    }
+
+    logger.info(`PayHere Sandbox Payment successfully verified for appointment: ${appointmentId}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment completed successfully in sandbox mode',
+      transaction,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createPayment,
   getTransaction,
@@ -384,4 +443,5 @@ module.exports = {
   downloadInvoice,
   verifyLocalPayment,
   deleteTransaction,
+  completeSandboxPayment,
 };

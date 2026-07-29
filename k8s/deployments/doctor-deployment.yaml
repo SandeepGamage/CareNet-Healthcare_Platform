@@ -43,7 +43,7 @@ spec:
             - name: AUTH_SERVICE_URL
               value: "http://auth-service:3001"
             - name: DOCTOR_SERVICE_URL
-              value: "http://doctor-service:3003"
+              value: "http://doctor-service:5001"
             - name: NOTIFICATION_SERVICE_URL
               value: "http://notification-service:3006"
             - name: PAYMENT_SERVICE_URL

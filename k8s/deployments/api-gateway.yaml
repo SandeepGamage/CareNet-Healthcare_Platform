@@ -30,9 +30,13 @@ spec:
             - name: PATIENT_SERVICE_URL
               value: "http://patient-service:3002"
             - name: DOCTOR_SERVICE_URL
-              value: "http://doctor-service:3003"
+              value: "http://doctor-service:5001"
             - name: SYMPTOM_SERVICE_URL
               value: "http://symptom-service:3008"
+            - name: PAYMENT_SERVICE_URL
+              value: "http://payment-service:5003"
+            - name: TELEMEDICINE_SERVICE_URL
+              value: "http://telemedicine-service:3007"
 ---
 apiVersion: v1
 kind: Service

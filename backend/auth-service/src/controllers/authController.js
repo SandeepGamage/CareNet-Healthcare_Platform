@@ -445,7 +445,9 @@ exports.getAllDoctors = async (req, res) => {
 // Returns only admin-approved doctors — accessible to any logged-in user (patients included)
 exports.getVerifiedDoctors = async (req, res) => {
   try {
-    const doctorProfiles = await Doctor.find({ isVerified: true }).populate('userId', 'name email phone profileImage');
+    const doctorProfiles = await Doctor.find({
+      $or: [{ isVerified: true }, { isVerified: { $ne: false } }]
+    }).populate('userId', 'name email phone profileImage');
     const doctors = doctorProfiles.map(p => ({
       _id: p.userId?._id,
       name: p.userId?.name,

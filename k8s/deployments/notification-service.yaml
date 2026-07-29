@@ -22,7 +22,7 @@ spec:
             - name: PORT
               value: "3006"
             - name: MONGO_URI
-              value: "mongodb+srv://hanaan:1234@cluster0.jxyoaqc.mongodb.net/?appName=Cluster0"
+              value: "mongodb+srv://hanaan:1234@cluster0.jxyoaqc.mongodb.net/notification_db?appName=Cluster0"
             - name: RABBITMQ_URL
               value: "amqp://guest:guest@rabbitmq:5672"
             - name: EMAIL_HOST
@@ -37,6 +37,12 @@ spec:
               value: "dunmjxijnykwlloc"
             - name: EMAIL_FROM
               value: "CareNet Healthcare <carenet.admin.support@gmail.com>"
+            - name: ENABLE_SMS
+              value: "true"
+            - name: TEXTLK_API_TOKEN
+              value: "3996|rXnzTCy0SzluVtWuvkjPTtOJAVAf2t6n0udt7pO189bbe87d"
+            - name: TEXTLK_SENDER_ID
+              value: "CareNet"
 ---
 apiVersion: v1
 kind: Service

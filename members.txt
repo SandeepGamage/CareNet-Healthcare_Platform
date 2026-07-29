@@ -1,0 +1,40 @@
+========================================================================
+                      SE3020 – DISTRIBUTED SYSTEMS
+                  ASSIGNMENT 1 - GROUP MEMBERS DETAILS
+========================================================================
+
+Please update this file with your group members' official details before submission.
+
+Group ID: [Insert Group ID, e.g., REG_WD_01]
+
+------------------------------------------------------------------------
+Member 1 (Group Leader)
+------------------------------------------------------------------------
+Name: [Insert Name]
+Registration Number: [Insert Student Registration Number, e.g., IT21xxxxxx]
+SLIIT ID Number: [Insert SLIIT ID]
+Contribution: [e.g., Auth Service, API Gateway, and Docker/Kubernetes integration]
+
+------------------------------------------------------------------------
+Member 2
+------------------------------------------------------------------------
+Name: [Insert Name]
+Registration Number: [Insert Student Registration Number]
+SLIIT ID Number: [Insert SLIIT ID]
+Contribution: [e.g., Patient Service, Appointment Service, and Frontend pages]
+
+------------------------------------------------------------------------
+Member 3
+------------------------------------------------------------------------
+Name: [Insert Name]
+Registration Number: [Insert Student Registration Number]
+SLIIT ID Number: [Insert SLIIT ID]
+Contribution: [e.g., Doctor Service, Telemedicine Service, and Jitsi integration]
+
+------------------------------------------------------------------------
+Member 4
+------------------------------------------------------------------------
+Name: [Insert Name]
+Registration Number: [Insert Student Registration Number]
+SLIIT ID Number: [Insert SLIIT ID]
+Contribution: [e.g., Payment Service, Notification Service, and AI Symptom Service]

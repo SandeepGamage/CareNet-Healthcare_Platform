@@ -15,8 +15,8 @@ const {
   syncPaymentStatus
 } = require('../controllers/appointmentController');
 
-// Public-ish (still needs JWT, but any role)
-router.get('/slots',   protect, getAvailableSlots);
+// Public endpoint for viewing doctor availability slots
+router.get('/slots', getAvailableSlots);
 
 // Admin only
 router.get('/all',     protect, restrictTo('ADMIN'),   getAllAppointments);

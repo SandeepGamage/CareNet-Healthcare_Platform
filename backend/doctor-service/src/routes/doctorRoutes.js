@@ -31,9 +31,9 @@ router.get("/", protect, authorizeDoctorAdminPatient, getAllProfiles);
 // Route to get prescriptions for a doctor (doctorId optional, defaults to logged-in doctor)
 router.get('/prescriptions/:doctorId?', protect, authorizeDoctor, getPrescriptionsByDoctor);
 router.get("/me", protect, authorizeDoctor, getMyProfile);
-router.get("/available", protect, authorizeDoctorAdminPatient, getAvailableProfilesByTime);
-router.get("/user/:userId", protect, authorizeDoctorAdminPatient, getProfileByUserId);
-router.get("/details/:id", protect, authorizeDoctorAdminPatient, getProfileById);
+router.get("/available", getAvailableProfilesByTime);
+router.get("/user/:userId", getProfileByUserId);
+router.get("/details/:id", getProfileById);
 router.patch("/me/available-hours", protect, authorizeDoctor, updateMyProfileAvailableHours);
 router.put("/me", protect, authorizeDoctor, normalizeDoctorPayload, updateMyProfile);
 router.post("/", protect, authorizeDoctor, normalizeDoctorPayload, createProfile);

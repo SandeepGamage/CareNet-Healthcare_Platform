@@ -31,8 +31,8 @@ export default function Navbar({ onMenuClick, title, userProfile, children }) {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    // Connect to the gateway (port 3001) which proxies /socket.io to notification-service
-    const socket = io('http://localhost:3001', {
+    // Connect to the gateway (port 8080) which proxies /socket.io to notification-service
+    const socket = io('http://localhost:8080', {
       auth: { token }
     });
 

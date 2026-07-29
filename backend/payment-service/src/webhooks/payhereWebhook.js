@@ -23,10 +23,22 @@ const handlePayhereWebhook = async (req, res) => {
     } = req.body;
 
     // ── 1. Verify PayHere MD5 signature ───────────────────────────────────────
-    const merchant_secret = process.env.PAYHERE_SECRET || process.env.PAYHERE_MERCHANT_SECRET;
-    if (!merchant_secret) {
+    const rawSecret = (process.env.PAYHERE_SECRET || process.env.PAYHERE_MERCHANT_SECRET)?.trim();
+    if (!rawSecret) {
       logger.error('PAYHERE_SECRET/PAYHERE_MERCHANT_SECRET is not set in environment');
       return res.status(500).send('Server configuration error');
+    }
+
+    let merchant_secret = rawSecret;
+    try {
+      if (rawSecret.endsWith('=') || /^[A-Za-z0-9+/=]{20,}$/.test(rawSecret)) {
+        const decoded = Buffer.from(rawSecret, 'base64').toString('utf8');
+        if (decoded && /^[\x20-\x7E]+$/.test(decoded)) {
+          merchant_secret = decoded;
+        }
+      }
+    } catch (e) {
+      // Fallback
     }
 
     const hashedSecret  = crypto.createHash('md5').update(merchant_secret).digest('hex').toUpperCase();

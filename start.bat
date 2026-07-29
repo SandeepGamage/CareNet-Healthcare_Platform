@@ -1,5 +1,6 @@
 @echo off
 SETLOCAL EnableDelayedExpansion
+SET PATH=%~dp0;%PATH%
 title CareNet Healthcare Platform Setup
 
 :MENU
@@ -86,11 +87,14 @@ echo.
 echo [INFO] Building images ONLY if not exists...
 
 docker image inspect carenet-appointment-service:1.0 >nul 2>&1 || docker build -t carenet-appointment-service:1.0 ./backend/appointment-service
+docker image inspect carenet-doctor-service:1.0 >nul 2>&1 || docker build -t carenet-doctor-service:1.0 ./backend/doctor-service
+docker image inspect patient-service:latest >nul 2>&1 || docker build -t patient-service:latest ./backend/patient-service
 docker image inspect symptom-service:latest >nul 2>&1 || docker build -t symptom-service:latest ./backend/ai-symptom-service
 docker image inspect auth-service:latest >nul 2>&1 || docker build -t auth-service:latest ./backend/auth-service
 docker image inspect api-gateway:latest >nul 2>&1 || docker build -t api-gateway:latest ./backend/api-gateway
 docker image inspect payment-service:latest >nul 2>&1 || docker build -t payment-service:latest ./backend/payment-service
 docker image inspect notification-service:latest >nul 2>&1 || docker build -t notification-service:latest ./backend/notification-service
+docker image inspect telemedicine-service:latest >nul 2>&1 || docker build -t telemedicine-service:latest ./backend/telemedicine-service
 docker image inspect carenet-frontend:latest >nul 2>&1 || docker build -t carenet-frontend:latest ./frontend
 
 echo.
@@ -103,9 +107,11 @@ kubectl wait --for=condition=available deployment/api-gateway --timeout=90s
 
 echo.
 echo Opening bridges...
-start cmd /k "kubectl port-forward svc/api-gateway 8000:8080"
+start cmd /k "kubectl port-forward svc/api-gateway 8080:8080"
 start cmd /k "kubectl port-forward svc/appointment-service 3004:3004"
 start cmd /k "kubectl port-forward svc/symptom-service 3008:3008"
+start cmd /k "kubectl port-forward svc/payment-service 3005:5003"
+start cmd /k "kubectl port-forward svc/telemedicine-service 3007:3007"
 
 echo.
 echo [SUCCESS] Deployment applied to Kubernetes!
@@ -131,9 +137,11 @@ goto MENU
 :RESTART_BRIDGES
 cls
 echo Restarting bridges...
-start cmd /k "kubectl port-forward svc/api-gateway 8000:8080"
+start cmd /k "kubectl port-forward svc/api-gateway 8080:8080"
 start cmd /k "kubectl port-forward svc/appointment-service 3004:3004"
 start cmd /k "kubectl port-forward svc/symptom-service 3008:3008"
+start cmd /k "kubectl port-forward svc/payment-service 3005:5003"
+start cmd /k "kubectl port-forward svc/telemedicine-service 3007:3007"
 pause
 goto MENU
 

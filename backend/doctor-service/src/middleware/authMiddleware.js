@@ -13,11 +13,13 @@ const protect = (req, res, next) => {
       return res.status(401).json({ success: false, message: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const secret = process.env.JWT_SECRET || 'ufjkrm*$&+!=JfldsJKLfesadk421!@$45922dakjfsafdafa38fjkdjasKLJKFAF';
+    const decoded = jwt.verify(token, secret);
     req.user = decoded;
     return next();
   } catch (error) {
-    return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+    console.error('[Doctor Auth Error]:', error.message);
+    return res.status(401).json({ success: false, message: 'Invalid or expired token', error: error.message });
   }
 };
 

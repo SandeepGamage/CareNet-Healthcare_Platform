@@ -159,36 +159,6 @@ const Hero = () => {
                 alt="Doctor consulting with patient"
                 className="w-full h-full object-cover opacity-95 hover:opacity-100 transition-opacity duration-500"
               />
-
-              {/* Floating badge: Vitals */}
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-                className="absolute top-6 -left-6 glass-panel-dark p-4 rounded-xl flex items-center gap-3"
-              >
-                <div className="bg-green-500/20 p-2 rounded-lg">
-                  <Activity className="w-5 h-5 text-green-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400 font-medium">Vitals Status</p>
-                  <p className="text-sm font-bold text-white">Stable & Normal</p>
-                </div>
-              </motion.div>
-
-              {/* Floating badge: AI */}
-              <motion.div
-                animate={{ y: [0, 10, 0] }}
-                transition={{ repeat: Infinity, duration: 5, ease: "easeInOut", delay: 1 }}
-                className="absolute bottom-8 -right-8 glass-panel-dark p-4 rounded-xl flex items-center gap-3"
-              >
-                <div className="bg-teal-500/20 p-2 rounded-lg">
-                  <CheckCircle2 className="w-5 h-5 text-teal-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400 font-medium">AI Analysis</p>
-                  <p className="text-sm font-bold text-white">Complete</p>
-                </div>
-              </motion.div>
             </div>
           </motion.div>
         </div>

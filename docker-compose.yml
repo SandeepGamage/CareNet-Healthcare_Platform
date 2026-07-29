@@ -43,7 +43,7 @@ services:
       - "3001:3001"
     environment:
       PORT: 3001
-      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_auth_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
       NOTIFICATION_SERVICE_URL: http://notification-service:3006
       PATIENT_SERVICE_URL: http://patient-service:3002
@@ -65,7 +65,7 @@ services:
       - "3002:3002"
     environment:
       PORT: 3002
-      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_patient_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
@@ -93,7 +93,7 @@ services:
     command: npm run dev
     environment:
       PORT: 3003
-      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_doctor_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
       NODE_ENV: ${NODE_ENV:-development}
       AUTH_SERVICE_URL: http://auth-service:3001
@@ -113,7 +113,7 @@ services:
       - "3004:3004"
     environment:
       PORT: 3004
-      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_appointment_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
       NODE_ENV: ${NODE_ENV:-production}
       AUTH_SERVICE_URL: http://auth-service:3001
@@ -135,7 +135,7 @@ services:
       - ./backend/telemedicine-service/keys:/keys:ro
     environment:
       PORT: 3007
-      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_telemedicine_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
       APPOINTMENT_SERVICE_URL: http://appointment-service:3004
       JITSI_PROVIDER: ${JITSI_PROVIDER:-jaas}
@@ -162,7 +162,7 @@ services:
       - '3005:3005'
     environment:
       PORT: 3005
-      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_payment_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
@@ -187,7 +187,7 @@ services:
       - "3006:3006"
     environment:
       PORT: 3006
-      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_db?appName=Cluster0
+      MONGO_URI: mongodb+srv://whitedeviltest0940:Qwer11223344@cluster0.bqkmeme.mongodb.net/carenet_notification_db?appName=Cluster0
       JWT_SECRET: ${JWT_SECRET:-carenet_secret}
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       EMAIL_HOST: smtp.gmail.com

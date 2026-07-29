@@ -218,6 +218,9 @@ exports.getDoctorAppointments = async (req, res) => {
 // Get single appointment detail
 exports.getAppointmentById = async (req, res) => {
   try {
+    if (['slots', 'all', 'doctor', 'my'].includes(req.params.id)) {
+      return res.status(404).json({ message: 'Route not found' });
+    }
     const appointment = await Appointment.findById(req.params.id);
 
     if (!appointment) {
@@ -442,16 +445,18 @@ exports.getAvailableSlots = async (req, res) => {
     // 1. Fetch Doctor Config
     let doctorConfig;
     try {
-      const response = await axios.get(`${DOCTOR_SERVICE_URL}/api/doctors/profile/user/${doctorId}`, {
-        headers: { Authorization: req.headers.authorization }
-      });
-      doctorConfig = response.data.data;
-      console.log("Doctor Config------>", doctorConfig);
+      const response = await axios.get(`${DOCTOR_SERVICE_URL}/api/doctors/profile/user/${doctorId}`);
+      doctorConfig = response.data?.data || response.data || {};
     } catch (err) {
-      console.error('Failed to fetch doctor config:', err.response?.data || err.message);
-      const status = err.response?.status || 500;
-      const message = err.response?.data?.message || 'Could not fetch doctor availability.';
-      return res.status(status).json({ message, details: err.message });
+      console.warn('[Appointment Service] Could not fetch doctor config from Doctor Service, using default working slots:', err.message);
+      doctorConfig = {
+        availableSlots: [
+          '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+          '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
+        ],
+        availableHours: '09:00 - 17:00',
+        slotDuration: 30
+      };
     }
 
     // 2. Fetch Existing Appointments for this doctor on this day
