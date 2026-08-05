@@ -37,9 +37,11 @@ export default function PatientProfile() {
     const [statusMessage, setStatusMessage] = useState("");
     const [isEditing, setIsEditing] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [imgError, setImgError] = useState(false);
 
     useEffect(() => {
         const loadProfile = async () => {
+            setImgError(false);
             const token = localStorage.getItem("token");
             if (!token) {
                 setStatusMessage("Using locally stored profile details.");
@@ -130,9 +132,9 @@ export default function PatientProfile() {
                 <div className="h-48 rounded-b-2xl shadow-lg" style={{ backgroundColor: "#87CEFA" }} />
 
                 <div className="absolute -bottom-16 left-8 z-10">
-                    <div className="h-40 w-40 rounded-full border-4 border-white bg-linear-to-br from-blue-400 to-blue-600 shadow-lg">
-                        {profile.profilePicture ? (
-                            <img src={profile.profilePicture} alt="Patient profile" className="h-full w-full rounded-full object-cover" />
+                    <div className="h-40 w-40 rounded-full border-4 border-white bg-linear-to-br from-blue-400 to-blue-600 shadow-lg overflow-hidden">
+                        {profile.profilePicture && !imgError ? (
+                            <img src={profile.profilePicture} alt="Patient profile" onError={() => setImgError(true)} className="h-full w-full object-cover" />
                         ) : (
                             <div className="flex h-full w-full items-center justify-center">
                                 <span className="text-5xl font-bold text-white">{initials}</span>

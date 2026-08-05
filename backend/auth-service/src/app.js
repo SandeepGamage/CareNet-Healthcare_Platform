@@ -2,16 +2,20 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
 // Middleware
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
+
+// Static uploads folder
+app.use('/uploads', express.static(path.join(__dirname, '..', '..', 'uploads')));
 
 // Routes
 app.get('/health', (req, res) => {

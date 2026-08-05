@@ -24,6 +24,7 @@ const SYMPTOM_SERVICE_URL = process.env.SYMPTOM_SERVICE_URL || 'http://localhost
 // Service routes mapping
 const services = [
   { prefix: '/api/auth', target: AUTH_SERVICE_URL },
+  { prefix: '/uploads', target: AUTH_SERVICE_URL },
   { prefix: '/api/notifications', target: NOTIFICATION_SERVICE_URL },
   { prefix: '/api/appointments', target: APPOINTMENT_SERVICE_URL },
   { prefix: '/api/patients', target: PATIENT_SERVICE_URL },

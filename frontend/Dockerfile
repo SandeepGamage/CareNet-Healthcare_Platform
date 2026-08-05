@@ -8,8 +8,12 @@ COPY package*.json ./
 # DEEP FIX: Remove package-lock.json to avoid the "Invalid Native Binding" bug
 # which happens when a lockfile generated on Windows is used in Linux Docker.
 # Then install dependencies including optional native binaries.
-RUN rm -f package-lock.json && \
-    npm install --include=optional
+RUN npm config set registry https://registry.npmmirror.com/ && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-factor 3 && \
+    npm config set fetch-retry-mintimeout 10000 && \
+    npm config set fetch-retry-maxtimeout 60000 && \
+    npm ci --no-audit
 
 # Copy the rest of the source code
 COPY . .

@@ -37,28 +37,43 @@ export default function UpdateDoctorProfile({ embedded = false, onCancel, onSave
             }
 
             try {
-                const response = await fetch(`${API_BASE_URL}/doctors/profile/me`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
+                const [docRes, authRes] = await Promise.allSettled([
+                    fetch(`${API_BASE_URL}/doctors/profile/me`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }),
+                    fetch(`${AUTH_API_BASE}/auth/me`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }),
+                ]);
 
-                if (response.ok) {
-                    const payload = await response.json();
-                    const profile = payload?.data || {};
-                    setFormData({
-                        name: profile.name || "",
-                        phone: profile.phone || "",
-                        profileImage: profile.profileImage || "",
-                        specialization: profile.specialization || "",
-                        consultationFee: profile.consultationFee || "",
-                        availableHours: profile.availableHours || "",
-                        bio: profile.bio || "",
-                        qualifications: profile.qualifications || "",
-                        experienceYears: profile.experienceYears || "",
-                        isAvailable: !!profile.isAvailable,
-                    });
-                } else {
-                    setMessage("Profile not found yet. Fill details and save to create your record.");
+                let profile = {};
+                if (docRes.status === "fulfilled" && docRes.value.ok) {
+                    const payload = await docRes.value.json();
+                    profile = payload?.data || {};
                 }
+
+                let authUser = {};
+                if (authRes.status === "fulfilled" && authRes.value.ok) {
+                    const authPayload = await authRes.value.json();
+                    authUser = authPayload?.user || {};
+                }
+
+                const storedUser = (() => {
+                    try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
+                })();
+
+                setFormData({
+                    name: profile.name || authUser.name || storedUser.name || "",
+                    phone: profile.phone || authUser.phone || storedUser.phone || "",
+                    profileImage: profile.profileImage || authUser.profileImage || storedUser.profilePicture || "",
+                    specialization: profile.specialization || "",
+                    consultationFee: profile.consultationFee || "",
+                    availableHours: profile.availableHours || "",
+                    bio: profile.bio || "",
+                    qualifications: profile.qualifications || "",
+                    experienceYears: profile.experienceYears || "",
+                    isAvailable: !!profile.isAvailable,
+                });
             } catch {
                 setMessage("Doctor service unavailable. Try again later.");
             } finally {
@@ -67,7 +82,7 @@ export default function UpdateDoctorProfile({ embedded = false, onCancel, onSave
         };
 
         fetchProfile();
-    }, [API_BASE_URL]);
+    }, [API_BASE_URL, AUTH_API_BASE]);
 
     const handleChange = (event) => {
         const { name, value, type, checked } = event.target;

@@ -321,7 +321,7 @@ const getDoctorProfileForFrontend = async (user) => {
     throw new ApiError(401, 'Invalid token payload: missing user id');
   }
   ensureObjectId(userId, 'user id in token payload');
-  const doctor = await Doctor.findOne({ userId }).populate('userId', 'name email phone');
+  const doctor = await Doctor.findOne({ userId }).populate('userId', 'name email phone profileImage');
   if (!doctor) {
     throw new ApiError(404, 'Doctor profile not found');
   }
@@ -331,6 +331,7 @@ const getDoctorProfileForFrontend = async (user) => {
     name: userObj && userObj.name ? userObj.name : undefined,
     email: userObj && userObj.email ? userObj.email : undefined,
     phone: userObj && userObj.phone ? userObj.phone : undefined,
+    profileImage: userObj && userObj.profileImage ? userObj.profileImage : (doctor.profilePicture || doctor.profileImage || undefined),
     specialization: doctor.specialization,
     bio: doctor.bio,
     qualifications: doctor.qualifications,
@@ -435,6 +436,16 @@ const updateDoctor = async (user, doctorId, payload) => {
       }
     }
   });
+
+  // Also update user document if name, phone, or profileImage provided
+  if (payload.name !== undefined || payload.phone !== undefined || payload.profileImage !== undefined) {
+    const userUpdates = {};
+    if (payload.name !== undefined) userUpdates.name = payload.name;
+    if (payload.phone !== undefined) userUpdates.phone = payload.phone;
+    if (payload.profileImage !== undefined) userUpdates.profileImage = payload.profileImage;
+    const User = require('../models/user');
+    await User.findByIdAndUpdate(userId, userUpdates, { new: true, runValidators: true });
+  }
 
   if (updates.experienceYears !== undefined) {
     updates.experienceYears = parseNonNegativeNumber(updates.experienceYears, 'experienceYears');

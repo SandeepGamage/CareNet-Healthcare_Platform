@@ -32,14 +32,22 @@ export default function DoctorProfile() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [saveLoading, setSaveLoading] = useState(false);
-	const [saveMessage, setSaveMessage] = useState("");
-	const [validationErrors, setValidationErrors] = useState({});
-	const [saveError, setSaveError] = useState("");
+	const [imgError, setImgError] = useState(false);
+
+	const getInitials = (name) => {
+		if (!name) return "DR";
+		const parts = name.trim().split(" ").filter(Boolean);
+		if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+		return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+	};
+
+	const [refreshKey, setRefreshKey] = useState(0);
 
 	useEffect(() => {
 		const fetchProfile = async () => {
 			setLoading(true);
 			setError("");
+			setImgError(false);
 			try {
 				const token = localStorage.getItem("token");
 				if (!token) {
@@ -48,26 +56,51 @@ export default function DoctorProfile() {
 					return;
 				}
 
-				// Only get doctor profile from doctor-service
-				const profileRes = await fetch(`${API_BASE_URL}/doctors/profile/me`, {
-					headers: {
-						"Authorization": `Bearer ${token}`,
-						"Content-Type": "application/json"
-					}
-				});
-				const profileResult = await profileRes.json().catch(() => ({}));
-				if (!profileRes.ok) {
-					setError(profileResult.message || "Failed to fetch profile.");
-					setLoading(false);
-					return;
+				const AUTH_API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api").replace(/\/$/, "");
+
+				const [profileRes, authRes] = await Promise.allSettled([
+					fetch(`${API_BASE_URL}/doctors/profile/me`, {
+						headers: {
+							"Authorization": `Bearer ${token}`,
+							"Content-Type": "application/json"
+						}
+					}),
+					fetch(`${AUTH_API_BASE}/auth/me`, {
+						headers: {
+							"Authorization": `Bearer ${token}`,
+							"Content-Type": "application/json"
+						}
+					})
+				]);
+
+				let data = {};
+				if (profileRes.status === "fulfilled" && profileRes.value.ok) {
+					const profileResult = await profileRes.value.json().catch(() => ({}));
+					data = profileResult.data || {};
 				}
-				const data = profileResult.data || {};
-				// Use populated user fields directly from backend
+
+				let authUser = {};
+				if (authRes.status === "fulfilled" && authRes.value.ok) {
+					const authResult = await authRes.value.json().catch(() => ({}));
+					authUser = authResult.user || {};
+				}
+
+				const storedUser = (() => {
+					try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
+				})();
+
+				const filterValid = (val) => (val && val !== "Doctor" && val !== "Not provided" && val !== "null" ? val : null);
+
+				const resolvedName = filterValid(data.name) || filterValid(authUser.name) || filterValid(storedUser.name) || "Doctor";
+				const resolvedEmail = filterValid(data.email) || filterValid(authUser.email) || filterValid(storedUser.email) || "Not provided";
+				const resolvedPhone = filterValid(data.phone) || filterValid(authUser.phone) || filterValid(storedUser.phone) || "Not provided";
+				const resolvedImage = filterValid(data.profileImage) || filterValid(authUser.profileImage) || filterValid(storedUser.profilePicture) || filterValid(storedUser.profileImage) || "";
+
 				setUser({
-					name: data.name,
-					email: data.email,
-					phone: data.phone,
-					profileImage: data.profileImage,
+					name: resolvedName,
+					email: resolvedEmail,
+					phone: resolvedPhone,
+					profileImage: resolvedImage,
 				});
 				setProfile({
 					specialization: data.specialization,
@@ -81,9 +114,9 @@ export default function DoctorProfile() {
 				});
 				// initialize form values for editing
 				setForm({
-					name: data.name || "",
-					phone: data.phone || "",
-					profileImage: data.profileImage || "",
+					name: resolvedName !== "Doctor" ? resolvedName : "",
+					phone: resolvedPhone !== "Not provided" ? resolvedPhone : "",
+					profileImage: resolvedImage,
 					specialization: data.specialization || "",
 					consultationFee: data.consultationFee || "",
 					availableHours: data.availableHours || "",
@@ -101,7 +134,7 @@ export default function DoctorProfile() {
 			}
 		};
 		fetchProfile();
-	}, []);
+	}, [API_BASE_URL, refreshKey]);
 
 
 	// Save available hours (PATCH to backend)
@@ -189,25 +222,43 @@ export default function DoctorProfile() {
 	const saveProfilePayload = async (payload) => {
 		const token = localStorage.getItem('token');
 		if (!token) throw new Error('Not authenticated');
-		if (!profileId) throw new Error('Missing profile id');
 
-		const res = await axios.put(`${API_BASE_URL}/doctors/profile/${profileId}`, payload, {
-			headers: { Authorization: `Bearer ${token}` }
-		});
-		const result = res.data || {};
+		// Sync user fields (name, phone, profileImage) to auth-service
+		const AUTH_API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api").replace(/\/$/, "");
+		try {
+			await axios.put(`${AUTH_API_BASE}/auth/me`, {
+				name: payload.name,
+				phone: payload.phone,
+				profileImage: payload.profileImage,
+			}, {
+				headers: { Authorization: `Bearer ${token}` }
+			});
+		} catch (e) {
+			console.warn("Could not sync profile to auth service:", e.message);
+		}
 
-		// update local state
+		if (profileId) {
+			await axios.put(`${API_BASE_URL}/doctors/profile/${profileId}`, payload, {
+				headers: { Authorization: `Bearer ${token}` }
+			});
+		} else {
+			await axios.put(`${API_BASE_URL}/doctors/profile/me`, payload, {
+				headers: { Authorization: `Bearer ${token}` }
+			});
+		}
+
+		// update local state and localStorage
+		const storedUser = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
+		localStorage.setItem('user', JSON.stringify({ ...storedUser, name: payload.name, phone: payload.phone, profilePicture: payload.profileImage || storedUser.profilePicture }));
+
 		setUser(prev => ({ ...prev, name: payload.name, phone: payload.phone, profileImage: payload.profileImage }));
 		setProfile(prev => ({ ...prev, ...payload }));
-		setSaveMessage(result.message || 'Profile updated successfully!');
-		// animate modal out then unmount
+		setSaveMessage('Profile updated successfully!');
 		setModalAnimate(false);
 		setTimeout(() => {
 			setEditing(false);
 			setShowModal(false);
 		}, 200);
-
-		return result;
 	};
 
 
@@ -237,27 +288,7 @@ export default function DoctorProfile() {
 						onSave={async (payload) => await saveProfilePayload(payload)}
 						onSaved={() => {
 							setEditing(false);
-							// refetch profile to refresh view
-							(async () => {
-								setLoading(true);
-								try {
-									const token = localStorage.getItem("token");
-									if (token) {
-										const profileRes = await fetch(`${API_BASE_URL}/doctors/profile/me`, {
-											headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-										});
-										const profileResult = await profileRes.json().catch(() => ({}));
-										const data = profileResult.data || {};
-										setUser({ name: data.name, email: data.email, phone: data.phone, profileImage: data.profileImage });
-										setProfile({ specialization: data.specialization, consultationFee: data.consultationFee, availableHours: data.availableHours, bio: data.bio, qualifications: data.qualifications, experienceYears: data.experienceYears, isAvailable: data.isAvailable, rating: data.rating });
-										setForm({ name: data.name || "", phone: data.phone || "", profileImage: data.profileImage || "", specialization: data.specialization || "", consultationFee: data.consultationFee || "", availableHours: data.availableHours || "", bio: data.bio || "", qualifications: data.qualifications || "", experienceYears: data.experienceYears || "", isAvailable: !!data.isAvailable });
-									}
-								} catch (e) {
-									// ignore
-								} finally {
-									setLoading(false);
-								}
-							})();
+							setRefreshKey((prev) => prev + 1);
 						}}
 					/>
 				</div>
@@ -269,13 +300,13 @@ export default function DoctorProfile() {
 			<div className="relative">
 				<div className="h-48 rounded-b-2xl shadow-lg" style={{ backgroundColor: "#87CEFA" }} />
 				<div className="absolute -bottom-16 left-8 z-10">
-					<div className="h-40 w-40 rounded-full border-4 border-white shadow-lg overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600">
-						{user?.profileImage ? (
-							<img src={user.profileImage} alt={user.name} className="h-full w-full object-cover" />
+					<div className="h-40 w-40 rounded-full border-4 border-white shadow-lg overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+						{user?.profileImage && typeof user.profileImage === 'string' && user.profileImage.trim() !== "" && !imgError ? (
+							<img src={user.profileImage} alt={user.name} onError={() => setImgError(true)} className="h-full w-full object-cover" />
 						) : (
 							<div className="flex h-full w-full items-center justify-center">
-								<span className="text-5xl font-bold text-white">
-									{user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+								<span className="text-5xl font-bold text-white leading-none">
+									{getInitials(user?.name)}
 								</span>
 							</div>
 						)}
