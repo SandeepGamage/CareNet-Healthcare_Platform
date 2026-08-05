@@ -23,6 +23,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health check routes
+app.get(['/health', '/api/auth/health'], (req, res) => {
+  res.status(200).json({ status: 'OK', service: 'auth-service' });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 
