@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, HeartPulse, Mail, MapPin, Phone, ShieldCheck, UserRound } from "lucide-react";
+import { CalendarDays, HeartPulse, Mail, MapPin, Phone, ShieldCheck, UserRound, Camera, Loader2 } from "lucide-react";
 import UpdatePatientProfile from "./UpdatePatientProfile";
 
 const FALLBACK_PROFILE = {
@@ -36,12 +36,13 @@ export default function PatientProfile() {
     const [loading, setLoading] = useState(true);
     const [statusMessage, setStatusMessage] = useState("");
     const [isEditing, setIsEditing] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
-    const [imgError, setImgError] = useState(false);
+    const [imageError, setImageError] = useState(false);
 
     useEffect(() => {
         const loadProfile = async () => {
-            setImgError(false);
+            setImageError(false);
             const token = localStorage.getItem("token");
             if (!token) {
                 setStatusMessage("Using locally stored profile details.");
@@ -50,7 +51,7 @@ export default function PatientProfile() {
             }
 
             try {
-                const patientServiceBase = import.meta.env.VITE_PATIENT_SERVICE_URL || "http://localhost:3002";
+                const patientServiceBase = import.meta.env.VITE_PATIENT_SERVICE_URL || (import.meta.env.VITE_API_BASE_URL ? import.meta.env.VITE_API_BASE_URL.replace(/\/api$/, "") : "http://localhost:8080");
                 const response = await fetch(`${patientServiceBase}/api/patients/me/profile`, {
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -109,6 +110,105 @@ export default function PatientProfile() {
         return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
     }, [profile.name]);
 
+    const compressImage = (file, maxWidth = 400, maxHeight = 400, quality = 0.8) => {
+        return new Promise((resolve) => {
+            if (!file || !file.type.startsWith("image/")) return resolve(file);
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement("canvas");
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = Math.round((width * maxHeight) / height);
+                            height = maxHeight;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob(
+                        (blob) => {
+                            if (!blob) return resolve(file);
+                            const compressedFile = new File([blob], file.name, {
+                                type: "image/jpeg",
+                                lastModified: Date.now(),
+                            });
+                            resolve(compressedFile);
+                        },
+                        "image/jpeg",
+                        quality
+                    );
+                };
+                img.onerror = () => resolve(file);
+            };
+            reader.onerror = () => resolve(file);
+        });
+    };
+
+    const handleImageUpload = async (e) => {
+        const rawFile = e.target.files[0];
+        if (!rawFile) return;
+
+        setUploadingImage(true);
+        setImageError(false);
+
+        try {
+            const file = await compressImage(rawFile);
+            const localPreview = URL.createObjectURL(file);
+            setProfile((prev) => ({ ...prev, profilePicture: localPreview }));
+
+            const token = localStorage.getItem("token");
+            const authBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+
+            const uploadData = new FormData();
+            uploadData.append("profileImage", file);
+
+            const res = await fetch(`${authBase}/auth/me/avatar`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                body: uploadData,
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success && data.url) {
+                    setProfile((prev) => ({ ...prev, profilePicture: data.url }));
+                    
+                    const storedUser = getStoredUserProfile();
+                    localStorage.setItem(
+                        "user",
+                        JSON.stringify({
+                            ...storedUser,
+                            profilePicture: data.url,
+                        })
+                    );
+                    setRefreshKey((prev) => prev + 1);
+                } else {
+                    setStatusMessage(data.message || "Failed to upload image.");
+                }
+            } else {
+                setStatusMessage("Image upload failed.");
+            }
+        } catch (err) {
+            setStatusMessage("Error uploading image.");
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
     if (isEditing) {
         return (
             <div className="min-h-screen bg-slate-50 p-6 md:p-8">
@@ -131,16 +231,35 @@ export default function PatientProfile() {
             <div className="relative">
                 <div className="h-48 rounded-b-2xl shadow-lg" style={{ backgroundColor: "#87CEFA" }} />
 
-                <div className="absolute -bottom-16 left-8 z-10">
-                    <div className="h-40 w-40 rounded-full border-4 border-white bg-linear-to-br from-blue-400 to-blue-600 shadow-lg overflow-hidden">
-                        {profile.profilePicture && !imgError ? (
-                            <img src={profile.profilePicture} alt="Patient profile" onError={() => setImgError(true)} className="h-full w-full object-cover" />
+                <div className="absolute -bottom-16 left-8 z-10 group">
+                    <label className="relative block h-40 w-40 cursor-pointer overflow-hidden rounded-full border-4 border-white bg-linear-to-br from-blue-400 to-blue-600 shadow-lg">
+                        {profile.profilePicture && !imageError && !["null", "undefined"].includes(String(profile.profilePicture).toLowerCase()) ? (
+                            <img src={profile.profilePicture} alt="Patient profile" className="h-full w-full rounded-full object-cover" onError={() => setImageError(true)} />
                         ) : (
                             <div className="flex h-full w-full items-center justify-center">
                                 <span className="text-5xl font-bold text-white">{initials}</span>
                             </div>
                         )}
-                    </div>
+                        
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                            <Camera className="mb-1 h-8 w-8 text-white" />
+                            <span className="text-xs font-semibold text-white">Change Photo</span>
+                        </div>
+
+                        {uploadingImage && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                                <Loader2 className="h-8 w-8 animate-spin text-white" />
+                            </div>
+                        )}
+
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={handleImageUpload}
+                            disabled={uploadingImage}
+                        />
+                    </label>
                 </div>
             </div>
 
@@ -159,9 +278,10 @@ export default function PatientProfile() {
                         <button
                             type="button"
                             onClick={() => {
+                                setIsEditing(false);
                                 setIsEditing(true);
                             }}
-                            className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                            className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 cursor-pointer"
                         >
                             Edit Profile
                         </button>
@@ -181,10 +301,6 @@ export default function PatientProfile() {
                             <span className="text-sm">{profile.address}</span>
                         </div>
                     </div>
-
-                    {/* {statusMessage && (
-                        <p className="text-sm text-slate-600">{loading ? "Loading profile..." : statusMessage}</p>
-                    )} */}
                 </div>
 
                 <div className="mb-8 grid gap-4 md:grid-cols-3">
@@ -214,7 +330,6 @@ export default function PatientProfile() {
                 <div className="overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-md">
                     <div className="border-b border-blue-100 bg-linear-to-r from-blue-50 to-sky-50 px-6 py-4">
                         <h2 className="text-lg font-bold text-slate-800">Health & Emergency Details</h2>
-                        {/* <p className="mt-1 text-sm text-slate-600">Information currently associated with your logged-in account</p> */}
                     </div>
                     <div className="grid gap-6 p-6 md:grid-cols-2">
                         <div>
